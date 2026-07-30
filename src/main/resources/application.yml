@@ -1,0 +1,203 @@
+server:
+  port: 8081
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 20
+    max-connections: 10000
+    accept-count: 100
+
+milvus:
+  host: localhost
+  port: 19530
+
+spring:
+  application:
+    name: ai-agent-platform
+
+  mvc:
+    async:
+      request-timeout: 300000
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/ai_agent?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        'format_sql': true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      lettuce:
+        pool:
+          max-active: 100
+          max-idle: 50
+          min-idle: 10
+          max-wait: -1ms
+      timeout: 3000ms
+
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+      enabled: true
+
+ai:
+  model:
+    provider: deepseek
+    deepseek:
+      api-key: ${DEEPSEEK_API_KEY:your-api-key}
+      model-name: deepseek-chat-v2
+      base-url: https://api.deepseek.com/v1
+    qianwen:
+      api-key: ${QIANWEN_API_KEY:your-api-key}
+      model-name: qwen3.7-max
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    doubao:
+      api-key: ${DOUBAO_API_KEY:}
+      model-name: doubao-seed-2-0-mini-260428
+      base-url: https://ark.cn-beijing.volces.com/api/v3
+    qwen3-flash:
+      api-key: ${QWEN3_FLASH_API_KEY:}
+      model-name: qwen3.7-flash
+      base-url: https://ws-saj0dk2icyo8g1ub.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+    local:
+      base-url: http://localhost:11434/v1
+      model-name: coder:qwen7b
+      api-key: dummy
+    fallback:
+      enabled: true
+      max-retries: 1
+
+  embedding:
+    # provider: local          → bge-m3 (1024维, 中文混合检索, 推荐)
+    # provider: local-qwen3    → qwen3-embedding:4b (2560→1024维MRL, 质量更高)
+    # provider: siliconflow    → BAAI/bge-m3 (云端API, 免本地部署)
+    provider: siliconflow
+    local:
+      base-url: http://localhost:11434/v1
+      model-name: bge-m3
+      dimension: 1024
+    local-qwen3:
+      base-url: http://localhost:11434/v1
+      model-name: qwen3-embedding:4b
+      dimension: 1024
+    siliconflow:
+      api-key: ${SILICONFLOW_API_KEY:}
+      model-name: BAAI/bge-m3
+      base-url: https://api.siliconflow.cn/v1
+      dimension: 1024
+
+  vector-store:
+    type: milvus
+    milvus:
+      host: 49.234.187.76
+      port: 19530
+      collection-name: ai_agent_documents
+      dimension: 1024
+    pgvector:
+      host: localhost
+      port: 5432
+      database: ai_agent
+      table-name: document_embeddings
+      username: postgres
+      password: ${PGVECTOR_PASSWORD:postgres}
+
+  document:
+    chunk-size: 500
+    chunk-overlap: 50
+    supported-formats: pdf,docx,doc,md,txt
+
+  rag:
+    top-k: 5
+    similarity-threshold: 0.7
+    enable-hybrid-search: true
+
+  tool:
+    enabled: true
+    database-query:
+      enabled: true
+      max-rows: 100
+    api-call:
+      enabled: true
+      timeout: 30000
+
+  session:
+    ttl: 86400
+    max-messages: 100
+
+  security:
+    jwt:
+      secret: ${JWT_SECRET:your-256-bit-secret-key-here-must-be-long-enough}
+      expiration: 86400000
+
+  performance:
+    async-thread-pool:
+      core-size: 20
+      max-size: 100
+      queue-capacity: 200
+    cache:
+      enabled: true
+      ttl: 3600
+
+logging:
+  level:
+    root: INFO
+    com.aiagent: DEBUG
+    dev.langchain4j: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/ai-agent.log
+    max-size: 100MB
+    max-history: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+# =============================================
+# 电商客服知识库导入配置
+# =============================================
+ecommerce:
+  ollama:
+    host: http://localhost:11434
+    model: bge-m3
+    dimension: 1024
+  milvus:
+    collection: ecommerce_qa
+    dimension: 1024
+  import:
+    batch-size: 18
+    batch-interval-ms: 200
+  generator:
+    # 每个类别生成的目标 QA 对数量（100x 提升，预算 3.0 元可支撑 ~8100 条）
+    target-per-category: 500
+    # 单次 API 调用生成的条目数（增大减少 API 调用次数）
+    batch-size: 20
+    # 要生成的类别列表（留空使用默认 8 个类别）
+    categories:

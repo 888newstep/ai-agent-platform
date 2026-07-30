@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent Platform - 管理后台</title>
+    <!-- Element Plus 样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; }
+        
+        .app-header {
+            background: linear-gradient(135deg, #409eff, #337ecc);
+            color: #fff;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .app-header h1 { font-size: 20px; font-weight: 600; }
+        .app-header .subtitle { font-size: 13px; opacity: 0.85; margin-left: 12px; }
+        .header-status { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .status-dot.up { background: #67c23a; }
+        .status-dot.down { background: #f56c6c; }
+        
+        .app-container { display: flex; height: calc(100vh - 60px); }
+        
+        .sidebar {
+            width: 220px; background: #fff; border-right: 1px solid #e4e7ed;
+            padding: 16px 0; flex-shrink: 0;
+        }
+        .sidebar .el-menu { border-right: none; }
+        
+        .main-content { flex: 1; padding: 20px; overflow-y: auto; }
+        
+        .chat-container {
+            display: flex; flex-direction: column; height: 100%;
+            max-width: 900px; margin: 0 auto;
+        }
+        .chat-messages {
+            flex: 1; overflow-y: auto; padding: 16px;
+            background: #fafafa; border-radius: 8px; margin-bottom: 16px;
+        }
+        .message {
+            margin-bottom: 16px; display: flex; flex-direction: column;
+        }
+        .message.user { align-items: flex-end; }
+        .message.assistant { align-items: flex-start; }
+        .message.system { align-items: center; }
+        .message.system .msg-bubble {
+            background: #f0f9eb; color: #67c23a; font-size: 12px; padding: 4px 12px;
+        }
+        .msg-bubble {
+            max-width: 80%; padding: 10px 14px; border-radius: 8px;
+            font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+        }
+        .message.user .msg-bubble { background: #409eff; color: #fff; border-radius: 8px 8px 0 8px; }
+        .message.assistant .msg-bubble { background: #fff; color: #303133; border: 1px solid #e4e7ed; border-radius: 8px 8px 8px 0; }
+        .msg-label { font-size: 12px; color: #909399; margin-bottom: 4px; }
+        
+        .chat-input-area { display: flex; gap: 8px; align-items: flex-start; }
+        .chat-input-area .el-textarea { flex: 1; }
+        .chat-mode-select { width: 140px; }
+        
+        .empty-state {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; height: 100%; color: #c0c4cc;
+        }
+        .empty-state .el-icon { font-size: 48px; margin-bottom: 12px; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .stat-card { text-align: center; padding: 20px; }
+        .stat-card .stat-value { font-size: 28px; font-weight: 700; color: #409eff; }
+        .stat-card .stat-label { font-size: 13px; color: #909399; margin-top: 4px; }
+        
+        .upload-area { border: 2px dashed #dcdfe6; border-radius: 8px; padding: 40px; text-align: center; }
+        
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .app-header .subtitle { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 顶部导航 -->
+        <header class="app-header">
+            <div style="display:flex;align-items:center;">
+                <h1>AI Agent Platform</h1>
+                <span class="subtitle">v1.0.0 · 管理后台</span>
+            </div>
+            <div class="header-status">
+                <span class="status-dot" :class="healthStatus === 'UP' ? 'up' : 'down'"></span>
+                <span>{{ healthStatus === 'UP' ? '服务正常' : '服务异常' }}</span>
+            </div>
+        </header>
+
+        <div class="app-container">
+            <!-- 侧边栏 -->
+            <aside class="sidebar">
+                <el-menu :default-active="activeMenu" @select="handleMenuSelect">
+                    <el-menu-item index="chat">
+                        <el-icon><ChatDotRound /></el-icon>
+                        <span>AI 对话</span>
+                    </el-menu-item>
+                    <el-menu-item index="documents">
+                        <el-icon><FolderOpened /></el-icon>
+                        <span>文档管理</span>
+                    </el-menu-item>
+                    <el-menu-item index="cache">
+                        <el-icon><Delete /></el-icon>
+                        <span>缓存管理</span>
+                    </el-menu-item>
+                    <el-menu-item index="about">
+                        <el-icon><InfoFilled /></el-icon>
+                        <span>关于项目</span>
+                    </el-menu-item>
+                </el-menu>
+            </aside>
+
+            <!-- 主内容 -->
+            <main class="main-content">
+                <!-- AI 对话 -->
+                <div v-show="activeMenu === 'chat'" class="chat-container">
+                    <div class="chat-messages" ref="chatBox">
+                        <div v-if="messages.length === 0" class="empty-state">
+                            <el-icon size="48"><ChatLineSquare /></el-icon>
+                            <p>开始对话，或选择下方模式切换</p>
+                            <p style="font-size:12px;margin-top:8px;">
+                                普通模式 - 简单问答 | ReAct 模式 - 推理+工具 | Multi-Agent - 多智能体协作
+                            </p>
+                        </div>
+                        <div v-for="(msg, i) in messages" :key="i" :class="['message', msg.role]">
+                            <span class="msg-label">{{ msg.role === 'user' ? '我' : msg.role === 'assistant' ? 'AI' : '系统' }}</span>
+                            <div class="msg-bubble">{{ msg.content }}</div>
+                        </div>
+                        <div v-if="loading" class="message assistant">
+                            <span class="msg-label">AI</span>
+                            <div class="msg-bubble">
+                                <span class="loading-dots">思考中<span>.</span><span>.</span><span>.</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <el-select v-model="chatMode" class="chat-mode-select" placeholder="对话模式">
+                            <el-option label="普通模式" value="normal" />
+                            <el-option label="ReAct 模式" value="react" />
+                            <el-option label="Multi-Agent" value="multi-agent" />
+                        </el-select>
+                        <el-input
+                            v-model="question"
+                            type="textarea"
+                            :rows="2"
+                            placeholder="输入您的问题..."
+                            @keydown.enter.prevent="sendMessage"
+                            :disabled="!sessionId"
+                        />
+                        <el-button type="primary" @click="sendMessage" :loading="loading" :disabled="!sessionId">
+                            发送
+                        </el-button>
+                    </div>
+                    <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+                        <el-button size="small" @click="createSession" :disabled="loading">
+                            {{ sessionId ? '刷新会话' : '创建会话' }}
+                        </el-button>
+                        <span v-if="sessionId" style="font-size:12px;color:#909399;">
+                            会话ID: {{ sessionId.substring(0, 8) }}...
+                        </span>
+                    </div>
+                </div>
+
+                <!-- 文档管理 -->
+                <div v-show="activeMenu === 'documents'">
+                    <h2 style="margin-bottom:16px;">文档管理</h2>
+                    <div class="upload-area">
+                        <el-upload
+                            :http-request="uploadDocument"
+                            :show-file-list="false"
+                            accept=".pdf,.docx,.doc,.md,.txt"
+                        >
+                            <el-icon size="32" style="color:#409eff;"><Upload /></el-icon>
+                            <p style="margin-top:8px;color:#606266;">拖拽或点击上传文档</p>
+                            <p style="font-size:12px;color:#909399;margin-top:4px;">支持 PDF / Word / Markdown / TXT</p>
+                        </el-upload>
+                    </div>
+                    <div style="margin-top:20px;">
+                        <el-input v-model="searchQuery" placeholder="输入关键词搜索文档..." style="width:400px;margin-right:8px;" />
+                        <el-button type="primary" @click="searchDocuments" :loading="searchLoading">搜索</el-button>
+                    </div>
+                    <div v-if="searchResults.length > 0" style="margin-top:16px;">
+                        <h3>搜索结果 ({{ searchResults.length }} 条)</h3>
+                        <el-card v-for="(doc, i) in searchResults" :key="i" style="margin-top:8px;">
+                            <p style="font-size:13px;color:#606266;white-space:pre-wrap;">{{ doc.content }}</p>
+                            <p style="font-size:12px;color:#909399;margin-top:4px;">相似度: {{ (doc.score * 100).toFixed(1) }}%</p>
+                        </el-card>
+                    </div>
+                </div>
+
+                <!-- 缓存管理 -->
+                <div v-show="activeMenu === 'cache'">
+                    <h2 style="margin-bottom:16px;">缓存管理</h2>
+                    <div class="stats-grid">
+                        <el-card class="stat-card" shadow="hover">
+                            <div class="stat-value">{{ stats.sseConnections }}</div>
+                            <div class="stat-label">活跃 SSE 连接</div>
+                        </el-card>
+                        <el-card class="stat-card" shadow="hover">
+                            <div class="stat-value">{{ stats.sessionCount }}</div>
+                            <div class="stat-label">活跃会话数</div>
+                        </el-card>
+                        <el-card class="stat-card" shadow="hover">
+                            <div class="stat-value">{{ stats.modelProvider }}</div>
+                            <div class="stat-label">当前模型</div>
+                        </el-card>
+                    </div>
+                    <el-button type="danger" @click="clearCache" :loading="cacheLoading">
+                        清空语义缓存
+                    </el-button>
+                </div>
+
+                <!-- 关于 -->
+                <div v-show="activeMenu === 'about'">
+                    <h2 style="margin-bottom:16px;">关于项目</h2>
+                    <el-card>
+                        <h3>AI Agent Platform</h3>
+                        <p style="margin-top:8px;color:#606266;">
+                            基于 Spring Boot 3 + LangChain4j 构建的企业级 AI Agent 平台。
+                        </p>
+                        <el-divider />
+                        <h4>核心特性</h4>
+                        <ul style="margin-top:8px;padding-left:20px;color:#606266;line-height:2;">
+                            <li>ReAct Agent 推理循环（Thought → Action → Observation → Final Answer）</li>
+                            <li>多路召回 RAG（向量检索 + BM25 关键词 + RRF 融合）</li>
+                            <li>语义缓存（降低 API 调用成本）</li>
+                            <li>多模型动态切换（策略模式）</li>
+                            <li>Multi-Agent 协作（Supervisor + Worker 并行执行）</li>
+                            <li>SSE 流式输出（心跳机制保持连接稳定）</li>
+                            <li>Docker 一键部署（4 服务编排）</li>
+                        </ul>
+                        <el-divider />
+                        <h4>技术栈</h4>
+                        <p style="margin-top:8px;color:#606266;">
+                            Spring Boot 3.5 · LangChain4j 0.34 · Java 17 · MySQL 8 · Redis 7 · Milvus 2.4 · Docker
+                        </p>
+                    </el-card>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Vue 3 + Element Plus CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/element-plus"></script>
+    <script>
+        const { createApp, ref, nextTick, onMounted } = Vue;
+
+        const app = createApp({
+            setup() {
+                const activeMenu = ref('chat');
+                const sessionId = ref('');
+                const question = ref('');
+                const messages = ref([]);
+                const loading = ref(false);
+                const chatMode = ref('normal');
+                const healthStatus = ref('UNKNOWN');
+                const searchQuery = ref('');
+                const searchResults = ref([]);
+                const searchLoading = ref(false);
+                const cacheLoading = ref(false);
+                const stats = ref({ sseConnections: 0, sessionCount: 0, modelProvider: '-' });
+                const chatBox = ref(null);
+
+                const API_BASE = '/api/v1/agent';
+
+                // 创建会话
+                const createSession = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/session`, { method: 'POST' });
+                        const data = await res.json();
+                        sessionId.value = data.sessionId;
+                        messages.value = [];
+                        messages.value.push({ role: 'system', content: '新会话已创建' });
+                    } catch (e) {
+                        messages.value.push({ role: 'system', content: '创建会话失败: ' + e.message });
+                    }
+                };
+
+                // 发送消息
+                const sendMessage = async () => {
+                    if (!question.value.trim() || !sessionId.value) return;
+                    const q = question.value;
+                    messages.value.push({ role: 'user', content: q });
+                    question.value = '';
+                    loading.value = true;
+                    scrollToBottom();
+
+                    try {
+                        let url;
+                        if (chatMode.value === 'react') {
+                            url = `${API_BASE}/react/chat?sessionId=${sessionId.value}&question=${encodeURIComponent(q)}&useRag=true`;
+                        } else if (chatMode.value === 'multi-agent') {
+                            url = `${API_BASE}/multi-agent/execute?task=${encodeURIComponent(q)}`;
+                        } else {
+                            url = `${API_BASE}/chat?sessionId=${sessionId.value}&question=${encodeURIComponent(q)}&useRag=true`;
+                        }
+
+                        const res = await fetch(url, { method: 'POST' });
+                        const data = await res.json();
+                        messages.value.push({ role: 'assistant', content: data.answer || data.message || '无响应' });
+                    } catch (e) {
+                        messages.value.push({ role: 'system', content: '请求失败: ' + e.message });
+                    }
+                    loading.value = false;
+                    scrollToBottom();
+                };
+
+                // 上传文档
+                const uploadDocument = async (options) => {
+                    const formData = new FormData();
+                    formData.append('file', options.file);
+                    try {
+                        const res = await fetch(`${API_BASE}/document/upload`, { method: 'POST', body: formData });
+                        const data = await res.json();
+                        ElementPlus.ElMessage.success(data.message || '上传成功');
+                    } catch (e) {
+                        ElementPlus.ElMessage.error('上传失败: ' + e.message);
+                    }
+                };
+
+                // 搜索文档
+                const searchDocuments = async () => {
+                    if (!searchQuery.value.trim()) return;
+                    searchLoading.value = true;
+                    try {
+                        const res = await fetch(`${API_BASE}/document/search?query=${encodeURIComponent(searchQuery.value)}&topK=5&threshold=0.5`, { method: 'POST' });
+                        const data = await res.json();
+                        searchResults.value = data.results || [];
+                    } catch (e) {
+                        ElementPlus.ElMessage.error('搜索失败: ' + e.message);
+                    }
+                    searchLoading.value = false;
+                };
+
+                // 清空缓存
+                const clearCache = async () => {
+                    cacheLoading.value = true;
+                    try {
+                        const res = await fetch(`${API_BASE}/cache`, { method: 'DELETE' });
+                        const data = await res.json();
+                        ElementPlus.ElMessage.success(data.message || '缓存已清空');
+                    } catch (e) {
+                        ElementPlus.ElMessage.error('清空失败: ' + e.message);
+                    }
+                    cacheLoading.value = false;
+                };
+
+                // 健康检查
+                const checkHealth = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/health`);
+                        const data = await res.json();
+                        healthStatus.value = data.status;
+                        stats.value.modelProvider = data.mode || '-';
+                    } catch (e) {
+                        healthStatus.value = 'DOWN';
+                    }
+                };
+
+                const scrollToBottom = async () => {
+                    await nextTick();
+                    if (chatBox.value) chatBox.value.scrollTop = chatBox.value.scrollHeight;
+                };
+
+                const handleMenuSelect = (index) => {
+                    activeMenu.value = index;
+                };
+
+                onMounted(() => {
+                    checkHealth();
+                    createSession();
+                    // 定期检查健康状态
+                    setInterval(checkHealth, 30000);
+                });
+
+                return {
+                    activeMenu, sessionId, question, messages, loading, chatMode,
+                    healthStatus, searchQuery, searchResults, searchLoading,
+                    cacheLoading, stats, chatBox,
+                    createSession, sendMessage, uploadDocument, searchDocuments,
+                    clearCache, handleMenuSelect, scrollToBottom
+                };
+            }
+        });
+
+        // 注册 Element Plus 图标
+        for (const [key, component] of Object.entries(ElementPlusIconsVue || {})) {
+            app.component(key, component);
+        }
+
+        app.use(ElementPlus);
+        app.mount('#app');
+    </script>
+    <!-- Element Plus Icons -->
+    <script src="https://unpkg.com/@element-plus/icons-vue"></script>
+</body>
+</html>

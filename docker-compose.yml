@@ -1,0 +1,110 @@
+# ============================================
+# AI Agent Platform — 一键部署
+# ============================================
+# 使用方式：
+#   docker compose up -d                     # 启动所有服务
+#   docker compose up -d --build app         # 重建并启动应用
+#   docker compose logs -f app               # 查看应用日志
+#   docker compose down -v                   # 停止并删除所有数据卷
+#
+# 前置条件：
+#   1. 在项目根目录创建 .env 文件（参考 .env.example）
+#   2. 确保 Docker Engine >= 24.0
+# ============================================
+
+services:
+  # ==================== MySQL ====================
+  mysql:
+    image: mysql:8.0
+    container_name: ai-agent-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-root}
+      MYSQL_DATABASE: ai_agent
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - ai-agent-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== Redis ====================
+  redis:
+    image: redis:7-alpine
+    container_name: ai-agent-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - ai-agent-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== Milvus ====================
+  milvus:
+    image: milvusdb/milvus:v2.4.5
+    container_name: ai-agent-milvus
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_USE_EMBED: "true"
+      ETCD_DATA_DIR: "/var/lib/milvus/etcd"
+      COMMON_STORAGETYPE: "local"
+      LOCAL_STORAGE_PATH: "/var/lib/milvus/data"
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    volumes:
+      - milvus-data:/var/lib/milvus
+    networks:
+      - ai-agent-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== Spring Boot 应用 ====================
+  app:
+    build: .
+    container_name: ai-agent-app
+    ports:
+      - "8081:8081"
+    env_file:
+      - .env
+    environment:
+      # 覆盖 application.yml 中的默认值，指向 Docker 容器内的服务
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/ai_agent?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USERNAME:-root}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-root}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      MILVUS_HOST: milvus
+      MILVUS_PORT: 19530
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      milvus:
+        condition: service_started
+    networks:
+      - ai-agent-network
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  redis-data:
+  milvus-data:
+
+networks:
+  ai-agent-network:
+    driver: bridge
