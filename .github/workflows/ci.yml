@@ -74,13 +74,13 @@ jobs:
           name: app-jar
           path: target/ai-agent-platform-*.jar
 
-  # ==================== Docker 镜像构建 ====================
+  # ==================== Docker 镜像构建（可选）====================
   docker:
-    name: Docker Build
+    name: Docker Build (Optional)
     runs-on: ubuntu-latest
     needs: build
-    # 仅在 push 到 main/master 时构建 Docker 镜像
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    # 仅在配置了 Docker Hub 凭证时才构建，否则自动跳过
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && secrets.DOCKER_USERNAME != ''
 
     steps:
       - name: Checkout 代码

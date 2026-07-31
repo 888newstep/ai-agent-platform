@@ -25,9 +25,14 @@ import org.springframework.test.context.TestPropertySource;
         "ai.model.local.base-url=http://localhost:11434/v1",
         "ai.model.local.model-name=dummy",
         "ai.model.local.api-key=dummy",
+        "ai.model.deepseek.api-key=dummy",
+        "ai.model.qianwen.api-key=dummy",
+        "ai.model.doubao.api-key=dummy",
+        "ai.model.qwen3-flash.api-key=dummy",
         "ai.embedding.local.base-url=http://localhost:11434/v1",
         "ai.embedding.local.model-name=dummy",
         "ai.embedding.local.dimension=1024",
+        "ai.embedding.siliconflow.api-key=dummy",
         "jwt.secret=test-jwt-secret-for-ci-only-must-be-long-enough-32-chars"
 })
 class AiAgentApplicationTests {

@@ -43,6 +43,8 @@ class SemanticCacheServiceTest {
 
     @Test
     void shouldReturnNullWhenCacheIsEmpty() {
+        // 模拟 embedding 缓存未命中
+        when(embeddingCacheService.getCachedEmbedding(anyString())).thenReturn(null);
         // 模拟 embedding 成功
         float[] vector = new float[1024];
         when(embeddingModel.embed(anyString()))
@@ -57,6 +59,7 @@ class SemanticCacheServiceTest {
 
     @Test
     void shouldReturnNullWhenEmbeddingFails() {
+        when(embeddingCacheService.getCachedEmbedding(anyString())).thenReturn(null);
         when(embeddingModel.embed(anyString())).thenThrow(new RuntimeException("API error"));
 
         SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
@@ -67,6 +70,7 @@ class SemanticCacheServiceTest {
     void shouldHandleCachePutSuccessfully() {
         float[] vector = new float[1024];
         vector[0] = 1.0f;
+        when(embeddingCacheService.getCachedEmbedding(anyString())).thenReturn(null);
         when(embeddingModel.embed(anyString()))
                 .thenReturn(new Response<>(new Embedding(vector)));
 
@@ -81,6 +85,7 @@ class SemanticCacheServiceTest {
 
     @Test
     void shouldHandleCachePutFailureGracefully() {
+        when(embeddingCacheService.getCachedEmbedding(anyString())).thenReturn(null);
         when(embeddingModel.embed(anyString())).thenThrow(new RuntimeException("Model unavailable"));
 
         SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
