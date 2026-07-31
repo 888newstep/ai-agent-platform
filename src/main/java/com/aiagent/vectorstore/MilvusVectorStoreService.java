@@ -50,8 +50,12 @@ public class MilvusVectorStoreService implements VectorStoreService {
     }
 
     @Override
-    public void addAll(List<Embedding> embeddings, List<TextSegment> segments) {
-        embeddingStore.addAll(embeddings, segments);
+    public List<String> addAll(List<Embedding> embeddings, List<TextSegment> segments) {
+        if (embeddingStore == null) {
+            log.warn("Milvus 不可用，跳过向量存储");
+            return List.of();
+        }
+        return embeddingStore.addAll(embeddings, segments);
     }
 
     @Override

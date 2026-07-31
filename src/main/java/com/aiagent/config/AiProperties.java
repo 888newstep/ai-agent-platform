@@ -165,6 +165,10 @@ public class AiProperties {
     public static class Session {
         private int ttl = 86400;
         private int maxMessages = 100;
+        /** 滑动窗口大小（保留最近 N 轮对话，超出部分丢弃） */
+        private int slidingWindowSize = 10;
+        /** 摘要生成间隔（每 N 轮对话生成一次摘要） */
+        private int summaryInterval = 5;
     }
 
     @Data

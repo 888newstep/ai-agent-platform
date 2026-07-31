@@ -2,10 +2,16 @@
 
 基于 Spring Boot 3 + LangChain4j 构建的企业级 AI Agent 平台，集成 ReAct 推理循环、多路召回 RAG、语义缓存和工具调用框架。
 
-[![CI/CD Pipeline](https://github.com/yourusername/ai-agent-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/ai-agent-platform/actions/workflows/ci.yml)
+[![CI/CD Pipeline](https://github.com/888newstep/ai-agent-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/888newstep/ai-agent-platform/actions/workflows/ci.yml)
 [![JDK 17](https://img.shields.io/badge/JDK-17-blue.svg)](https://adoptium.net/)
 [![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.5-green.svg)](https://spring.io/projects/spring-boot)
 [![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](LICENSE)
+
+> **🎯 适用人群**
+> - 正在准备大厂 Java / AI 岗位面试的求职者（覆盖高频面试考点）
+> - 需要快速搭建 AI 客服系统的中小企业或独立开发者
+> - 想学习 RAG + Agent 完整落地实践的技术爱好者
+> - 需要可扩展 AI Agent 框架的产品开发者
 
 ---
 
@@ -47,7 +53,7 @@
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/yourusername/ai-agent-platform.git
+git clone https://github.com/888newstep/ai-agent-platform.git
 cd ai-agent-platform
 ```
 
@@ -204,8 +210,9 @@ score(d) = Σ 1/(k + rank_i(d))
 ```
 src/main/java/com/aiagent/
 ├── agent/
-│   ├── AiAgentService.java      # AI 聊天服务（集成 ReAct + 语义缓存）
-│   └── ReActAgent.java          # ReAct 推理循环
+│   ├── AiAgentService.java      # AI 聊天服务（集成长上下文管理 + ReAct + 语义缓存）
+│   ├── ReActAgent.java          # ReAct 推理循环
+│   └── MultiAgentService.java   # 多智能体协作（Supervisor + Worker）
 ├── cache/
 │   └── SemanticCacheService.java # 语义缓存（降低 API 成本）
 ├── config/
@@ -217,6 +224,10 @@ src/main/java/com/aiagent/
 ├── document/
 │   ├── DocumentService.java     # 文档上传与检索
 │   └── parser/                  # 多格式文档解析器
+├── evaluation/
+│   └── RagEvaluationService.java # RAG 效果评估（召回率/准确率/延迟）
+├── memory/
+│   └── LongContextManager.java  # 长上下文管理（滑动窗口 + 摘要压缩 + 历史检索）
 ├── retrieval/
 │   ├── MultiRecallService.java  # 多路召回 + RRF 融合
 │   └── Bm25Search.java          # BM25 关键词检索
@@ -272,11 +283,15 @@ ai:
 
 | 知识点 | 项目体现 |
 |--------|---------|
-| ReAct Agent | 完整推理循环、死循环防护 |
+| ReAct Agent | 完整推理循环、死循环防护、超时控制 |
+| 长上下文管理 (Q174) | 滑动窗口 + 摘要压缩 + 历史检索 |
+| RAG 效果评估 (Q173) | 召回率/准确率/F1/延迟量化评估 |
 | RAG 优化 | 多路召回 + RRF 融合 |
 | 成本控制 | 语义缓存、本地模型降级 |
 | Embedding | SiliconFlow BGE-M3 接入 |
 | 向量数据库 | Milvus 集合创建、索引构建 |
+| 多智能体 (Q147) | Supervisor + Worker 协作模式 |
+| SSE 流式输出 (Q151-153) | 心跳机制 + 虚拟线程管理 |
 
 ---
 

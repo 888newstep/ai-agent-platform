@@ -36,6 +36,7 @@ public class SemanticCacheService {
 
     private final EmbeddingModel embeddingModel;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final EmbeddingCacheService embeddingCacheService;
 
     /** 缓存前缀 */
     private static final String CACHE_PREFIX = "ai:semantic-cache:";
@@ -61,12 +62,9 @@ public class SemanticCacheService {
      * @return 如果命中缓存返回回答，否则返回 null
      */
     public String getIfCached(String question) {
-        // 1. 计算问题 embedding
-        Embedding queryEmbedding;
-        try {
-            queryEmbedding = embeddingModel.embed(question).content();
-        } catch (Exception e) {
-            log.warn("Embedding 计算失败，跳过语义缓存: {}", e.getMessage());
+        // 1. 获取/计算问题 embedding（优先查缓存，避免调 API）
+        Embedding queryEmbedding = getEmbedding(question);
+        if (queryEmbedding == null) {
             return null;
         }
 
@@ -124,7 +122,11 @@ public class SemanticCacheService {
      */
     public void put(String question, String answer) {
         try {
-            Embedding embedding = embeddingModel.embed(question).content();
+            Embedding embedding = getEmbedding(question);
+            if (embedding == null) {
+                log.warn("语义缓存写入失败: 无法获取 embedding");
+                return;
+            }
 
             String cacheKey = CACHE_PREFIX + Math.abs(question.hashCode());
 
@@ -141,6 +143,29 @@ public class SemanticCacheService {
             log.info("语义缓存已写入: {}", cacheKey);
         } catch (Exception e) {
             log.warn("语义缓存写入失败: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 获取文本的 embedding 向量（优先从 Redis 缓存获取，避免调 API）
+     */
+    private Embedding getEmbedding(String text) {
+        // 1. 尝试从缓存获取
+        float[] cached = embeddingCacheService.getCachedEmbedding(text);
+        if (cached != null) {
+            log.debug("Embedding 缓存命中: text={}", text);
+            return new Embedding(cached);
+        }
+
+        // 2. 缓存未命中，调用 API
+        try {
+            Embedding embedding = embeddingModel.embed(text).content();
+            // 3. 写入缓存供后续复用
+            embeddingCacheService.cacheEmbedding(text, embedding.vector());
+            return embedding;
+        } catch (Exception e) {
+            log.warn("Embedding 计算失败: {}", e.getMessage());
+            return null;
         }
     }
 

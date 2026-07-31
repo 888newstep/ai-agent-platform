@@ -29,9 +29,15 @@ public class InMemoryVectorStoreService implements VectorStoreService {
     }
 
     @Override
-    public void addAll(List<Embedding> embeddings, List<TextSegment> segments) {
-        embeddingStore.addAll(embeddings, segments);
+    public List<String> addAll(List<Embedding> embeddings, List<TextSegment> segments) {
+        List<String> ids = new ArrayList<>();
+        for (int i = 0; i < embeddings.size(); i++) {
+            String id = UUID.randomUUID().toString();
+            embeddingStore.add(id, embeddings.get(i));
+            ids.add(id);
+        }
         log.info("Added {} embeddings", embeddings.size());
+        return ids;
     }
 
     @Override

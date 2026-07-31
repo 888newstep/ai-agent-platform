@@ -122,6 +122,5 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Checkstyle 检查
-        run: mvn checkstyle:check -B
-        continue-on-error: true
+      - name: Maven 编译检查
+        run: mvn compile -B

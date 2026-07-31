@@ -8,8 +8,8 @@ server:
     accept-count: 100
 
 milvus:
-  host: localhost
-  port: 19530
+  host: ${MILVUS_HOST:localhost}
+  port: ${MILVUS_PORT:19530}
 
 spring:
   application:
@@ -42,8 +42,8 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       database: 0
       lettuce:
@@ -109,7 +109,7 @@ ai:
   vector-store:
     type: milvus
     milvus:
-      host: 49.234.187.76
+      host: ${MILVUS_HOST:localhost}
       port: 19530
       collection-name: ai_agent_documents
       dimension: 1024
@@ -201,3 +201,11 @@ ecommerce:
     batch-size: 20
     # 要生成的类别列表（留空使用默认 8 个类别）
     categories:
+
+# =============================================
+# 客服训练数据导入配置
+# =============================================
+cs:
+  import:
+    data-dir: ${CS_IMPORT_DATA_DIR:}
+    batch-size: 18

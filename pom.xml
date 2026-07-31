@@ -127,17 +127,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- H2 内存数据库（测试用） -->
         <dependency>
-            <groupId>org.hibernate</groupId>
-            <artifactId>hibernate-ehcache</artifactId>
-            <version>5.6.15.Final</version>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>net.sf.ehcache</groupId>
-            <artifactId>ehcache</artifactId>
-            <version>2.10.9.2</version>
-        </dependency>
+        
 
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

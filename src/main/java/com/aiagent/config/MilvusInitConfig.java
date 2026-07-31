@@ -8,6 +8,7 @@ import io.milvus.v2.service.collection.request.AddFieldReq;
 import io.milvus.v2.service.collection.request.CreateCollectionReq;
 import io.milvus.v2.service.collection.request.HasCollectionReq;
 import io.milvus.v2.service.collection.request.LoadCollectionReq;
+import io.milvus.v2.service.database.request.CreateDatabaseReq;
 import io.milvus.v2.service.index.request.CreateIndexReq;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -49,7 +50,7 @@ import java.util.Map;
 @Configuration
 public class MilvusInitConfig {
 
-    @Value("${ai.vector-store.milvus.host:49.234.187.76}")
+    @Value("${ai.vector-store.milvus.host:localhost}")
     private String host;
 
     @Value("${ai.vector-store.milvus.port:19530}")
@@ -72,7 +73,20 @@ public class MilvusInitConfig {
                     .uri("http://" + host + ":" + port)
                     .build();
             MilvusClientV2 client = new MilvusClientV2(config);
-            log.info("MilvusClientV2 连接成功: {}:{}", host, port);
+
+            // 尝试使用 cs_agent 数据库，不存在则创建
+            try {
+                client.useDatabase("cs_agent");
+            } catch (Exception ignored) {
+                log.info("数据库 [cs_agent] 不存在，正在创建...");
+                client.createDatabase(CreateDatabaseReq.builder()
+                        .databaseName("cs_agent")
+                        .build());
+                client.useDatabase("cs_agent");
+                log.info("数据库 [cs_agent] 创建成功");
+            }
+
+            log.info("MilvusClientV2 连接成功: {}:{} (database: cs_agent)", host, port);
             return client;
         } catch (Exception e) {
             log.warn("MilvusClientV2 连接失败: {}:{} - {} (应用将以无 Milvus 模式运行)", host, port, e.getMessage());

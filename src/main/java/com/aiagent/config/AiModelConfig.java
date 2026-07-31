@@ -8,11 +8,13 @@ import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import dev.langchain4j.model.openai.OpenAiTokenizer;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
 
+@Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class AiModelConfig {
@@ -30,10 +32,15 @@ public class AiModelConfig {
             case "local" -> createLocalChatModel(modelConfig.getLocal());
             default -> createDeepseekChatModel(modelConfig.getDeepseek());
         };
-        if("local".equals(modelConfig.getProvider())){
+        // 本地模型无需降级，直接返回
+        if ("local".equals(modelConfig.getProvider())) {
             return primary;
         }
-        return createLocalChatModel(modelConfig.getLocal());
+        // 非本地模型：主模型失败（限流）时自动降级到本地 Ollama 模型
+        ChatLanguageModel fallback = createLocalChatModel(modelConfig.getLocal());
+        log.info("ChatLanguageModel: primary={}, fallback={} (local)",
+                modelConfig.getProvider(), modelConfig.getLocal().getModelName());
+        return new FallbackChatLanguageModel(primary, fallback);
     }
 
     @Bean
@@ -47,8 +54,15 @@ public class AiModelConfig {
             case "local" -> createLocalStreamingModel(modelConfig.getLocal());
             default -> createDeepseekStreamingModel(modelConfig.getDeepseek());
         };
-        if("local".equals(modelConfig.getProvider())) return primary;
-        return createLocalStreamingModel(modelConfig.getLocal());
+        // 本地模型无需降级，直接返回
+        if ("local".equals(modelConfig.getProvider())) {
+            return primary;
+        }
+        // 非本地模型：主模型失败（限流）时自动降级到本地 Ollama 模型
+        StreamingChatLanguageModel fallback = createLocalStreamingModel(modelConfig.getLocal());
+        log.info("StreamingChatLanguageModel: primary={}, fallback={} (local)",
+                modelConfig.getProvider(), modelConfig.getLocal().getModelName());
+        return new FallbackStreamChatLanguageModel(primary, fallback);
     }
 
     @Bean
@@ -229,7 +243,7 @@ public class AiModelConfig {
                 .baseUrl(config.getBaseUrl())
                 .apiKey(config.getApiKey())
                 .modelName(config.getModelName())
-                .dimensions(config.getDimension())
+                // bge-m3 固定输出 1024 维，不支持 dimensions 参数
                 .timeout(Duration.ofSeconds(30))
                 .build();
     }

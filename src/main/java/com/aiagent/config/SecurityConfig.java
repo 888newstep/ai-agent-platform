@@ -26,6 +26,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/agent/health").permitAll()
                 .requestMatchers("/api/v1/agent/**").permitAll()
                 .requestMatchers("/api/v1/ecommerce/**").permitAll()
+                .requestMatchers("/api/cs/**").permitAll()
                 .anyRequest().authenticated()
             );
 

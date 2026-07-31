@@ -10,7 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 
 @Slf4j
-public class FallbackStreamChhatLanguageModel {
+public class FallbackStreamChatLanguageModel implements StreamingChatLanguageModel {
     private final StreamingChatLanguageModel primaryModel;
     private final StreamingChatLanguageModel fallbackModel;
 
@@ -24,11 +24,12 @@ public class FallbackStreamChhatLanguageModel {
             "请求频率过高"
     );
 
-    public FallbackStreamChhatLanguageModel(StreamingChatLanguageModel primaryModel, StreamingChatLanguageModel fallbackModel) {
+    public FallbackStreamChatLanguageModel(StreamingChatLanguageModel primaryModel, StreamingChatLanguageModel fallbackModel) {
         this.primaryModel = primaryModel;
         this.fallbackModel = fallbackModel;
     }
 
+    @Override
     public void generate(List<ChatMessage> messages, StreamingResponseHandler<AiMessage> handler) {
         primaryModel.generate(messages, new StreamingResponseHandler<AiMessage>() {
             @Override
@@ -40,10 +41,15 @@ public class FallbackStreamChhatLanguageModel {
             public void onComplete(Response<AiMessage> response) {
                 handler.onComplete(response);
             }
+
             @Override
             public void onError(Throwable throwable) {
-                if (RATE_LIMIT_KEYWORDS.stream().anyMatch(throwable.getMessage()::contains)) {
-                    log.warn("Primary model encountered rate limit, switching to fallback model.");
+                if (throwable != null && throwable.getMessage() != null &&
+                        RATE_LIMIT_KEYWORDS.stream().anyMatch(kw -> throwable.getMessage().toLowerCase().contains(kw))) {
+                    log.warn("[MODEL-DEGRADE] streaming primaryModel={} fallbackModel={} reason=RateLimit error={}",
+                            primaryModel.getClass().getSimpleName(),
+                            fallbackModel.getClass().getSimpleName(),
+                            throwable.getMessage());
                     fallbackModel.generate(messages, handler);
                 } else {
                     handler.onError(throwable);
