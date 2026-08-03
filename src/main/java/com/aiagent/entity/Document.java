@@ -35,6 +35,20 @@ public class Document {
     @Column(name = "chunk_count")
     private Integer chunkCount;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "processing_status", nullable = false, length = 20)
+    @Builder.Default
+    private DocumentProcessingStatus processingStatus = DocumentProcessingStatus.PENDING;
+
+    @Column(name = "error_message", length = 1000)
+    private String errorMessage;
+
+    @Column(name = "processing_started_at")
+    private LocalDateTime processingStartedAt;
+
+    @Column(name = "processing_completed_at")
+    private LocalDateTime processingCompletedAt;
+
     @Column(name = "uploaded_by")
     private Long uploadedBy;
 

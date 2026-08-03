@@ -15,6 +15,11 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @Service
@@ -24,62 +29,93 @@ import java.util.List;
 public class MilvusVectorStoreService implements VectorStoreService {
 
     private final AiProperties aiProperties;
+    private final InMemoryVectorStoreService fallbackStore = new InMemoryVectorStoreService();
     private MilvusEmbeddingStore embeddingStore;
 
     @PostConstruct
     public void init() {
+        AiProperties.Milvus config = aiProperties.getVectorStore().getMilvus();
+        ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "milvus-vectorstore-init");
+            thread.setDaemon(true);
+            return thread;
+        });
+
         try {
-            AiProperties.Milvus config = aiProperties.getVectorStore().getMilvus();
-            this.embeddingStore = MilvusEmbeddingStore.builder()
+            Future<MilvusEmbeddingStore> future = executor.submit(() -> MilvusEmbeddingStore.builder()
                     .host(config.getHost())
                     .port(config.getPort())
                     .collectionName(config.getCollectionName())
                     .dimension(config.getDimension())
-                    .build();
+                    .build());
+
+            this.embeddingStore = future.get(config.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
             log.info("Connected to Milvus at {}:{}, Collection: {}, Dimension: {}",
-                    config.getHost(), config.getPort(),
-                    config.getCollectionName(), config.getDimension());
+                    config.getHost(), config.getPort(), config.getCollectionName(), config.getDimension());
+        } catch (TimeoutException e) {
+            log.warn("Milvus ????({}ms)??????????", config.getConnectionTimeoutMs());
         } catch (Exception e) {
-            log.warn("Milvus 连接失败，向量存储不可用: {}", e.getMessage());
+            log.warn("Milvus ??????????????: {}", extractMessage(e));
+        } finally {
+            executor.shutdownNow();
         }
     }
 
     @Override
     public void add(String id, Embedding embedding) {
-        embeddingStore.add(id, embedding);
+        if (embeddingStore != null) {
+            embeddingStore.add(id, embedding);
+            return;
+        }
+        fallbackStore.add(id, embedding);
     }
 
     @Override
     public List<String> addAll(List<Embedding> embeddings, List<TextSegment> segments) {
-        if (embeddingStore == null) {
-            log.warn("Milvus 不可用，跳过向量存储");
-            return List.of();
+        if (embeddingStore != null) {
+            return embeddingStore.addAll(embeddings, segments);
         }
-        return embeddingStore.addAll(embeddings, segments);
+        return fallbackStore.addAll(embeddings, segments);
     }
 
     @Override
     public List<EmbeddingMatch<TextSegment>> search(Embedding queryEmbedding, int topK, double minScore) {
-        EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
-                .queryEmbedding(queryEmbedding)
-                .maxResults(topK)
-                .minScore(minScore)
-                .build();
-        return embeddingStore.search(request).matches();
+        if (embeddingStore != null) {
+            EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
+                    .queryEmbedding(queryEmbedding)
+                    .maxResults(topK)
+                    .minScore(minScore)
+                    .build();
+            return embeddingStore.search(request).matches();
+        }
+        return fallbackStore.search(queryEmbedding, topK, minScore);
     }
 
     @Override
     public void remove(String id) {
-        embeddingStore.remove(id);
+        if (embeddingStore != null) {
+            embeddingStore.remove(id);
+            return;
+        }
+        fallbackStore.remove(id);
     }
 
     @Override
     public void removeAll() {
-        embeddingStore.removeAll();
+        if (embeddingStore != null) {
+            embeddingStore.removeAll();
+            return;
+        }
+        fallbackStore.removeAll();
     }
 
     @PreDestroy
     public void destroy() {
-        log.info("Closing Milvus connection...");
+        log.info("Closing vector store...");
+    }
+
+    private String extractMessage(Exception exception) {
+        Throwable cause = exception.getCause();
+        return cause != null && cause.getMessage() != null ? cause.getMessage() : exception.getMessage();
     }
 }

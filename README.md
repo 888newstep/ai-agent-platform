@@ -7,6 +7,14 @@
 [![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.5-green.svg)](https://spring.io/projects/spring-boot)
 [![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](LICENSE)
 
+## Open Source Quality Baseline
+
+- Test lifecycle: `mvn test` / `mvn verify`
+- Coverage report: `target/site/jacoco/index.html`
+- Metrics endpoints: `/actuator/health`, `/actuator/metrics`, `/actuator/prometheus`
+- Monitoring stack: `docker compose up -d app prometheus grafana`
+- Details: `docs/observability.md`
+
 > **🎯 适用人群**
 > - 正在准备大厂 Java / AI 岗位面试的求职者（覆盖高频面试考点）
 > - 需要快速搭建 AI 客服系统的中小企业或独立开发者

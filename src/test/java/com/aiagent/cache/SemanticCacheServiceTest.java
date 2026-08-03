@@ -91,4 +91,94 @@ class SemanticCacheServiceTest {
         SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
         assertDoesNotThrow(() -> cacheService.put("test question", "test answer"));
     }
+
+    @Test
+    void shouldReturnCachedAnswerWhenSimilarityAboveThreshold() {
+        float[] queryVector = new float[1024];
+        queryVector[0] = 1.0f;
+        float[] cachedVector = new float[1024];
+        cachedVector[0] = 0.95f;
+
+        when(embeddingCacheService.getCachedEmbedding(anyString())).thenReturn(null);
+        when(embeddingModel.embed(anyString()))
+                .thenReturn(new Response<>(new Embedding(queryVector)));
+        when(redisTemplate.opsForSet()).thenReturn(setOps);
+        when(setOps.members(anyString())).thenReturn(Set.of("ai:semantic-cache:123"));
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+
+        java.util.Map<String, Object> cachedEntry = java.util.Map.of(
+                "question", "similar question",
+                "answer", "cached answer",
+                "embedding", cachedVector
+        );
+        when(valueOps.get("ai:semantic-cache:123")).thenReturn(cachedEntry);
+
+        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
+        String result = cacheService.getIfCached("test question");
+
+        assertEquals("cached answer", result);
+    }
+
+    @Test
+    void shouldReturnNullWhenSimilarityBelowThreshold() {
+        float[] queryVector = new float[4];
+        queryVector[0] = 1.0f;
+        queryVector[1] = 0.0f;
+        queryVector[2] = 0.0f;
+        queryVector[3] = 0.0f;
+        float[] cachedVector = new float[4];
+        cachedVector[0] = 0.0f;
+        cachedVector[1] = 1.0f;
+        cachedVector[2] = 0.0f;
+        cachedVector[3] = 0.0f;
+
+        when(embeddingCacheService.getCachedEmbedding(anyString())).thenReturn(null);
+        when(embeddingModel.embed(anyString()))
+                .thenReturn(new Response<>(new Embedding(queryVector)));
+        when(redisTemplate.opsForSet()).thenReturn(setOps);
+        when(setOps.members(anyString())).thenReturn(Set.of("ai:semantic-cache:123"));
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+
+        java.util.Map<String, Object> cachedEntry = java.util.Map.of(
+                "question", "different question",
+                "answer", "cached answer",
+                "embedding", cachedVector
+        );
+        when(valueOps.get("ai:semantic-cache:123")).thenReturn(cachedEntry);
+
+        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
+        String result = cacheService.getIfCached("test question");
+
+        assertNull(result);
+    }
+
+    @Test
+    void shouldClearAllCachedEntries() {
+        when(redisTemplate.opsForSet()).thenReturn(setOps);
+        when(setOps.members(anyString())).thenReturn(Set.of("key1", "key2", "key3"));
+
+        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
+        cacheService.clear();
+
+        verify(redisTemplate).delete("key1");
+        verify(redisTemplate).delete("key2");
+        verify(redisTemplate).delete("key3");
+        verify(redisTemplate).delete("ai:semantic-cache:index");
+    }
+
+    @Test
+    void shouldUseCachedEmbeddingWhenAvailable() {
+        float[] cachedEmbedding = new float[1024];
+        cachedEmbedding[0] = 1.0f;
+
+        when(embeddingCacheService.getCachedEmbedding("test question"))
+                .thenReturn(cachedEmbedding);
+        when(redisTemplate.opsForSet()).thenReturn(setOps);
+        when(setOps.members(anyString())).thenReturn(Set.of());
+
+        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
+        cacheService.getIfCached("test question");
+
+        verify(embeddingModel, never()).embed(anyString());
+    }
 }

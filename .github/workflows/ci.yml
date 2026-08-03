@@ -55,8 +55,8 @@ jobs:
       - name: Maven 编译
         run: mvn compile -B
 
-      - name: Maven 测试
-        run: mvn test -B
+      - name: Maven 验证与覆盖率
+        run: mvn verify -B
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY || '' }}
           QIANWEN_API_KEY: ${{ secrets.QIANWEN_API_KEY || '' }}
@@ -65,14 +65,27 @@ jobs:
           SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY || '' }}
           JWT_SECRET: test-jwt-secret-for-ci-only
 
-      - name: Maven 打包
-        run: mvn package -DskipTests -B
-
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
           name: app-jar
           path: target/ai-agent-platform-*.jar
+
+      - name: 上传测试报告
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: surefire-reports
+          path: target/surefire-reports
+
+      - name: 上传覆盖率报告
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jacoco-report
+          path: |
+            target/site/jacoco
+            target/jacoco.exec
 
   # ==================== Docker 镜像构建（可选）====================
   docker:
@@ -124,6 +137,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: maven
+
+      - name: 创建 .env 文件（CI 用默认值）
+        run: cp .env.example .env
 
       - name: Maven 编译检查
         run: mvn compile -B

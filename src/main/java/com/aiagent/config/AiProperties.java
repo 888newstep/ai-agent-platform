@@ -4,6 +4,8 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Data
 @Component
 @ConfigurationProperties(prefix = "ai")
@@ -116,6 +118,7 @@ public class AiProperties {
         private int port = 19530;
         private String collectionName = "ai_agent_documents";
         private int dimension = 1024;
+        private int connectionTimeoutMs = 2000;
     }
 
     @Data
@@ -153,12 +156,26 @@ public class AiProperties {
     public static class DatabaseQuery {
         private boolean enabled = true;
         private int maxRows = 100;
+        private List<String> allowedTables = List.of(
+                "conversations",
+                "messages",
+                "documents",
+                "document_chunks",
+                "users",
+                "ecommerce_qa_pairs",
+                "ecommerce_feedback",
+                "message_classify_log",
+                "vision_analysis_cache"
+        );
     }
 
     @Data
     public static class ApiCall {
         private boolean enabled = true;
         private int timeout = 30000;
+        private List<String> allowedHosts = List.of();
+        private List<String> allowedMethods = List.of("GET", "POST");
+        private int maxResponseChars = 8000;
     }
 
     @Data
@@ -173,6 +190,8 @@ public class AiProperties {
 
     @Data
     public static class Security {
+        private String adminApiKey;
+        private String adminHeaderName = "X-Admin-Api-Key";
         private Jwt jwt = new Jwt();
     }
 

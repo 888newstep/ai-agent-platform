@@ -4,12 +4,14 @@ import com.aiagent.cache.SemanticCacheService;
 import com.aiagent.config.AiProperties;
 import com.aiagent.document.DocumentChunk;
 import com.aiagent.memory.LongContextManager;
+import com.aiagent.metrics.PlatformMetricsService;
 import com.aiagent.retrieval.MultiRecallService;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.model.input.PromptTemplate;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.TokenStream;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,11 +22,18 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiAgentService {
+
+    private static final String PROMPT_TEMPLATE =
+            "You are an intelligent AI assistant. Answer the user based on the following information.\n\n"
+                    + "Context information (if any):\n{{context}}\n\n"
+                    + "User question: {{question}}\n\n"
+                    + "Please answer in Chinese.";
 
     private final ChatLanguageModel chatLanguageModel;
     private final StreamingChatLanguageModel streamingChatLanguageModel;
@@ -33,113 +42,87 @@ public class AiAgentService {
     private final SemanticCacheService semanticCacheService;
     private final MultiRecallService multiRecallService;
     private final LongContextManager longContextManager;
+    private final PlatformMetricsService metricsService;
 
-    private static final String PROMPT_TEMPLATE = """
-            你是一个智能AI助手，请根据以下信息回答用户问题。
-            
-            上下文信息（如果有）：
-            {{context}}
-            
-            用户问题：{{question}}
-            
-            请用中文回答。
-            """;
-
-    /**
-     * 普通聊天（非 ReAct 模式）
-     * 使用长上下文管理：滑动窗口 + 摘要压缩 + 历史检索（Q174）
-     */
     public String chat(String sessionId, String question, boolean useRag) {
-        // 1. 尝试语义缓存
-        String cached = semanticCacheService.getIfCached(question);
-        if (cached != null) {
+        Timer.Sample sample = metricsService.startSample();
+        boolean cacheHit = false;
+        boolean success = false;
+
+        try {
+            String cached = semanticCacheService.getIfCached(question);
+            if (cached != null) {
+                cacheHit = true;
+                longContextManager.saveMessageAndMaybeSummarize(sessionId, "user", question);
+                longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", cached);
+                success = true;
+                return cached;
+            }
+
+            String context = useRag ? buildContextFromMultiRecall(question) : "";
+            String optimizedHistory = longContextManager.getOptimizedContext(sessionId, question);
+            String fullPrompt = buildPrompt(optimizedHistory, context, question);
+            String response = chatLanguageModel.generate(fullPrompt);
+
+            semanticCacheService.put(question, response);
             longContextManager.saveMessageAndMaybeSummarize(sessionId, "user", question);
-            longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", cached);
-            return cached;
+            longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", response);
+            success = true;
+            return response;
+        } finally {
+            metricsService.recordChat("normal", useRag, cacheHit, success, sample);
         }
-
-        // 2. 构建上下文（RAG 多路召回）
-        String context = "";
-        if (useRag) {
-            context = buildContextFromMultiRecall(question);
-        }
-
-        // 3. 获取长上下文优化后的历史（滑动窗口 + 摘要检索）
-        String optimizedHistory = longContextManager.getOptimizedContext(sessionId, question);
-        String fullPrompt = buildPrompt(optimizedHistory, context, question);
-        String response = chatLanguageModel.generate(fullPrompt);
-
-        // 4. 写入语义缓存
-        semanticCacheService.put(question, response);
-
-        // 5. 保存会话（长上下文管理）
-        longContextManager.saveMessageAndMaybeSummarize(sessionId, "user", question);
-        longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", response);
-
-        return response;
     }
 
-    /**
-     * ReAct 模式聊天（推理 + 工具调用循环）
-     * 使用长上下文管理：滑动窗口 + 摘要压缩 + 历史检索（Q174）
-     */
     public String reactChat(String sessionId, String question, boolean useRag) {
-        // 1. 尝试语义缓存
-        String cached = semanticCacheService.getIfCached(question);
-        if (cached != null) {
+        Timer.Sample sample = metricsService.startSample();
+        boolean cacheHit = false;
+        boolean success = false;
+
+        try {
+            String cached = semanticCacheService.getIfCached(question);
+            if (cached != null) {
+                cacheHit = true;
+                longContextManager.saveMessageAndMaybeSummarize(sessionId, "user", question);
+                longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", cached);
+                success = true;
+                return cached;
+            }
+
+            String context = useRag ? buildContextFromMultiRecall(question) : "";
+            String optimizedHistory = longContextManager.getOptimizedContext(sessionId, question);
+            String response = reActAgent.execute(question, context, optimizedHistory);
+
+            semanticCacheService.put(question, response);
             longContextManager.saveMessageAndMaybeSummarize(sessionId, "user", question);
-            longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", cached);
-            return cached;
+            longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", response);
+            success = true;
+            return response;
+        } finally {
+            metricsService.recordChat("react", useRag, cacheHit, success, sample);
         }
-
-        // 2. 构建上下文
-        String context = "";
-        if (useRag) {
-            context = buildContextFromMultiRecall(question);
-        }
-
-        // 3. 获取长上下文优化后的历史（滑动窗口 + 摘要检索）
-        String optimizedHistory = longContextManager.getOptimizedContext(sessionId, question);
-        String response = reActAgent.execute(question, context, optimizedHistory);
-
-        // 4. 写入语义缓存
-        semanticCacheService.put(question, response);
-
-        // 5. 保存会话（长上下文管理）
-        longContextManager.saveMessageAndMaybeSummarize(sessionId, "user", question);
-        longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", response);
-
-        return response;
     }
 
-    /**
-     * 流式聊天
-     * 使用长上下文管理：滑动窗口 + 摘要压缩 + 历史检索（Q174）
-     */
     public Flux<String> streamChat(String sessionId, String question, boolean useRag) {
         Sinks.Many<String> sink = Sinks.many().unicast().onBackpressureBuffer();
+        Timer.Sample sample = metricsService.startSample();
 
-        // 1. 尝试语义缓存
         String cached = semanticCacheService.getIfCached(question);
         if (cached != null) {
             longContextManager.saveMessageAndMaybeSummarize(sessionId, "user", question);
             longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", cached);
             sink.tryEmitNext(cached);
             sink.tryEmitComplete();
+            metricsService.recordChat("stream", useRag, true, true, sample);
             return sink.asFlux();
         }
 
-        // 2. 构建上下文（使用多路召回）
-        String context = "";
-        if (useRag) {
-            context = buildContextFromMultiRecall(question);
-        }
-
-        // 3. 获取长上下文优化后的历史（滑动窗口 + 摘要检索）
+        String context = useRag ? buildContextFromMultiRecall(question) : "";
         String optimizedHistory = longContextManager.getOptimizedContext(sessionId, question);
         String fullPrompt = buildPrompt(optimizedHistory, context, question);
 
         StringBuilder responseBuilder = new StringBuilder();
+        AtomicBoolean metricsRecorded = new AtomicBoolean(false);
 
         TokenStream tokenStream = AiServices.builder(Assistant.class)
                 .streamingChatLanguageModel(streamingChatLanguageModel)
@@ -152,15 +135,19 @@ public class AiAgentService {
                     responseBuilder.append(token);
                 })
                 .onComplete(response -> {
-                    // 写入语义缓存
                     semanticCacheService.put(question, responseBuilder.toString());
-                    // 保存会话（长上下文管理）
                     longContextManager.saveMessageAndMaybeSummarize(sessionId, "user", question);
                     longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", responseBuilder.toString());
+                    if (metricsRecorded.compareAndSet(false, true)) {
+                        metricsService.recordChat("stream", useRag, false, true, sample);
+                    }
                     sink.tryEmitComplete();
                 })
                 .onError(error -> {
                     log.error("Streaming chat error", error);
+                    if (metricsRecorded.compareAndSet(false, true)) {
+                        metricsService.recordChat("stream", useRag, false, false, sample);
+                    }
                     sink.tryEmitError(error);
                 })
                 .start();
@@ -172,18 +159,15 @@ public class AiAgentService {
 
     public String createSession() {
         String sessionId = UUID.randomUUID().toString();
-        log.info("创建新会话: sessionId={}", sessionId);
+        log.info("Create session: {}", sessionId);
         return sessionId;
     }
 
     public void clearSession(String sessionId) {
         longContextManager.clearSession(sessionId);
-        log.info("清除会话: sessionId={}", sessionId);
+        log.info("Clear session: {}", sessionId);
     }
 
-    /**
-     * 使用多路召回构建上下文
-     */
     private String buildContextFromMultiRecall(String question) {
         AiProperties.Rag ragConfig = aiProperties.getRag();
         List<DocumentChunk> chunks = multiRecallService.search(question, ragConfig.getTopK());
@@ -195,7 +179,7 @@ public class AiAgentService {
             return "";
         }
         StringBuilder sb = new StringBuilder();
-        sb.append("以下是相关参考信息：\n");
+        sb.append("Relevant reference information:\n");
         for (int i = 0; i < chunks.size(); i++) {
             DocumentChunk chunk = chunks.get(i);
             sb.append("[").append(i + 1).append("] ").append(chunk.getContent()).append("\n");
@@ -209,9 +193,8 @@ public class AiAgentService {
         variables.put("question", question);
 
         String basePrompt = PromptTemplate.from(PROMPT_TEMPLATE).apply(variables).text();
-
         if (!history.isEmpty()) {
-            return "对话历史：\n" + history + "\n\n" + basePrompt;
+            return "Conversation history:\n" + history + "\n\n" + basePrompt;
         }
         return basePrompt;
     }

@@ -3,407 +3,896 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Agent Platform - 管理后台</title>
-    <!-- Element Plus 样式 -->
+    <title>AI Agent Platform - ????</title>
     <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; }
-        
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #303133;
+        }
         .app-header {
+            height: 64px;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             background: linear-gradient(135deg, #409eff, #337ecc);
             color: #fff;
-            padding: 16px 24px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+        }
+        .app-header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .subtitle {
+            margin-left: 12px;
+            font-size: 13px;
+            opacity: 0.88;
+        }
+        .header-left,
+        .header-right {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            gap: 12px;
         }
-        .app-header h1 { font-size: 20px; font-weight: 600; }
-        .app-header .subtitle { font-size: 13px; opacity: 0.85; margin-left: 12px; }
-        .header-status { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-        .status-dot.up { background: #67c23a; }
-        .status-dot.down { background: #f56c6c; }
-        
-        .app-container { display: flex; height: calc(100vh - 60px); }
-        
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.14);
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #67c23a;
+        }
+        .status-dot.down {
+            background: #f56c6c;
+        }
+        .layout {
+            display: flex;
+            min-height: calc(100vh - 64px);
+        }
         .sidebar {
-            width: 220px; background: #fff; border-right: 1px solid #e4e7ed;
-            padding: 16px 0; flex-shrink: 0;
+            width: 260px;
+            background: #fff;
+            border-right: 1px solid #e4e7ed;
+            padding: 16px;
         }
-        .sidebar .el-menu { border-right: none; }
-        
-        .main-content { flex: 1; padding: 20px; overflow-y: auto; }
-        
-        .chat-container {
-            display: flex; flex-direction: column; height: 100%;
-            max-width: 900px; margin: 0 auto;
+        .sidebar-card {
+            margin-bottom: 16px;
+            border: 1px solid #ebeef5;
+            border-radius: 12px;
+            padding: 14px;
+            background: #fafafa;
         }
-        .chat-messages {
-            flex: 1; overflow-y: auto; padding: 16px;
-            background: #fafafa; border-radius: 8px; margin-bottom: 16px;
+        .sidebar-card-title {
+            font-size: 13px;
+            color: #606266;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .main {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .panel {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.06);
+            padding: 20px;
+        }
+        .panel + .panel {
+            margin-top: 16px;
+        }
+        .panel-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .panel-title h2,
+        .panel-title h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+        .chat-shell {
+            display: grid;
+            grid-template-rows: 1fr auto;
+            gap: 16px;
+            min-height: 540px;
+        }
+        .chat-box {
+            background: #f8fafc;
+            border: 1px solid #ebeef5;
+            border-radius: 12px;
+            padding: 16px;
+            overflow-y: auto;
         }
         .message {
-            margin-bottom: 16px; display: flex; flex-direction: column;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 14px;
         }
         .message.user { align-items: flex-end; }
         .message.assistant { align-items: flex-start; }
         .message.system { align-items: center; }
-        .message.system .msg-bubble {
-            background: #f0f9eb; color: #67c23a; font-size: 12px; padding: 4px 12px;
+        .message-label {
+            font-size: 12px;
+            color: #909399;
+            margin-bottom: 4px;
         }
-        .msg-bubble {
-            max-width: 80%; padding: 10px 14px; border-radius: 8px;
-            font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+        .bubble {
+            max-width: 84%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            line-height: 1.6;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-word;
         }
-        .message.user .msg-bubble { background: #409eff; color: #fff; border-radius: 8px 8px 0 8px; }
-        .message.assistant .msg-bubble { background: #fff; color: #303133; border: 1px solid #e4e7ed; border-radius: 8px 8px 8px 0; }
-        .msg-label { font-size: 12px; color: #909399; margin-bottom: 4px; }
-        
-        .chat-input-area { display: flex; gap: 8px; align-items: flex-start; }
-        .chat-input-area .el-textarea { flex: 1; }
-        .chat-mode-select { width: 140px; }
-        
-        .empty-state {
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center; height: 100%; color: #c0c4cc;
+        .message.user .bubble {
+            color: #fff;
+            background: #409eff;
+            border-bottom-right-radius: 4px;
         }
-        .empty-state .el-icon { font-size: 48px; margin-bottom: 12px; }
-        
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
-        .stat-card { text-align: center; padding: 20px; }
-        .stat-card .stat-value { font-size: 28px; font-weight: 700; color: #409eff; }
-        .stat-card .stat-label { font-size: 13px; color: #909399; margin-top: 4px; }
-        
-        .upload-area { border: 2px dashed #dcdfe6; border-radius: 8px; padding: 40px; text-align: center; }
-        
-        @media (max-width: 768px) {
+        .message.assistant .bubble {
+            color: #303133;
+            background: #fff;
+            border: 1px solid #e4e7ed;
+            border-bottom-left-radius: 4px;
+        }
+        .message.system .bubble {
+            background: #f0f9eb;
+            color: #67c23a;
+            font-size: 12px;
+            padding: 6px 12px;
+        }
+        .chat-actions {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .stat-card {
+            border: 1px solid #ebeef5;
+            border-radius: 12px;
+            padding: 16px;
+            background: #fff;
+        }
+        .stat-label {
+            font-size: 13px;
+            color: #909399;
+            margin-bottom: 8px;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #409eff;
+        }
+        .stat-sub {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #909399;
+        }
+        .doc-layout {
+            display: grid;
+            grid-template-columns: minmax(320px, 420px) 1fr;
+            gap: 16px;
+        }
+        .search-result {
+            border: 1px solid #ebeef5;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #fafafa;
+        }
+        .muted {
+            color: #909399;
+            font-size: 13px;
+        }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .metrics-link {
+            font-size: 13px;
+        }
+        @media (max-width: 1100px) {
+            .doc-layout { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 840px) {
             .sidebar { display: none; }
-            .app-header .subtitle { display: none; }
+            .main { padding: 12px; }
+            .app-header { padding: 0 16px; }
+            .subtitle { display: none; }
         }
     </style>
 </head>
 <body>
-    <div id="app">
-        <!-- 顶部导航 -->
-        <header class="app-header">
-            <div style="display:flex;align-items:center;">
-                <h1>AI Agent Platform</h1>
-                <span class="subtitle">v1.0.0 · 管理后台</span>
-            </div>
-            <div class="header-status">
-                <span class="status-dot" :class="healthStatus === 'UP' ? 'up' : 'down'"></span>
-                <span>{{ healthStatus === 'UP' ? '服务正常' : '服务异常' }}</span>
-            </div>
-        </header>
-
-        <div class="app-container">
-            <!-- 侧边栏 -->
-            <aside class="sidebar">
-                <el-menu :default-active="activeMenu" @select="handleMenuSelect">
-                    <el-menu-item index="chat">
-                        <el-icon><ChatDotRound /></el-icon>
-                        <span>AI 对话</span>
-                    </el-menu-item>
-                    <el-menu-item index="documents">
-                        <el-icon><FolderOpened /></el-icon>
-                        <span>文档管理</span>
-                    </el-menu-item>
-                    <el-menu-item index="cache">
-                        <el-icon><Delete /></el-icon>
-                        <span>缓存管理</span>
-                    </el-menu-item>
-                    <el-menu-item index="about">
-                        <el-icon><InfoFilled /></el-icon>
-                        <span>关于项目</span>
-                    </el-menu-item>
-                </el-menu>
-            </aside>
-
-            <!-- 主内容 -->
-            <main class="main-content">
-                <!-- AI 对话 -->
-                <div v-show="activeMenu === 'chat'" class="chat-container">
-                    <div class="chat-messages" ref="chatBox">
-                        <div v-if="messages.length === 0" class="empty-state">
-                            <el-icon size="48"><ChatLineSquare /></el-icon>
-                            <p>开始对话，或选择下方模式切换</p>
-                            <p style="font-size:12px;margin-top:8px;">
-                                普通模式 - 简单问答 | ReAct 模式 - 推理+工具 | Multi-Agent - 多智能体协作
-                            </p>
-                        </div>
-                        <div v-for="(msg, i) in messages" :key="i" :class="['message', msg.role]">
-                            <span class="msg-label">{{ msg.role === 'user' ? '我' : msg.role === 'assistant' ? 'AI' : '系统' }}</span>
-                            <div class="msg-bubble">{{ msg.content }}</div>
-                        </div>
-                        <div v-if="loading" class="message assistant">
-                            <span class="msg-label">AI</span>
-                            <div class="msg-bubble">
-                                <span class="loading-dots">思考中<span>.</span><span>.</span><span>.</span></span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="chat-input-area">
-                        <el-select v-model="chatMode" class="chat-mode-select" placeholder="对话模式">
-                            <el-option label="普通模式" value="normal" />
-                            <el-option label="ReAct 模式" value="react" />
-                            <el-option label="Multi-Agent" value="multi-agent" />
-                        </el-select>
-                        <el-input
-                            v-model="question"
-                            type="textarea"
-                            :rows="2"
-                            placeholder="输入您的问题..."
-                            @keydown.enter.prevent="sendMessage"
-                            :disabled="!sessionId"
-                        />
-                        <el-button type="primary" @click="sendMessage" :loading="loading" :disabled="!sessionId">
-                            发送
-                        </el-button>
-                    </div>
-                    <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
-                        <el-button size="small" @click="createSession" :disabled="loading">
-                            {{ sessionId ? '刷新会话' : '创建会话' }}
-                        </el-button>
-                        <span v-if="sessionId" style="font-size:12px;color:#909399;">
-                            会话ID: {{ sessionId.substring(0, 8) }}...
-                        </span>
-                    </div>
-                </div>
-
-                <!-- 文档管理 -->
-                <div v-show="activeMenu === 'documents'">
-                    <h2 style="margin-bottom:16px;">文档管理</h2>
-                    <div class="upload-area">
-                        <el-upload
-                            :http-request="uploadDocument"
-                            :show-file-list="false"
-                            accept=".pdf,.docx,.doc,.md,.txt"
-                        >
-                            <el-icon size="32" style="color:#409eff;"><Upload /></el-icon>
-                            <p style="margin-top:8px;color:#606266;">拖拽或点击上传文档</p>
-                            <p style="font-size:12px;color:#909399;margin-top:4px;">支持 PDF / Word / Markdown / TXT</p>
-                        </el-upload>
-                    </div>
-                    <div style="margin-top:20px;">
-                        <el-input v-model="searchQuery" placeholder="输入关键词搜索文档..." style="width:400px;margin-right:8px;" />
-                        <el-button type="primary" @click="searchDocuments" :loading="searchLoading">搜索</el-button>
-                    </div>
-                    <div v-if="searchResults.length > 0" style="margin-top:16px;">
-                        <h3>搜索结果 ({{ searchResults.length }} 条)</h3>
-                        <el-card v-for="(doc, i) in searchResults" :key="i" style="margin-top:8px;">
-                            <p style="font-size:13px;color:#606266;white-space:pre-wrap;">{{ doc.content }}</p>
-                            <p style="font-size:12px;color:#909399;margin-top:4px;">相似度: {{ (doc.score * 100).toFixed(1) }}%</p>
-                        </el-card>
-                    </div>
-                </div>
-
-                <!-- 缓存管理 -->
-                <div v-show="activeMenu === 'cache'">
-                    <h2 style="margin-bottom:16px;">缓存管理</h2>
-                    <div class="stats-grid">
-                        <el-card class="stat-card" shadow="hover">
-                            <div class="stat-value">{{ stats.sseConnections }}</div>
-                            <div class="stat-label">活跃 SSE 连接</div>
-                        </el-card>
-                        <el-card class="stat-card" shadow="hover">
-                            <div class="stat-value">{{ stats.sessionCount }}</div>
-                            <div class="stat-label">活跃会话数</div>
-                        </el-card>
-                        <el-card class="stat-card" shadow="hover">
-                            <div class="stat-value">{{ stats.modelProvider }}</div>
-                            <div class="stat-label">当前模型</div>
-                        </el-card>
-                    </div>
-                    <el-button type="danger" @click="clearCache" :loading="cacheLoading">
-                        清空语义缓存
-                    </el-button>
-                </div>
-
-                <!-- 关于 -->
-                <div v-show="activeMenu === 'about'">
-                    <h2 style="margin-bottom:16px;">关于项目</h2>
-                    <el-card>
-                        <h3>AI Agent Platform</h3>
-                        <p style="margin-top:8px;color:#606266;">
-                            基于 Spring Boot 3 + LangChain4j 构建的企业级 AI Agent 平台。
-                        </p>
-                        <el-divider />
-                        <h4>核心特性</h4>
-                        <ul style="margin-top:8px;padding-left:20px;color:#606266;line-height:2;">
-                            <li>ReAct Agent 推理循环（Thought → Action → Observation → Final Answer）</li>
-                            <li>多路召回 RAG（向量检索 + BM25 关键词 + RRF 融合）</li>
-                            <li>语义缓存（降低 API 调用成本）</li>
-                            <li>多模型动态切换（策略模式）</li>
-                            <li>Multi-Agent 协作（Supervisor + Worker 并行执行）</li>
-                            <li>SSE 流式输出（心跳机制保持连接稳定）</li>
-                            <li>Docker 一键部署（4 服务编排）</li>
-                        </ul>
-                        <el-divider />
-                        <h4>技术栈</h4>
-                        <p style="margin-top:8px;color:#606266;">
-                            Spring Boot 3.5 · LangChain4j 0.34 · Java 17 · MySQL 8 · Redis 7 · Milvus 2.4 · Docker
-                        </p>
-                    </el-card>
-                </div>
-            </main>
+<div id="app">
+    <header class="app-header">
+        <div class="header-left">
+            <h1>AI Agent Platform</h1>
+            <span class="subtitle">v1.0.0 ? ????</span>
         </div>
+        <div class="header-right">
+            <span class="status-chip">
+                <span class="status-dot" :class="healthStatus === 'UP' ? '' : 'down'"></span>
+                <span>{{ healthStatus === 'UP' ? '????' : '????' }}</span>
+            </span>
+            <el-button size="small" plain @click="refreshAll">??</el-button>
+        </div>
+    </header>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar-card">
+                <div class="sidebar-card-title">????</div>
+                <el-input
+                    v-model="adminApiKey"
+                    type="password"
+                    show-password
+                    placeholder="?? ADMIN_API_KEY"
+                    @change="persistAdminApiKey"
+                />
+                <div class="muted" style="margin-top:8px;">?????????????????????????</div>
+            </div>
+
+            <el-menu :default-active="activeMenu" @select="handleMenuSelect">
+                <el-menu-item index="chat">
+                    <el-icon><ChatDotRound /></el-icon>
+                    <span>AI ??</span>
+                </el-menu-item>
+                <el-menu-item index="documents">
+                    <el-icon><DocumentAdd /></el-icon>
+                    <span>?????</span>
+                </el-menu-item>
+                <el-menu-item index="metrics">
+                    <el-icon><DataAnalysis /></el-icon>
+                    <span>????</span>
+                </el-menu-item>
+            </el-menu>
+        </aside>
+
+        <main class="main">
+            <section v-show="activeMenu === 'chat'" class="panel">
+                <div class="panel-title">
+                    <h2>AI ????</h2>
+                    <div class="toolbar">
+                        <el-tag type="info">Session: {{ sessionId || '-' }}</el-tag>
+                        <el-button size="small" @click="createSession">????</el-button>
+                    </div>
+                </div>
+
+                <div class="chat-shell">
+                    <div ref="chatBox" class="chat-box">
+                        <template v-if="messages.length">
+                            <div v-for="(message, index) in messages" :key="index" class="message" :class="message.role">
+                                <div class="message-label">{{ message.label }}</div>
+                                <div class="bubble">{{ message.content }}</div>
+                            </div>
+                        </template>
+                        <el-empty v-else description="?????????"></el-empty>
+                    </div>
+
+                    <div>
+                        <div class="toolbar" style="margin-bottom:12px;">
+                            <el-select v-model="chatMode" style="width: 180px;">
+                                <el-option label="????" value="normal" />
+                                <el-option label="ReAct ??" value="react" />
+                                <el-option label="Multi-Agent" value="multi-agent" />
+                            </el-select>
+                            <el-switch v-model="useRag" active-text="?? RAG" />
+                        </div>
+                        <div class="chat-actions">
+                            <el-input
+                                v-model="question"
+                                type="textarea"
+                                :rows="4"
+                                resize="none"
+                                placeholder="?????Enter ???Shift+Enter ??"
+                                @keydown.enter.prevent="handleChatEnter"
+                            />
+                            <el-button type="primary" :loading="loading" @click="sendMessage">??</el-button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section v-show="activeMenu === 'documents'" class="panel">
+                <div class="panel-title">
+                    <h2>????????</h2>
+                    <div class="toolbar">
+                        <el-button size="small" @click="refreshDocumentStatuses">????</el-button>
+                        <el-button size="small" type="warning" :loading="cacheLoading" @click="clearCache">??????</el-button>
+                    </div>
+                </div>
+
+                <div class="doc-layout">
+                    <div>
+                        <div class="panel" style="padding:16px; margin-top:0;">
+                            <div class="panel-title">
+                                <h3>????</h3>
+                            </div>
+                            <el-upload
+                                drag
+                                :show-file-list="false"
+                                :http-request="uploadDocument"
+                                accept=".pdf,.doc,.docx,.md,.txt"
+                            >
+                                <el-icon style="font-size:32px;color:#409eff;"><UploadFilled /></el-icon>
+                                <div class="el-upload__text">????????? <em>????</em></div>
+                                <template #tip>
+                                    <div class="el-upload__tip">??????????????????????</div>
+                                </template>
+                            </el-upload>
+                        </div>
+
+                        <div class="panel" style="padding:16px; margin-top:16px;">
+                            <div class="panel-title">
+                                <h3>?????</h3>
+                            </div>
+                            <div class="toolbar" style="margin-bottom:12px;">
+                                <el-input v-model="searchQuery" placeholder="??????" @keyup.enter="searchDocuments" />
+                                <el-button type="primary" :loading="searchLoading" @click="searchDocuments">??</el-button>
+                            </div>
+                            <div v-if="searchResults.length">
+                                <div v-for="(item, index) in searchResults" :key="index" class="search-result">
+                                    <div><strong>#{{ index + 1 }}</strong> ? score: {{ formatScore(item.score) }}</div>
+                                    <div style="margin-top:8px; line-height:1.7; white-space:pre-wrap;">{{ item.content }}</div>
+                                </div>
+                            </div>
+                            <el-empty v-else description="??????"></el-empty>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="panel" style="padding:16px; margin-top:0;">
+                            <div class="panel-title">
+                                <h3>????</h3>
+                                <span class="muted">?????????</span>
+                            </div>
+                            <el-table :data="uploadJobs" border stripe empty-text="??????">
+                                <el-table-column prop="documentId" label="?? ID" width="92" />
+                                <el-table-column prop="fileName" label="???" min-width="180" show-overflow-tooltip />
+                                <el-table-column label="??" width="120">
+                                    <template #default="scope">
+                                        <el-tag :type="statusTagType(scope.row.status)">{{ scope.row.status || '-' }}</el-tag>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="chunkCount" label="Chunks" width="90" />
+                                <el-table-column label="????" min-width="168">
+                                    <template #default="scope">{{ formatDateTime(scope.row.updatedAt || scope.row.processingCompletedAt || scope.row.processingStartedAt) }}</template>
+                                </el-table-column>
+                                <el-table-column label="????" min-width="180" show-overflow-tooltip>
+                                    <template #default="scope">{{ scope.row.errorMessage || '-' }}</template>
+                                </el-table-column>
+                            </el-table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section v-show="activeMenu === 'metrics'" class="panel">
+                <div class="panel-title">
+                    <h2>Metrics & RAG Evaluation</h2>
+                    <div class="toolbar">
+                        <el-button size="small" @click="loadMetrics">Refresh Metrics</el-button>
+                        <a class="metrics-link" href="/actuator/prometheus" target="_blank">Open Prometheus Export</a>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card" v-for="item in metricCards" :key="item.key">
+                        <div class="stat-label">{{ item.label }}</div>
+                        <div class="stat-value">{{ item.value }}</div>
+                        <div class="stat-sub">{{ item.subtext }}</div>
+                    </div>
+                </div>
+
+                <div class="panel" style="padding:16px; margin-top:0;">
+                    <div class="panel-title">
+                        <h3>Run RAG Evaluation</h3>
+                        <span class="muted">Protected by ADMIN_API_KEY</span>
+                    </div>
+                    <div class="toolbar" style="margin-bottom:12px;">
+                        <el-input v-model="ragEvalTopKs" placeholder="TopKs, e.g. 1,3,5,10" style="max-width: 220px;" />
+                        <el-button type="primary" :loading="ragEvalLoading" @click="runRagEvaluation">Run Evaluation</el-button>
+                    </div>
+                    <el-input
+                        v-model="ragEvalSummary"
+                        type="textarea"
+                        :rows="8"
+                        readonly
+                        placeholder="Evaluation summary will appear here"
+                    />
+                    <el-table v-if="ragEvalRows.length" :data="ragEvalRows" border stripe style="margin-top:16px;">
+                        <el-table-column prop="topK" label="TopK" width="90" />
+                        <el-table-column prop="recall" label="Recall" width="120" />
+                        <el-table-column prop="precision" label="Precision" width="120" />
+                        <el-table-column prop="f1" label="F1" width="120" />
+                        <el-table-column prop="avgLatency" label="Avg Latency(ms)" width="150" />
+                        <el-table-column prop="p99Latency" label="P99 Latency(ms)" width="150" />
+                    </el-table>
+                </div>
+
+                <div class="panel" style="padding:16px; margin-top:16px;">
+                    <div class="panel-title">
+                        <h3>Raw Metrics</h3>
+                    </div>
+                    <el-table :data="metricRows" border stripe>
+                        <el-table-column prop="name" label="Metric" min-width="240" />
+                        <el-table-column prop="value" label="Value" width="140" />
+                        <el-table-column prop="baseUnit" label="Unit" width="120" />
+                        <el-table-column prop="description" label="Description" min-width="260" />
+                    </el-table>
+                </div>
+            </section>
+        </main>
     </div>
+</div>
 
-    <!-- Vue 3 + Element Plus CDN -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <script src="https://unpkg.com/element-plus"></script>
-    <script>
-        const { createApp, ref, nextTick, onMounted } = Vue;
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://unpkg.com/element-plus/dist/index.full.min.js"></script>
+<script src="https://unpkg.com/@element-plus/icons-vue"></script>
+<script>
+    const { createApp, ref, computed, onMounted, onBeforeUnmount, nextTick } = Vue;
+    const API_BASE = '/api/v1/agent';
+    const ADMIN_KEY_STORAGE = 'ai-agent-admin-api-key';
+    const DOCUMENT_IDS_STORAGE = 'ai-agent-document-ids';
+    const ADMIN_HEADER = 'X-Admin-Api-Key';
 
-        const app = createApp({
-            setup() {
-                const activeMenu = ref('chat');
-                const sessionId = ref('');
-                const question = ref('');
-                const messages = ref([]);
-                const loading = ref(false);
-                const chatMode = ref('normal');
-                const healthStatus = ref('UNKNOWN');
-                const searchQuery = ref('');
-                const searchResults = ref([]);
-                const searchLoading = ref(false);
-                const cacheLoading = ref(false);
-                const stats = ref({ sseConnections: 0, sessionCount: 0, modelProvider: '-' });
-                const chatBox = ref(null);
+    createApp({
+        setup() {
+            const activeMenu = ref('chat');
+            const healthStatus = ref('DOWN');
+            const adminApiKey = ref(localStorage.getItem(ADMIN_KEY_STORAGE) || '');
+            const sessionId = ref('');
+            const question = ref('');
+            const useRag = ref(true);
+            const chatMode = ref('normal');
+            const loading = ref(false);
+            const messages = ref([]);
+            const chatBox = ref(null);
 
-                const API_BASE = '/api/v1/agent';
+            const searchQuery = ref('');
+            const searchResults = ref([]);
+            const searchLoading = ref(false);
+            const cacheLoading = ref(false);
+            const uploadJobs = ref([]);
+            const metricRows = ref([]);
+            const ragEvalTopKs = ref('1,3,5,10');
+            const ragEvalLoading = ref(false);
+            const ragEvalSummary = ref('');
+            const ragEvalMetrics = ref({});
 
-                // 创建会话
-                const createSession = async () => {
-                    try {
-                        const res = await fetch(`${API_BASE}/session`, { method: 'POST' });
-                        const data = await res.json();
-                        sessionId.value = data.sessionId;
-                        messages.value = [];
-                        messages.value.push({ role: 'system', content: '新会话已创建' });
-                    } catch (e) {
-                        messages.value.push({ role: 'system', content: '创建会话失败: ' + e.message });
+            let healthTimer = null;
+            let documentTimer = null;
+
+            const metricCards = computed(() => {
+                const map = Object.fromEntries(metricRows.value.map(item => [item.name, item]));
+                return [
+                    {
+                        key: 'chat',
+                        label: '??????',
+                        value: map['ai.chat.requests.total']?.value ?? '-',
+                        subtext: '?????ReAct?????'
+                    },
+                    {
+                        key: 'rag',
+                        label: 'RAG ????',
+                        value: map['ai.rag.search.total']?.value ?? '-',
+                        subtext: '????????????'
+                    },
+                    {
+                        key: 'doc',
+                        label: '??????',
+                        value: map['ai.document.ingestion.total']?.value ?? '-',
+                        subtext: 'completed/failed ??????'
+                    },
+                    {
+                        key: 'chunks',
+                        label: '?? Chunk ??',
+                        value: map['ai.document.chunk.count']?.value ?? '-',
+                        subtext: '?????????????'
                     }
-                };
+                ];
+            });
 
-                // 发送消息
-                const sendMessage = async () => {
-                    if (!question.value.trim() || !sessionId.value) return;
-                    const q = question.value;
-                    messages.value.push({ role: 'user', content: q });
-                    question.value = '';
-                    loading.value = true;
+            const ragEvalRows = computed(() => {
+                return Object.entries(ragEvalMetrics.value || {}).map(([topK, metric]) => ({
+                    topK,
+                    recall: formatPercent(metric.recall),
+                    precision: formatPercent(metric.precision),
+                    f1: formatPercent(metric.f1),
+                    avgLatency: formatNumber(metric.avgLatency),
+                    p99Latency: formatNumber(metric.p99Latency)
+                }));
+            });
+
+            const persistAdminApiKey = () => {
+                localStorage.setItem(ADMIN_KEY_STORAGE, adminApiKey.value || '');
+            };
+
+            const getAuthHeaders = () => {
+                const headers = {};
+                if (adminApiKey.value) {
+                    headers[ADMIN_HEADER] = adminApiKey.value;
+                }
+                return headers;
+            };
+
+            const getStoredDocumentIds = () => {
+                try {
+                    return JSON.parse(localStorage.getItem(DOCUMENT_IDS_STORAGE) || '[]');
+                } catch {
+                    return [];
+                }
+            };
+
+            const setStoredDocumentIds = (ids) => {
+                localStorage.setItem(DOCUMENT_IDS_STORAGE, JSON.stringify(ids.slice(0, 20)));
+            };
+
+            const rememberDocumentId = (documentId) => {
+                const ids = getStoredDocumentIds();
+                const nextIds = [documentId, ...ids.filter(id => id !== documentId)];
+                setStoredDocumentIds(nextIds);
+            };
+
+            const appendMessage = (role, content) => {
+                const labelMap = { user: '??', assistant: '??', system: '??' };
+                messages.value.push({ role, content, label: labelMap[role] || role });
+            };
+
+            const scrollToBottom = async () => {
+                await nextTick();
+                if (chatBox.value) {
+                    chatBox.value.scrollTop = chatBox.value.scrollHeight;
+                }
+            };
+
+            const createSession = async () => {
+                try {
+                    const res = await fetch(`${API_BASE}/session`, { method: 'POST' });
+                    const data = await res.json();
+                    sessionId.value = data.sessionId || '';
+                    messages.value = [];
+                    appendMessage('system', `????? ${sessionId.value}`);
                     scrollToBottom();
+                } catch (error) {
+                    ElementPlus.ElMessage.error('??????: ' + error.message);
+                }
+            };
 
-                    try {
-                        let url;
-                        if (chatMode.value === 'react') {
-                            url = `${API_BASE}/react/chat?sessionId=${sessionId.value}&question=${encodeURIComponent(q)}&useRag=true`;
-                        } else if (chatMode.value === 'multi-agent') {
-                            url = `${API_BASE}/multi-agent/execute?task=${encodeURIComponent(q)}`;
-                        } else {
-                            url = `${API_BASE}/chat?sessionId=${sessionId.value}&question=${encodeURIComponent(q)}&useRag=true`;
-                        }
+            const handleChatEnter = (event) => {
+                if (event.shiftKey) return;
+                sendMessage();
+            };
 
-                        const res = await fetch(url, { method: 'POST' });
-                        const data = await res.json();
-                        messages.value.push({ role: 'assistant', content: data.answer || data.message || '无响应' });
-                    } catch (e) {
-                        messages.value.push({ role: 'system', content: '请求失败: ' + e.message });
+            const sendMessage = async () => {
+                const q = question.value.trim();
+                if (!q || !sessionId.value || loading.value) return;
+
+                appendMessage('user', q);
+                question.value = '';
+                loading.value = true;
+                await scrollToBottom();
+
+                try {
+                    let url = `${API_BASE}/chat?sessionId=${encodeURIComponent(sessionId.value)}&question=${encodeURIComponent(q)}&useRag=${useRag.value}`;
+                    let method = 'POST';
+
+                    if (chatMode.value === 'react') {
+                        url = `${API_BASE}/react/chat?sessionId=${encodeURIComponent(sessionId.value)}&question=${encodeURIComponent(q)}&useRag=${useRag.value}`;
+                    } else if (chatMode.value === 'multi-agent') {
+                        url = `${API_BASE}/multi-agent/execute?task=${encodeURIComponent(q)}`;
                     }
+
+                    const res = await fetch(url, { method, headers: getAuthHeaders() });
+                    const data = await res.json();
+                    appendMessage('assistant', data.answer || data.message || '?????');
+                } catch (error) {
+                    appendMessage('system', '????: ' + error.message);
+                } finally {
                     loading.value = false;
                     scrollToBottom();
-                };
+                }
+            };
 
-                // 上传文档
-                const uploadDocument = async (options) => {
-                    const formData = new FormData();
-                    formData.append('file', options.file);
-                    try {
-                        const res = await fetch(`${API_BASE}/document/upload`, { method: 'POST', body: formData });
-                        const data = await res.json();
-                        ElementPlus.ElMessage.success(data.message || '上传成功');
-                    } catch (e) {
-                        ElementPlus.ElMessage.error('上传失败: ' + e.message);
+            const uploadDocument = async (options) => {
+                const formData = new FormData();
+                formData.append('file', options.file);
+
+                try {
+                    const res = await fetch(`${API_BASE}/document/upload`, {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        throw new Error(data.message || data.error || '????');
                     }
-                };
-
-                // 搜索文档
-                const searchDocuments = async () => {
-                    if (!searchQuery.value.trim()) return;
-                    searchLoading.value = true;
-                    try {
-                        const res = await fetch(`${API_BASE}/document/search?query=${encodeURIComponent(searchQuery.value)}&topK=5&threshold=0.5`, { method: 'POST' });
-                        const data = await res.json();
-                        searchResults.value = data.results || [];
-                    } catch (e) {
-                        ElementPlus.ElMessage.error('搜索失败: ' + e.message);
+                    ElementPlus.ElMessage.success(data.message || '?????????');
+                    if (data.documentId) {
+                        rememberDocumentId(data.documentId);
+                        await fetchDocumentStatus(data.documentId);
                     }
-                    searchLoading.value = false;
-                };
-
-                // 清空缓存
-                const clearCache = async () => {
-                    cacheLoading.value = true;
-                    try {
-                        const res = await fetch(`${API_BASE}/cache`, { method: 'DELETE' });
-                        const data = await res.json();
-                        ElementPlus.ElMessage.success(data.message || '缓存已清空');
-                    } catch (e) {
-                        ElementPlus.ElMessage.error('清空失败: ' + e.message);
+                } catch (error) {
+                    ElementPlus.ElMessage.error('????: ' + error.message);
+                } finally {
+                    if (typeof options.onSuccess === 'function') {
+                        options.onSuccess({}, options.file);
                     }
-                    cacheLoading.value = false;
-                };
+                 }
+             };
 
-                // 健康检查
-                const checkHealth = async () => {
-                    try {
-                        const res = await fetch(`${API_BASE}/health`);
-                        const data = await res.json();
-                        healthStatus.value = data.status;
-                        stats.value.modelProvider = data.mode || '-';
-                    } catch (e) {
-                        healthStatus.value = 'DOWN';
-                    }
-                };
-
-                const scrollToBottom = async () => {
-                    await nextTick();
-                    if (chatBox.value) chatBox.value.scrollTop = chatBox.value.scrollHeight;
-                };
-
-                const handleMenuSelect = (index) => {
-                    activeMenu.value = index;
-                };
-
-                onMounted(() => {
-                    checkHealth();
-                    createSession();
-                    // 定期检查健康状态
-                    setInterval(checkHealth, 30000);
+            const fetchDocumentStatus = async (documentId) => {
+                const res = await fetch(`${API_BASE}/document/${documentId}/status`, {
+                    headers: getAuthHeaders()
                 });
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.message || data.error || '??????');
+                }
 
+                const existingIndex = uploadJobs.value.findIndex(item => item.documentId === data.documentId);
+                if (existingIndex >= 0) {
+                    uploadJobs.value.splice(existingIndex, 1, data);
+                } else {
+                    uploadJobs.value.unshift(data);
+                }
+                uploadJobs.value = uploadJobs.value.slice(0, 20);
+                return data;
+            };
+
+            const refreshDocumentStatuses = async () => {
+                const ids = getStoredDocumentIds();
+                if (!ids.length) return;
+                const tasks = ids.map(id => fetchDocumentStatus(id).catch(() => null));
+                await Promise.all(tasks);
+            };
+
+            const pollActiveDocumentStatuses = async () => {
+                const ids = getStoredDocumentIds();
+                const activeIds = uploadJobs.value
+                    .filter(item => ['PENDING', 'PROCESSING'].includes(item.status))
+                    .map(item => item.documentId);
+                const merged = [...new Set([...ids, ...activeIds])];
+                const tasks = merged.map(id => fetchDocumentStatus(id).catch(() => null));
+                await Promise.all(tasks);
+            };
+
+            const searchDocuments = async () => {
+                if (!searchQuery.value.trim()) return;
+                searchLoading.value = true;
+                try {
+                    const res = await fetch(`${API_BASE}/document/search?query=${encodeURIComponent(searchQuery.value)}&topK=5&threshold=0.5`, {
+                        method: 'POST'
+                    });
+                    const data = await res.json();
+                    searchResults.value = data.results || [];
+                } catch (error) {
+                    ElementPlus.ElMessage.error('????: ' + error.message);
+                } finally {
+                    searchLoading.value = false;
+                }
+            };
+
+            const clearCache = async () => {
+                cacheLoading.value = true;
+                try {
+                    const res = await fetch(`${API_BASE}/cache`, {
+                        method: 'DELETE',
+                        headers: getAuthHeaders()
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        throw new Error(data.message || data.error || '????');
+                    }
+                    ElementPlus.ElMessage.success(data.message || '?????');
+                } catch (error) {
+                    ElementPlus.ElMessage.error('????: ' + error.message);
+                } finally {
+                    cacheLoading.value = false;
+                }
+            };
+
+            const checkHealth = async () => {
+                try {
+                    const res = await fetch(`${API_BASE}/health`);
+                    const data = await res.json();
+                    healthStatus.value = data.status || 'DOWN';
+                } catch {
+                    healthStatus.value = 'DOWN';
+                }
+            };
+
+            const parseMetric = async (name) => {
+                const res = await fetch(`/actuator/metrics/${name}`);
+                if (!res.ok) {
+                    return { name, value: '-', baseUnit: '-', description: 'Metric unavailable' };
+                }
+                const data = await res.json();
+                const value = (data.measurements || []).reduce((sum, item) => sum + (Number(item.value) || 0), 0);
                 return {
-                    activeMenu, sessionId, question, messages, loading, chatMode,
-                    healthStatus, searchQuery, searchResults, searchLoading,
-                    cacheLoading, stats, chatBox,
-                    createSession, sendMessage, uploadDocument, searchDocuments,
-                    clearCache, handleMenuSelect, scrollToBottom
+                    name: data.name,
+                    value: Number.isFinite(value) ? formatNumber(value) : '-',
+                    baseUnit: data.baseUnit || '-',
+                    description: data.description || '-'
                 };
-            }
-        });
+            };
 
-        // 注册 Element Plus 图标
-        for (const [key, component] of Object.entries(ElementPlusIconsVue || {})) {
-            app.component(key, component);
+            const loadMetrics = async () => {
+                const metricNames = [
+                    'ai.chat.requests.total',
+                    'ai.chat.latency',
+                    'ai.rag.search.total',
+                    'ai.rag.search.latency',
+                    'ai.document.ingestion.total',
+                    'ai.document.ingestion.latency',
+                    'ai.document.chunk.count'
+                ];
+                const rows = await Promise.all(metricNames.map(parseMetric));
+                metricRows.value = rows;
+            };
+
+            const runRagEvaluation = async () => {
+                if (!adminApiKey.value) {
+                    ElementPlus.ElMessage.warning('Please enter ADMIN_API_KEY first');
+                    return;
+                }
+
+                ragEvalLoading.value = true;
+                try {
+                    const res = await fetch(`${API_BASE}/evaluate?topKs=${encodeURIComponent(ragEvalTopKs.value)}`, {
+                        method: 'POST',
+                        headers: getAuthHeaders()
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        throw new Error(data.message || data.error || 'Evaluation failed');
+                    }
+                    ragEvalSummary.value = data.summary || '';
+                    ragEvalMetrics.value = data.metrics || {};
+                    ElementPlus.ElMessage.success('RAG evaluation completed');
+                } catch (error) {
+                    ElementPlus.ElMessage.error('RAG evaluation failed: ' + error.message);
+                } finally {
+                    ragEvalLoading.value = false;
+                }
+            };
+
+            const refreshAll = async () => {
+                await Promise.all([
+                    checkHealth(),
+                    refreshDocumentStatuses(),
+                    loadMetrics()
+                ]);
+            };
+
+            const formatScore = (value) => {
+                if (value === undefined || value === null || Number.isNaN(Number(value))) return '-';
+                return Number(value).toFixed(4);
+            };
+
+            const formatNumber = (value) => {
+                if (!Number.isFinite(Number(value))) return '-';
+                const num = Number(value);
+                if (num >= 1000) return num.toFixed(0);
+                if (num >= 100) return num.toFixed(1);
+                return num.toFixed(2);
+            };
+
+            const formatPercent = (value) => {
+                if (!Number.isFinite(Number(value))) return '-';
+                return `${(Number(value) * 100).toFixed(2)}%`;
+            };
+
+            const formatDateTime = (value) => {
+                if (!value) return '-';
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) return value;
+                return date.toLocaleString();
+            };
+
+            const statusTagType = (status) => {
+                switch (status) {
+                    case 'COMPLETED': return 'success';
+                    case 'FAILED': return 'danger';
+                    case 'PROCESSING': return 'warning';
+                    default: return 'info';
+                }
+            };
+
+            const handleMenuSelect = (index) => {
+                activeMenu.value = index;
+                if (index === 'metrics') {
+                    loadMetrics();
+                    if (!ragEvalSummary.value) {
+                        ragEvalMetrics.value = {};
+                    }
+                }
+                if (index === 'documents') {
+                    refreshDocumentStatuses();
+                }
+            };
+
+            onMounted(async () => {
+                await checkHealth();
+                await createSession();
+                await refreshDocumentStatuses();
+                await loadMetrics();
+                healthTimer = setInterval(checkHealth, 30000);
+                documentTimer = setInterval(pollActiveDocumentStatuses, 5000);
+            });
+
+            onBeforeUnmount(() => {
+                if (healthTimer) clearInterval(healthTimer);
+                if (documentTimer) clearInterval(documentTimer);
+            });
+
+            return {
+                activeMenu,
+                adminApiKey,
+                cacheLoading,
+                chatBox,
+                chatMode,
+                clearCache,
+                createSession,
+                formatDateTime,
+                formatScore,
+                handleChatEnter,
+                handleMenuSelect,
+                healthStatus,
+                loadMetrics,
+                loading,
+                messages,
+                metricCards,
+                metricRows,
+                persistAdminApiKey,
+                ragEvalLoading,
+                ragEvalMetrics,
+                ragEvalRows,
+                ragEvalSummary,
+                ragEvalTopKs,
+                question,
+                refreshAll,
+                refreshDocumentStatuses,
+                runRagEvaluation,
+                searchDocuments,
+                searchLoading,
+                searchQuery,
+                searchResults,
+                sendMessage,
+                sessionId,
+                statusTagType,
+                uploadDocument,
+                uploadJobs,
+                useRag
+            };
         }
-
-        app.use(ElementPlus);
-        app.mount('#app');
-    </script>
-    <!-- Element Plus Icons -->
-    <script src="https://unpkg.com/@element-plus/icons-vue"></script>
+    })
+    .use(ElementPlus)
+    .mount('#app');
+</script>
 </body>
 </html>
