@@ -7,6 +7,8 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import dev.langchain4j.model.openai.OpenAiTokenizer;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.github.resilience4j.retry.RetryRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -20,6 +22,8 @@ import java.time.Duration;
 public class AiModelConfig {
 
     private final AiProperties aiProperties;
+    private final CircuitBreakerRegistry circuitBreakerRegistry;
+    private final RetryRegistry retryRegistry;
 
     @Bean
     public ChatLanguageModel chatLanguageModel() {
@@ -40,7 +44,12 @@ public class AiModelConfig {
         ChatLanguageModel fallback = createLocalChatModel(modelConfig.getLocal());
         log.info("ChatLanguageModel: primary={}, fallback={} (local)",
                 modelConfig.getProvider(), modelConfig.getLocal().getModelName());
-        return new FallbackChatLanguageModel(primary, fallback);
+        ChatLanguageModel withFallback = new FallbackChatLanguageModel(primary, fallback);
+        return new ResilientChatLanguageModel(
+                withFallback,
+                circuitBreakerRegistry.circuitBreaker("llmChat"),
+                retryRegistry.retry("llmChat")
+        );
     }
 
     @Bean

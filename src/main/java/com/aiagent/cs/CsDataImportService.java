@@ -2,6 +2,7 @@ package com.aiagent.cs;
 
 import com.aiagent.entity.EcommerceQaPair;
 import com.aiagent.repository.EcommerceQaPairRepository;
+import com.aiagent.config.CsProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -13,7 +14,6 @@ import io.milvus.v2.service.vector.request.InsertReq;
 import io.milvus.v2.service.utility.request.FlushReq;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -42,12 +42,11 @@ public class CsDataImportService {
     private final EmbeddingModel embeddingModel;
     private final ObjectMapper objectMapper;
     private final EcommerceQaPairRepository qaPairRepository;
+    private final CsProperties csProperties;
 
     private static final String COLLECTION_NAME = "ecommerce_qa";
     private static final String CHECKPOINT_SUFFIX = ".checkpoint";
 
-    @Value("${cs.import.batch-size:18}")
-    private int batchSize;
 
     /** 当前进度（行号） */
     private final AtomicLong currentProgress = new AtomicLong(0);
@@ -63,11 +62,13 @@ public class CsDataImportService {
     public CsDataImportService(MilvusClientV2 milvusClient,
                                EmbeddingModel embeddingModel,
                                ObjectMapper objectMapper,
-                               EcommerceQaPairRepository qaPairRepository) {
+                               EcommerceQaPairRepository qaPairRepository,
+                               CsProperties csProperties) {
         this.milvusClient = milvusClient;
         this.embeddingModel = embeddingModel;
         this.objectMapper = objectMapper;
         this.qaPairRepository = qaPairRepository;
+        this.csProperties = csProperties;
     }
 
     /**
@@ -166,7 +167,7 @@ public class CsDataImportService {
                 }
 
                 // 达到 batch 大小，批量处理
-                if (batchRecords.size() >= batchSize) {
+                if (batchRecords.size() >= csProperties.getBatchSize()) {
                     processBatch(batchRecords, batchTexts, result);
                     processed = lineNum;
                     flushCounter++;

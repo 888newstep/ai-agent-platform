@@ -14,16 +14,6 @@ public class FallbackStreamChatLanguageModel implements StreamingChatLanguageMod
     private final StreamingChatLanguageModel primaryModel;
     private final StreamingChatLanguageModel fallbackModel;
 
-    static final List<String> RATE_LIMIT_KEYWORDS = List.of(
-            "429",
-            "rate limit",
-            "too many requests",
-            "throttling",
-            "rate_limit_exceeded",
-            "限流",
-            "请求频率过高"
-    );
-
     public FallbackStreamChatLanguageModel(StreamingChatLanguageModel primaryModel, StreamingChatLanguageModel fallbackModel) {
         this.primaryModel = primaryModel;
         this.fallbackModel = fallbackModel;
@@ -44,8 +34,7 @@ public class FallbackStreamChatLanguageModel implements StreamingChatLanguageMod
 
             @Override
             public void onError(Throwable throwable) {
-                if (throwable != null && throwable.getMessage() != null &&
-                        RATE_LIMIT_KEYWORDS.stream().anyMatch(kw -> throwable.getMessage().toLowerCase().contains(kw))) {
+                if (RateLimitDetector.isRateLimit(throwable)) {
                     log.warn("[MODEL-DEGRADE] streaming primaryModel={} fallbackModel={} reason=RateLimit error={}",
                             primaryModel.getClass().getSimpleName(),
                             fallbackModel.getClass().getSimpleName(),
@@ -55,8 +44,6 @@ public class FallbackStreamChatLanguageModel implements StreamingChatLanguageMod
                     handler.onError(throwable);
                 }
             }
-
         });
     }
-
 }

@@ -2,7 +2,7 @@ package com.aiagent.controller;
 
 import com.aiagent.agent.AiAgentService;
 import com.aiagent.cache.SemanticCacheService;
-import com.aiagent.document.DocumentChunk;
+import com.aiagent.document.RetrievalChunk;
 import com.aiagent.document.DocumentService;
 import com.aiagent.entity.Document;
 import com.aiagent.entity.DocumentProcessingStatus;
@@ -95,7 +95,7 @@ class AiAgentControllerTest {
         when(documentService.uploadDocument(file)).thenReturn(document);
         when(documentService.getDocumentStatus(7L)).thenReturn(Map.of("documentId", 7L, "status", DocumentProcessingStatus.COMPLETED));
         when(documentService.searchSimilar("退款", 3, 0.8)).thenReturn(List.of(
-                DocumentChunk.builder().id("doc-1").content("退款流程").build()
+                RetrievalChunk.builder().id("doc-1").content("退款流程").build()
         ));
 
         ResponseEntity<Map<String, Object>> upload = controller.uploadDocument(file);

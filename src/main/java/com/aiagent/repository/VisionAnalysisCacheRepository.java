@@ -7,5 +7,4 @@ import java.util.Optional;
 
 public interface VisionAnalysisCacheRepository extends JpaRepository<VisionAnalysisCache, Long> {
     Optional<VisionAnalysisCache> findByImageHashAndModelName(String imageHash, String modelName);
-    void deleteByImageHash(String imageHash);
 }

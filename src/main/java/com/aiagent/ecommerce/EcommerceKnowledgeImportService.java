@@ -2,6 +2,7 @@ package com.aiagent.ecommerce;
 
 import com.aiagent.entity.EcommerceQaPair;
 import com.aiagent.repository.EcommerceQaPairRepository;
+import com.aiagent.config.EcommerceProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.JsonArray;
@@ -11,7 +12,6 @@ import io.milvus.v2.service.vector.request.InsertReq;
 import jakarta.annotation.PostConstruct;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -48,30 +48,23 @@ public class EcommerceKnowledgeImportService {
     private final MilvusClientV2 milvusClient;
     private final ObjectMapper objectMapper;
     private final EcommerceQaPairRepository qaPairRepository;
+    private final EcommerceProperties ecommerceProperties;
     private RestTemplate restTemplate;
 
     private static final String COLLECTION_NAME = "ecommerce_qa";
 
-    @Value("${ecommerce.ollama.host:http://localhost:11434}")
-    private String ollamaHost;
 
-    @Value("${ecommerce.ollama.model:bge-m3}")
-    private String modelName;
 
-    @Value("${ecommerce.ollama.dimension:1024}")
-    private int dimension;
 
-    @Value("${ecommerce.import.batch-size:18}")
-    private int batchSize;
 
-    @Value("${ecommerce.import.batch-interval-ms:200}")
-    private int batchIntervalMs;
 
     public EcommerceKnowledgeImportService(MilvusClientV2 milvusClient, ObjectMapper objectMapper,
-                                           EcommerceQaPairRepository qaPairRepository) {
+                                           EcommerceQaPairRepository qaPairRepository,
+                                           EcommerceProperties ecommerceProperties) {
         this.milvusClient = milvusClient;
         this.objectMapper = objectMapper;
         this.qaPairRepository = qaPairRepository;
+        this.ecommerceProperties = ecommerceProperties;
     }
 
     @PostConstruct
@@ -203,9 +196,9 @@ public class EcommerceKnowledgeImportService {
                 .toList();
 
         Map<String, Object> request = new HashMap<>();
-        request.put("model", modelName);
+        request.put("model", ecommerceProperties.getOllama().getModel());
         request.put("input", cleanTexts);
-        request.put("dimensions", dimension);
+        request.put("ecommerceProperties.getOllama().getDimension()s", ecommerceProperties.getOllama().getDimension());
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(new MediaType("application", "json", StandardCharsets.UTF_8));
@@ -213,7 +206,7 @@ public class EcommerceKnowledgeImportService {
 
         try {
             Map<String, Object> response = restTemplate.postForObject(
-                    ollamaHost + "/api/embed",
+                    ecommerceProperties.getOllama().getHost() + "/api/embed",
                     entity,
                     Map.class
             );
@@ -261,16 +254,16 @@ public class EcommerceKnowledgeImportService {
         String cleanText = cleanText(text);
 
         Map<String, Object> request = new HashMap<>();
-        request.put("model", modelName);
+        request.put("model", ecommerceProperties.getOllama().getModel());
         request.put("input", cleanText);
-        request.put("dimensions", dimension);
+        request.put("ecommerceProperties.getOllama().getDimension()s", ecommerceProperties.getOllama().getDimension());
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(new MediaType("application", "json", StandardCharsets.UTF_8));
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
 
         Map<String, Object> response = restTemplate.postForObject(
-                ollamaHost + "/api/embed",
+                ecommerceProperties.getOllama().getHost() + "/api/embed",
                 entity,
                 Map.class
         );
@@ -329,8 +322,8 @@ public class EcommerceKnowledgeImportService {
         long startTime = System.currentTimeMillis();
         AtomicInteger batchCounter = new AtomicInteger(0);
 
-        for (int i = 0; i < allRecords.size(); i += batchSize) {
-            int end = Math.min(i + batchSize, allRecords.size());
+        for (int i = 0; i < allRecords.size(); i += ecommerceProperties.getImportConfig().getBatchSize()) {
+            int end = Math.min(i + ecommerceProperties.getImportConfig().getBatchSize(), allRecords.size());
             List<QaRecord> batch = allRecords.subList(i, end);
 
             try {
@@ -406,8 +399,8 @@ public class EcommerceKnowledgeImportService {
                         result.storedRecords, result.totalRecords);
 
                 // 2g. 批次间隔，避免 Ollama 压力过大
-                if (batchIntervalMs > 0 && i + batchSize < allRecords.size()) {
-                    Thread.sleep(batchIntervalMs);
+                if (ecommerceProperties.getImportConfig().getBatchIntervalMs() > 0 && i + ecommerceProperties.getImportConfig().getBatchSize() < allRecords.size()) {
+                    Thread.sleep(ecommerceProperties.getImportConfig().getBatchIntervalMs());
                 }
 
             } catch (Exception e) {

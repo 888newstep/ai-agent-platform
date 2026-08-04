@@ -1,7 +1,7 @@
 package com.aiagent.evaluation;
 
 import com.aiagent.config.AiProperties;
-import com.aiagent.document.DocumentChunk;
+import com.aiagent.document.RetrievalChunk;
 import com.aiagent.retrieval.MultiRecallService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -82,7 +82,7 @@ class RagEvaluationServiceTest {
         assertThat(report.getMetrics().get("1")).containsKeys("recall", "precision", "f1", "avgLatency", "p99Latency", "p50Latency");
     }
 
-    private static DocumentChunk chunk(String id) {
-        return DocumentChunk.builder().id(id).content(id).build();
+    private static RetrievalChunk chunk(String id) {
+        return RetrievalChunk.builder().id(id).content(id).build();
     }
 }

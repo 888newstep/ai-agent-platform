@@ -3,13 +3,13 @@ package com.aiagent.ecommerce;
 import com.aiagent.config.AiProperties;
 import com.aiagent.entity.EcommerceQaPair;
 import com.aiagent.repository.EcommerceQaPairRepository;
+import com.aiagent.config.EcommerceProperties;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import jakarta.transaction.Transactional;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedWriter;
@@ -92,19 +92,14 @@ public class EcommerceDataGeneratorService {
     private final EcommerceQaPairRepository qaPairRepository;
     private final ObjectMapper objectMapper;
     private final AiProperties aiProperties;
+    private final EcommerceProperties ecommerceProperties;
 
     // =============================================
     // 配置
     // =============================================
 
-    @Value("${ecommerce.generator.target-per-category:50}")
-    private int targetPerCategory;
 
-    @Value("${ecommerce.generator.batch-size:8}")
-    private int batchSize;
 
-    @Value("${ecommerce.generator.categories:}")
-    private List<String> configCategories;
 
     // =============================================
     // 统计
@@ -120,10 +115,12 @@ public class EcommerceDataGeneratorService {
     public EcommerceDataGeneratorService(
             EcommerceQaPairRepository qaPairRepository,
             ObjectMapper objectMapper,
-            AiProperties aiProperties) {
+            AiProperties aiProperties,
+            EcommerceProperties ecommerceProperties) {
         this.qaPairRepository = qaPairRepository;
         this.objectMapper = objectMapper;
         this.aiProperties = aiProperties;
+        this.ecommerceProperties = ecommerceProperties;
         // 创建独立的 Doubao 生成模型（与主模型隔离，专用于数据生成）
         this.generatorModel = createGeneratorModel();
     }
@@ -164,8 +161,8 @@ public class EcommerceDataGeneratorService {
     }
 
     private List<String> getCategories() {
-        return configCategories != null && !configCategories.isEmpty()
-                ? configCategories : DEFAULT_CATEGORIES;
+        return ecommerceProperties.getGenerator().getCategories() != null && !ecommerceProperties.getGenerator().getCategories().isEmpty()
+                ? ecommerceProperties.getGenerator().getCategories() : DEFAULT_CATEGORIES;
     }
 
     private Path getOutputDir() {
@@ -468,9 +465,9 @@ public class EcommerceDataGeneratorService {
 
         for (String category : categories) {
             int categoryCount = 0;
-            while (categoryCount < targetPerCategory) {
+            while (categoryCount < ecommerceProperties.getGenerator().getTargetPerCategory()) {
                 if (usedTokens >= maxTokens) break;
-                int count = Math.min(batchSize, targetPerCategory - categoryCount);
+                int count = Math.min(ecommerceProperties.getGenerator().getBatchSize(), ecommerceProperties.getGenerator().getTargetPerCategory() - categoryCount);
 
                 try {
                     String response = callModel(prompt, category, count);
@@ -540,7 +537,7 @@ public class EcommerceDataGeneratorService {
 
         for (String category : categories) {
             int categoryCount = 0;
-            while (categoryCount < targetPerCategory) {
+            while (categoryCount < ecommerceProperties.getGenerator().getTargetPerCategory()) {
                 if (usedTokens >= maxTokens) break;
 
                 try {
@@ -626,7 +623,7 @@ public class EcommerceDataGeneratorService {
 
         for (String category : categories) {
             int categoryCount = 0;
-            while (categoryCount < targetPerCategory) {
+            while (categoryCount < ecommerceProperties.getGenerator().getTargetPerCategory()) {
                 if (usedTokens >= maxTokens) break;
 
                 try {
@@ -693,9 +690,9 @@ public class EcommerceDataGeneratorService {
 
         for (String category : categories) {
             int categoryCount = 0;
-            while (categoryCount < targetPerCategory) {
+            while (categoryCount < ecommerceProperties.getGenerator().getTargetPerCategory()) {
                 if (usedTokens >= maxTokens) break;
-                int count = Math.min(batchSize, targetPerCategory - categoryCount);
+                int count = Math.min(ecommerceProperties.getGenerator().getBatchSize(), ecommerceProperties.getGenerator().getTargetPerCategory() - categoryCount);
 
                 try {
                     String response = callModel(prompt, category, count);
@@ -756,9 +753,9 @@ public class EcommerceDataGeneratorService {
 
         for (String category : categories) {
             int categoryCount = 0;
-            while (categoryCount < targetPerCategory) {
+            while (categoryCount < ecommerceProperties.getGenerator().getTargetPerCategory()) {
                 if (usedTokens >= maxTokens) break;
-                int count = Math.min(batchSize, targetPerCategory - categoryCount);
+                int count = Math.min(ecommerceProperties.getGenerator().getBatchSize(), ecommerceProperties.getGenerator().getTargetPerCategory() - categoryCount);
 
                 try {
                     String response = callModel(prompt, category, count);

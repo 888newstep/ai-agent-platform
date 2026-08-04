@@ -72,14 +72,14 @@ public class DocumentService {
         return response;
     }
 
-    public List<DocumentChunk> searchSimilar(String query, int topK, double threshold) {
+    public List<RetrievalChunk> searchSimilar(String query, int topK, double threshold) {
         var queryEmbedding = embeddingModel.embed(query).content();
         List<dev.langchain4j.store.embedding.EmbeddingMatch<TextSegment>> matches =
                 vectorStoreService.search(queryEmbedding, topK, threshold);
 
-        List<DocumentChunk> chunks = new ArrayList<>();
+        List<RetrievalChunk> chunks = new ArrayList<>();
         for (var match : matches) {
-            chunks.add(DocumentChunk.builder()
+            chunks.add(RetrievalChunk.builder()
                     .id(match.embeddingId())
                     .content(match.embedded().text())
                     .score(match.score())

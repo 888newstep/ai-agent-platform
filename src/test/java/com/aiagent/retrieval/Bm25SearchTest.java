@@ -1,6 +1,6 @@
 package com.aiagent.retrieval;
 
-import com.aiagent.document.DocumentChunk;
+import com.aiagent.document.RetrievalChunk;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -33,7 +33,7 @@ class Bm25SearchTest {
                 chunk("3", "orange pear")
         ));
 
-        List<DocumentChunk> results = search.search("apple banana", 2);
+        List<RetrievalChunk> results = search.search("apple banana", 2);
 
         assertThat(results).hasSize(2);
         assertThat(results.get(0).getId()).isEqualTo("1");
@@ -43,14 +43,14 @@ class Bm25SearchTest {
 
     @Test
     void shouldPreserveMetadataInReturnedChunks() {
-        DocumentChunk original = DocumentChunk.builder()
+        RetrievalChunk original = RetrievalChunk.builder()
                 .id("doc-1")
                 .content("订单 查询 订单")
                 .metadata(Map.of("source", "faq.md"))
                 .build();
         Bm25Search search = new Bm25Search(List.of(original));
 
-        List<DocumentChunk> results = search.search("订单", 1);
+        List<RetrievalChunk> results = search.search("订单", 1);
 
         assertThat(results).singleElement().satisfies(result -> {
             assertThat(result.getId()).isEqualTo("doc-1");
@@ -59,8 +59,8 @@ class Bm25SearchTest {
         });
     }
 
-    private static DocumentChunk chunk(String id, String content) {
-        return DocumentChunk.builder()
+    private static RetrievalChunk chunk(String id, String content) {
+        return RetrievalChunk.builder()
                 .id(id)
                 .content(content)
                 .metadata(Map.of("id", id))

@@ -25,6 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.url=jdbc:h2:mem:testdb-observability",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.flyway.enabled=false",
         "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
         "ai.model.provider=local",
         "ai.embedding.provider=local",

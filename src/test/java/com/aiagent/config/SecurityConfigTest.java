@@ -4,6 +4,7 @@ import com.aiagent.agent.AiAgentService;
 import com.aiagent.cache.SemanticCacheService;
 import com.aiagent.controller.AiAgentController;
 import com.aiagent.document.DocumentService;
+import com.aiagent.security.JwtAuthenticationFilter;
 import com.aiagent.evaluation.RagEvaluationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AiAgentController.class)
-@Import({SecurityConfig.class, AdminApiKeyFilter.class})
+@Import({SecurityConfig.class, AdminApiKeyFilter.class, JwtAuthenticationFilter.class})
 class SecurityConfigTest {
 
     @Autowired
@@ -46,6 +47,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private AiProperties aiProperties;
+
+    @MockitoBean
+    private com.aiagent.security.JwtTokenProvider jwtTokenProvider;
 
     @BeforeEach
     void setUp() {

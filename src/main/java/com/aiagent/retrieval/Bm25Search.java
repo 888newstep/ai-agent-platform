@@ -1,6 +1,6 @@
 package com.aiagent.retrieval;
 
-import com.aiagent.document.DocumentChunk;
+import com.aiagent.document.RetrievalChunk;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
@@ -25,7 +25,7 @@ public class Bm25Search {
     private static final double B = 0.75;
 
     /** 文档集合 */
-    private final List<DocumentChunk> documents;
+    private final List<RetrievalChunk> documents;
 
     /** 文档总数 */
     private final int docCount;
@@ -44,7 +44,7 @@ public class Bm25Search {
      *
      * @param documents 文档集合
      */
-    public Bm25Search(List<DocumentChunk> documents) {
+    public Bm25Search(List<RetrievalChunk> documents) {
         this.documents = documents;
         this.docCount = documents.size();
         this.df = new HashMap<>();
@@ -80,7 +80,7 @@ public class Bm25Search {
      * @param topK   返回 topK 条结果
      * @return 排序后的文档片段
      */
-    public List<DocumentChunk> search(String query, int topK) {
+    public List<RetrievalChunk> search(String query, int topK) {
         if (documents.isEmpty()) {
             return List.of();
         }
@@ -121,8 +121,8 @@ public class Bm25Search {
                 .sorted((a, b) -> Double.compare(b.score, a.score))
                 .limit(topK)
                 .map(sd -> {
-                    DocumentChunk original = documents.get(sd.index);
-                    return DocumentChunk.builder()
+                    RetrievalChunk original = documents.get(sd.index);
+                    return RetrievalChunk.builder()
                             .id(original.getId())
                             .content(original.getContent())
                             .score(sd.score)

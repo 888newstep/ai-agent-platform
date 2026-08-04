@@ -12,9 +12,9 @@ import io.milvus.v2.service.database.request.CreateDatabaseReq;
 import io.milvus.v2.service.index.request.CreateIndexReq;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
@@ -29,22 +29,10 @@ import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class MilvusInitConfig {
 
-    @Value("${ai.vector-store.milvus.host:localhost}")
-    private String host;
-
-    @Value("${ai.vector-store.milvus.port:19530}")
-    private int port;
-
-    @Value("${ai.vector-store.milvus.connection-timeout-ms:2000}")
-    private int connectionTimeoutMs;
-
-    @Value("${ecommerce.milvus.collection:ecommerce_qa}")
-    private String qaCollectionName;
-
-    @Value("${ecommerce.milvus.dimension:1024}")
-    private int dimension;
+    private final AiProperties aiProperties;
 
     @Bean
     public MilvusClientV2 milvusClient() {
@@ -57,7 +45,7 @@ public class MilvusInitConfig {
         try {
             Future<MilvusClientV2> future = executor.submit(() -> {
                 ConnectConfig config = ConnectConfig.builder()
-                        .uri("http://" + host + ":" + port)
+                        .uri("http://" + aiProperties.getVectorStore().getMilvus().getHost() + ":" + aiProperties.getVectorStore().getMilvus().getPort())
                         .build();
                 MilvusClientV2 client = new MilvusClientV2(config);
 
@@ -75,13 +63,19 @@ public class MilvusInitConfig {
                 return client;
             });
 
-            MilvusClientV2 client = future.get(connectionTimeoutMs, TimeUnit.MILLISECONDS);
-            log.info("MilvusClientV2 connected: {}:{} (database: cs_agent)", host, port);
+            MilvusClientV2 client = future.get(aiProperties.getVectorStore().getMilvus().getConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
+            log.info("MilvusClientV2 connected: {}:{} (database: cs_agent)", 
+                    aiProperties.getVectorStore().getMilvus().getHost(), 
+                    aiProperties.getVectorStore().getMilvus().getPort());
             return client;
         } catch (TimeoutException e) {
-            log.warn("MilvusClientV2 connection timed out after {}ms; starting without Milvus", connectionTimeoutMs);
+            log.warn("MilvusClientV2 connection timed out after {}ms; starting without Milvus", 
+                    aiProperties.getVectorStore().getMilvus().getConnectionTimeoutMs());
         } catch (Exception e) {
-            log.warn("MilvusClientV2 connection failed: {}:{} - {} (starting without Milvus)", host, port, extractMessage(e));
+            log.warn("MilvusClientV2 connection failed: {}:{} - {} (starting without Milvus)", 
+                    aiProperties.getVectorStore().getMilvus().getHost(), 
+                    aiProperties.getVectorStore().getMilvus().getPort(), 
+                    extractMessage(e));
         } finally {
             executor.shutdownNow();
         }
@@ -93,16 +87,13 @@ public class MilvusInitConfig {
     public static class CollectionsInitializer {
 
         private final MilvusClientV2 milvusClient;
-        private final int dimension;
-        private final String qaCollectionName;
+        private final AiProperties aiProperties;
 
         public CollectionsInitializer(
                 @Autowired(required = false) MilvusClientV2 milvusClient,
-                @Value("${ecommerce.milvus.collection:ecommerce_qa}") String qaCollectionName,
-                @Value("${ecommerce.milvus.dimension:1024}") int dimension) {
+                AiProperties aiProperties) {
             this.milvusClient = milvusClient;
-            this.qaCollectionName = qaCollectionName;
-            this.dimension = dimension;
+            this.aiProperties = aiProperties;
         }
 
         @PostConstruct
@@ -117,10 +108,13 @@ public class MilvusInitConfig {
         }
 
         private void createQaCollection() {
+            String collectionName = aiProperties.getVectorStore().getMilvus().getCollectionName();
+            int dimension = aiProperties.getVectorStore().getMilvus().getDimension();
+            
             if (milvusClient.hasCollection(HasCollectionReq.builder()
-                    .collectionName(qaCollectionName)
+                    .collectionName(collectionName)
                     .build())) {
-                log.info("Collection [{}] already exists, skipping creation", qaCollectionName);
+                log.info("Collection [{}] already exists, skipping creation", collectionName);
                 return;
             }
 
@@ -174,11 +168,11 @@ public class MilvusInitConfig {
                     .build());
 
             milvusClient.createCollection(CreateCollectionReq.builder()
-                    .collectionName(qaCollectionName)
+                    .collectionName(collectionName)
                     .collectionSchema(schema)
                     .description("Ecommerce QA knowledge base")
                     .build());
-            log.info("Collection [{}] created successfully (dimension={})", qaCollectionName, dimension);
+            log.info("Collection [{}] created successfully (dimension={})", collectionName, dimension);
 
             IndexParam indexParam = IndexParam.builder()
                     .fieldName("embedding")
@@ -188,15 +182,15 @@ public class MilvusInitConfig {
                     .build();
 
             milvusClient.createIndex(CreateIndexReq.builder()
-                    .collectionName(qaCollectionName)
+                    .collectionName(collectionName)
                     .indexParams(List.of(indexParam))
                     .build());
-            log.info("Collection [{}] HNSW index created successfully", qaCollectionName);
+            log.info("Collection [{}] HNSW index created successfully", collectionName);
 
             milvusClient.loadCollection(LoadCollectionReq.builder()
-                    .collectionName(qaCollectionName)
+                    .collectionName(collectionName)
                     .build());
-            log.info("Collection [{}] loaded into memory", qaCollectionName);
+            log.info("Collection [{}] loaded into memory", collectionName);
         }
     }
 

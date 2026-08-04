@@ -2,7 +2,7 @@ package com.aiagent.agent;
 
 import com.aiagent.cache.SemanticCacheService;
 import com.aiagent.config.AiProperties;
-import com.aiagent.document.DocumentChunk;
+import com.aiagent.document.RetrievalChunk;
 import com.aiagent.memory.LongContextManager;
 import com.aiagent.metrics.PlatformMetricsService;
 import com.aiagent.retrieval.MultiRecallService;
@@ -170,18 +170,18 @@ public class AiAgentService {
 
     private String buildContextFromMultiRecall(String question) {
         AiProperties.Rag ragConfig = aiProperties.getRag();
-        List<DocumentChunk> chunks = multiRecallService.search(question, ragConfig.getTopK());
+        List<RetrievalChunk> chunks = multiRecallService.search(question, ragConfig.getTopK());
         return buildContext(chunks);
     }
 
-    private String buildContext(List<DocumentChunk> chunks) {
+    private String buildContext(List<RetrievalChunk> chunks) {
         if (chunks == null || chunks.isEmpty()) {
             return "";
         }
         StringBuilder sb = new StringBuilder();
         sb.append("Relevant reference information:\n");
         for (int i = 0; i < chunks.size(); i++) {
-            DocumentChunk chunk = chunks.get(i);
+            RetrievalChunk chunk = chunks.get(i);
             sb.append("[").append(i + 1).append("] ").append(chunk.getContent()).append("\n");
         }
         return sb.toString();

@@ -1,6 +1,6 @@
 package com.aiagent.cache;
 
-import com.aiagent.document.DocumentChunk;
+import com.aiagent.document.RetrievalChunk;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,21 +37,21 @@ class RagCacheServiceTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(anyString())).thenReturn(null);
 
-        List<DocumentChunk> result = ragCacheService.getCachedResults("test query");
+        List<RetrievalChunk> result = ragCacheService.getCachedResults("test query");
 
         assertNull(result);
     }
 
     @Test
     void shouldReturnCachedResultsWhenHit() {
-        List<DocumentChunk> cachedChunks = List.of(
-                DocumentChunk.builder().id("1").content("content1").build(),
-                DocumentChunk.builder().id("2").content("content2").build()
+        List<RetrievalChunk> cachedChunks = List.of(
+                RetrievalChunk.builder().id("1").content("content1").build(),
+                RetrievalChunk.builder().id("2").content("content2").build()
         );
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(anyString())).thenReturn(cachedChunks);
 
-        List<DocumentChunk> result = ragCacheService.getCachedResults("test query");
+        List<RetrievalChunk> result = ragCacheService.getCachedResults("test query");
 
         assertNotNull(result);
         assertEquals(2, result.size());
@@ -59,8 +59,8 @@ class RagCacheServiceTest {
 
     @Test
     void shouldCacheResultsSuccessfully() {
-        List<DocumentChunk> chunks = List.of(
-                DocumentChunk.builder().id("1").content("content").build()
+        List<RetrievalChunk> chunks = List.of(
+                RetrievalChunk.builder().id("1").content("content").build()
         );
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
@@ -82,7 +82,7 @@ class RagCacheServiceTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(anyString())).thenThrow(new RuntimeException("Redis error"));
 
-        List<DocumentChunk> result = ragCacheService.getCachedResults("test query");
+        List<RetrievalChunk> result = ragCacheService.getCachedResults("test query");
 
         assertNull(result);
     }

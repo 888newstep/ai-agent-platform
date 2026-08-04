@@ -33,12 +33,19 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
         'format_sql': true
         dialect: org.hibernate.dialect.MySQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+
 
   data:
     redis:
@@ -164,6 +171,31 @@ ai:
     cache:
       enabled: true
       ttl: 3600
+
+# =============================================
+# Resilience4j Configuration
+# =============================================
+resilience4j:
+  circuitbreaker:
+    instances:
+      llmChat:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        record-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - com.aiagent.config.ResilientChatLanguageModel
+  retry:
+    instances:
+      llmChat:
+        max-attempts: 3
+        wait-duration: 2s
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
 
 logging:
   level:

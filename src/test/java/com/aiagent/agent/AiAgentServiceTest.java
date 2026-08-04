@@ -2,7 +2,7 @@ package com.aiagent.agent;
 
 import com.aiagent.cache.SemanticCacheService;
 import com.aiagent.config.AiProperties;
-import com.aiagent.document.DocumentChunk;
+import com.aiagent.document.RetrievalChunk;
 import com.aiagent.memory.LongContextManager;
 import com.aiagent.metrics.PlatformMetricsService;
 import com.aiagent.retrieval.MultiRecallService;
@@ -88,7 +88,7 @@ class AiAgentServiceTest {
         when(semanticCacheService.getIfCached("问题")).thenReturn(null);
         when(longContextManager.getOptimizedContext("session-1", "问题")).thenReturn("历史上下文");
         when(multiRecallService.search("问题", 5)).thenReturn(List.of(
-                DocumentChunk.builder().id("doc-1").content("RAG内容").build()
+                RetrievalChunk.builder().id("doc-1").content("RAG内容").build()
         ));
         when(chatLanguageModel.generate(anyString())).thenReturn("新回答");
 

@@ -2,7 +2,7 @@ package com.aiagent.retrieval;
 
 import com.aiagent.cache.RagCacheService;
 import com.aiagent.config.AiProperties;
-import com.aiagent.document.DocumentChunk;
+import com.aiagent.document.RetrievalChunk;
 import com.aiagent.document.DocumentService;
 import com.aiagent.metrics.PlatformMetricsService;
 import io.micrometer.core.instrument.Timer;
@@ -36,13 +36,13 @@ public class MultiRecallService {
                 RRF_K, PER_ROUTE_TOP_K, BM25_CANDIDATE_POOL);
     }
 
-    public List<DocumentChunk> search(String query, int topK) {
+    public List<RetrievalChunk> search(String query, int topK) {
         Timer.Sample sample = metricsService.startSample();
         boolean cacheHit = false;
         int resultCount = 0;
 
         try {
-            List<DocumentChunk> cached = ragCacheService.getCachedResults(query);
+            List<RetrievalChunk> cached = ragCacheService.getCachedResults(query);
             if (cached != null) {
                 cacheHit = true;
                 resultCount = Math.min(cached.size(), topK);
@@ -50,17 +50,17 @@ public class MultiRecallService {
                 return cached.size() > topK ? cached.subList(0, topK) : cached;
             }
 
-            List<DocumentChunk> vectorCandidates = vectorSearch(query, BM25_CANDIDATE_POOL);
+            List<RetrievalChunk> vectorCandidates = vectorSearch(query, BM25_CANDIDATE_POOL);
             log.info("Vector candidate size={}", vectorCandidates.size());
 
-            List<DocumentChunk> vectorResults = vectorCandidates.size() > PER_ROUTE_TOP_K
+            List<RetrievalChunk> vectorResults = vectorCandidates.size() > PER_ROUTE_TOP_K
                     ? vectorCandidates.subList(0, PER_ROUTE_TOP_K)
                     : vectorCandidates;
 
-            List<DocumentChunk> bm25Results = bm25SearchOnCandidates(query, vectorCandidates, PER_ROUTE_TOP_K);
+            List<RetrievalChunk> bm25Results = bm25SearchOnCandidates(query, vectorCandidates, PER_ROUTE_TOP_K);
             log.info("BM25 result size={}", bm25Results.size());
 
-            List<DocumentChunk> fusedResults = rrfFuse(List.of(vectorResults, bm25Results), topK);
+            List<RetrievalChunk> fusedResults = rrfFuse(List.of(vectorResults, bm25Results), topK);
             resultCount = fusedResults.size();
             log.info("RRF fused result size={}", fusedResults.size());
 
@@ -71,7 +71,7 @@ public class MultiRecallService {
         }
     }
 
-    private List<DocumentChunk> vectorSearch(String query, int topK) {
+    private List<RetrievalChunk> vectorSearch(String query, int topK) {
         try {
             AiProperties.Rag ragConfig = aiProperties.getRag();
             return documentService.searchSimilar(query, topK, ragConfig.getSimilarityThreshold());
@@ -81,7 +81,7 @@ public class MultiRecallService {
         }
     }
 
-    private List<DocumentChunk> bm25SearchOnCandidates(String query, List<DocumentChunk> candidates, int topK) {
+    private List<RetrievalChunk> bm25SearchOnCandidates(String query, List<RetrievalChunk> candidates, int topK) {
         if (candidates == null || candidates.isEmpty()) {
             log.warn("BM25 candidate pool is empty, falling back to vector search");
             candidates = vectorSearch(query, BM25_CANDIDATE_POOL);
@@ -99,13 +99,13 @@ public class MultiRecallService {
         }
     }
 
-    private List<DocumentChunk> rrfFuse(List<List<DocumentChunk>> lists, int topK) {
+    private List<RetrievalChunk> rrfFuse(List<List<RetrievalChunk>> lists, int topK) {
         Map<String, Double> rrfScores = new HashMap<>();
-        Map<String, DocumentChunk> docMap = new HashMap<>();
+        Map<String, RetrievalChunk> docMap = new HashMap<>();
 
-        for (List<DocumentChunk> list : lists) {
+        for (List<RetrievalChunk> list : lists) {
             for (int rank = 0; rank < list.size(); rank++) {
-                DocumentChunk doc = list.get(rank);
+                RetrievalChunk doc = list.get(rank);
                 String docId = doc.getId();
                 docMap.putIfAbsent(docId, doc);
                 rrfScores.merge(docId, 1.0 / (RRF_K + rank + 1), Double::sum);
@@ -116,8 +116,8 @@ public class MultiRecallService {
                 .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
                 .limit(topK)
                 .map(entry -> {
-                    DocumentChunk doc = docMap.get(entry.getKey());
-                    return DocumentChunk.builder()
+                    RetrievalChunk doc = docMap.get(entry.getKey());
+                    return RetrievalChunk.builder()
                             .id(doc.getId())
                             .content(doc.getContent())
                             .score(entry.getValue())

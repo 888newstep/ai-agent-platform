@@ -7,11 +7,16 @@ import lombok.NoArgsConstructor;
 
 import java.util.Map;
 
+/**
+ * ???????
+ * 
+ * ?? RAG ??????????????????????
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class DocumentChunk {
+public class RetrievalChunk {
     private String id;
     private String content;
     private double score;

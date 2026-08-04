@@ -1,6 +1,6 @@
 package com.aiagent.cache;
 
-import com.aiagent.document.DocumentChunk;
+import com.aiagent.document.RetrievalChunk;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,29 +26,21 @@ public class RagCacheService {
     }
 
     @SuppressWarnings("unchecked")
-    public List<DocumentChunk> getCachedResults(String query) {
+    public List<RetrievalChunk> getCachedResults(String query) {
         String key = CacheKeyUtil.buildKey(CACHE_PREFIX, query);
-        try {
+        return CacheExceptionHandler.safeRead("RAG", () -> {
             Object cached = redisTemplate.opsForValue().get(key);
-            if (cached instanceof List) {
-                return (List<DocumentChunk>) cached;
-            }
-            return null;
-        } catch (Exception e) {
-            log.warn("RAG cache read failed: {}", e.getMessage());
-            return null;
-        }
+            return cached instanceof List ? (List<RetrievalChunk>) cached : null;
+        });
     }
 
-    public void cacheResults(String query, List<DocumentChunk> results) {
+    public void cacheResults(String query, List<RetrievalChunk> results) {
         if (results == null || results.isEmpty()) {
             return;
         }
         String key = CacheKeyUtil.buildKey(CACHE_PREFIX, query);
-        try {
+        CacheExceptionHandler.safeWrite("RAG", () -> {
             redisTemplate.opsForValue().set(key, results, CACHE_TTL_HOURS, TimeUnit.HOURS);
-        } catch (Exception e) {
-            log.warn("RAG cache write failed: {}", e.getMessage());
-        }
+        });
     }
 }

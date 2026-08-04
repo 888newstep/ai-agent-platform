@@ -2,7 +2,7 @@ package com.aiagent.retrieval;
 
 import com.aiagent.cache.RagCacheService;
 import com.aiagent.config.AiProperties;
-import com.aiagent.document.DocumentChunk;
+import com.aiagent.document.RetrievalChunk;
 import com.aiagent.document.DocumentService;
 import com.aiagent.metrics.PlatformMetricsService;
 import io.micrometer.core.instrument.Timer;
@@ -51,23 +51,23 @@ class MultiRecallServiceTest {
 
     @Test
     void shouldReturnCachedResultsAndTruncateToTopK() {
-        List<DocumentChunk> cached = List.of(
+        List<RetrievalChunk> cached = List.of(
                 chunk("1", "apple banana"),
                 chunk("2", "banana apple"),
                 chunk("3", "orange pear")
         );
         when(ragCacheService.getCachedResults("apple")).thenReturn(cached);
 
-        List<DocumentChunk> results = multiRecallService.search("apple", 2);
+        List<RetrievalChunk> results = multiRecallService.search("apple", 2);
 
-        assertThat(results).extracting(DocumentChunk::getId).containsExactly("1", "2");
+        assertThat(results).extracting(RetrievalChunk::getId).containsExactly("1", "2");
         verify(documentService, never()).searchSimilar(any(), any(Integer.class), any(Double.class));
         verify(metricsService).recordRagSearch(true, 2, sample);
     }
 
     @Test
     void shouldFuseVectorAndBm25ResultsAndCacheThem() {
-        List<DocumentChunk> vectorResults = List.of(
+        List<RetrievalChunk> vectorResults = List.of(
                 chunk("1", "apple banana"),
                 chunk("2", "apple pie"),
                 chunk("3", "banana smoothie")
@@ -75,7 +75,7 @@ class MultiRecallServiceTest {
         when(ragCacheService.getCachedResults("apple banana")).thenReturn(null);
         when(documentService.searchSimilar("apple banana", 50, 0.66)).thenReturn(vectorResults);
 
-        List<DocumentChunk> results = multiRecallService.search("apple banana", 2);
+        List<RetrievalChunk> results = multiRecallService.search("apple banana", 2);
 
         assertThat(results).hasSize(2);
         assertThat(results.get(0).getId()).isEqualTo("1");
@@ -90,7 +90,7 @@ class MultiRecallServiceTest {
         when(ragCacheService.getCachedResults("apple")).thenReturn(null);
         when(documentService.searchSimilar("apple", 50, 0.66)).thenThrow(new RuntimeException("Milvus down"));
 
-        List<DocumentChunk> results = multiRecallService.search("apple", 3);
+        List<RetrievalChunk> results = multiRecallService.search("apple", 3);
 
         assertThat(results).isEmpty();
         verify(documentService, times(2)).searchSimilar("apple", 50, 0.66);
@@ -98,8 +98,8 @@ class MultiRecallServiceTest {
         verify(metricsService).recordRagSearch(false, 0, sample);
     }
 
-    private static DocumentChunk chunk(String id, String content) {
-        return DocumentChunk.builder()
+    private static RetrievalChunk chunk(String id, String content) {
+        return RetrievalChunk.builder()
                 .id(id)
                 .content(content)
                 .metadata(Map.of("source", id + ".md"))

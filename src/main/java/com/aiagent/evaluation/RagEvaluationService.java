@@ -1,7 +1,7 @@
 package com.aiagent.evaluation;
 
 import com.aiagent.config.AiProperties;
-import com.aiagent.document.DocumentChunk;
+import com.aiagent.document.RetrievalChunk;
 import com.aiagent.retrieval.MultiRecallService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,13 +63,13 @@ public class RagEvaluationService {
 
                 // 计时
                 long startTime = System.currentTimeMillis();
-                List<DocumentChunk> results = multiRecallService.search(question, k);
+                List<RetrievalChunk> results = multiRecallService.search(question, k);
                 long latency = System.currentTimeMillis() - startTime;
                 latencies.add(latency);
 
                 // 计算召回率和准确率
                 Set<String> resultIds = results.stream()
-                        .map(DocumentChunk::getId)
+                        .map(RetrievalChunk::getId)
                         .collect(Collectors.toSet());
 
                 long relevantInResults = resultIds.stream()

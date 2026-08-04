@@ -2,8 +2,8 @@ package com.aiagent.cs;
 
 import com.aiagent.ecommerce.EcommerceKnowledgeImportService;
 import com.aiagent.service.MilvusAdminService;
+import com.aiagent.config.CsProperties;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -28,14 +28,15 @@ public class CsDataImportController {
 
     private final CsDataImportService csDataImportService;
     private final MilvusAdminService milvusAdminService;
+    private final CsProperties csProperties;
 
-    @Value("${cs.import.data-dir:}")
-    private String dataDir;
 
     public CsDataImportController(CsDataImportService csDataImportService,
-                                  MilvusAdminService milvusAdminService) {
+                                  MilvusAdminService milvusAdminService,
+                                  CsProperties csProperties) {
         this.csDataImportService = csDataImportService;
         this.milvusAdminService = milvusAdminService;
+        this.csProperties = csProperties;
     }
 
     /**
@@ -54,7 +55,7 @@ public class CsDataImportController {
             return Map.of("success", false, "message", "导入任务正在运行中，请先查询进度");
         }
 
-        String filePath = dataDir.endsWith("/") ? dataDir + file : dataDir + "/" + file;
+        String filePath = csProperties.getDataDir().endsWith("/") ? csProperties.getDataDir() + file : csProperties.getDataDir() + "/" + file;
 
         CompletableFuture.runAsync(() -> {
             try {
@@ -90,7 +91,7 @@ public class CsDataImportController {
 
         CompletableFuture.runAsync(() -> {
             for (String file : files) {
-                String filePath = dataDir.endsWith("/") ? dataDir + file : dataDir + "/" + file;
+                String filePath = csProperties.getDataDir().endsWith("/") ? csProperties.getDataDir() + file : csProperties.getDataDir() + "/" + file;
                 try {
                     log.info("===== 开始导入: {} =====", file);
                     CsDataImportService.ImportResult result = csDataImportService.importFromJsonl(filePath);
@@ -173,7 +174,7 @@ public class CsDataImportController {
     @GetMapping("/files")
     public Map<String, Object> listFiles() {
         List<String> files = new ArrayList<>();
-        java.io.File dir = new java.io.File(dataDir);
+        java.io.File dir = new java.io.File(csProperties.getDataDir());
         if (dir.exists() && dir.isDirectory()) {
             java.io.File[] jsonlFiles = dir.listFiles((d, name) -> name.endsWith(".jsonl"));
             if (jsonlFiles != null) {
@@ -182,6 +183,6 @@ public class CsDataImportController {
                 }
             }
         }
-        return Map.of("dataDir", dataDir, "files", files);
+        return Map.of("dataDir", csProperties.getDataDir(), "files", files);
     }
 }

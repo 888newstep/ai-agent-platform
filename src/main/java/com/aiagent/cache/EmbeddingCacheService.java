@@ -25,24 +25,16 @@ public class EmbeddingCacheService {
 
     public float[] getCachedEmbedding(String text) {
         String key = CacheKeyUtil.buildKey(CACHE_PREFIX, text);
-        try {
+        return CacheExceptionHandler.safeRead("Embedding", () -> {
             Object cached = redisTemplate.opsForValue().get(key);
-            if (cached instanceof float[]) {
-                return (float[]) cached;
-            }
-            return null;
-        } catch (Exception e) {
-            log.warn("Embedding cache read failed: {}", e.getMessage());
-            return null;
-        }
+            return cached instanceof float[] ? (float[]) cached : null;
+        });
     }
 
     public void cacheEmbedding(String text, float[] vector) {
         String key = CacheKeyUtil.buildKey(CACHE_PREFIX, text);
-        try {
+        CacheExceptionHandler.safeWrite("Embedding", () -> {
             redisTemplate.opsForValue().set(key, vector, CACHE_TTL_HOURS, TimeUnit.HOURS);
-        } catch (Exception e) {
-            log.warn("Embedding cache write failed: {}", e.getMessage());
-        }
+        });
     }
 }
