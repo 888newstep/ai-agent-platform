@@ -86,3 +86,6 @@ Desktop.ini
 application-local.yml
 .env
 *.env
+
+# Generated data files
+generated_data/

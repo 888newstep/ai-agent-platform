@@ -1,4 +1,4 @@
-# AI Agent Platform
+﻿# AI Agent Platform
 
 基于 Spring Boot 3 + LangChain4j 构建的企业级 AI Agent 平台，集成 ReAct 推理循环、多路召回 RAG、语义缓存和工具调用框架。
 
@@ -163,6 +163,8 @@ curl -X POST -F "file=@文档.pdf" http://localhost:8081/api/v1/agent/document/u
 │  └──────────┘ └──────────┘ └──────────┘ └──────────────┘    │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+> 详细架构设计请参阅 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ---
 
