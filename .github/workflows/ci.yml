@@ -63,7 +63,7 @@ jobs:
           DOUBAO_API_KEY: ${{ secrets.DOUBAO_API_KEY || '' }}
           QWEN3_FLASH_API_KEY: ${{ secrets.QWEN3_FLASH_API_KEY || '' }}
           SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY || '' }}
-          JWT_SECRET: test-jwt-secret-for-ci-only
+          JWT_SECRET: test-jwt-secret-for-ci-only-must-be-long-enough-32-chars
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
