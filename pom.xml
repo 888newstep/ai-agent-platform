@@ -94,6 +94,7 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-core</artifactId>
+            <!-- 版本由 spring-ai-bom 统一管理 -->
         </dependency>
 
         <dependency>
