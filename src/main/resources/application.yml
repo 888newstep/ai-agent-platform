@@ -38,7 +38,7 @@ spring:
     properties:
       hibernate:
         'format_sql': true
-        dialect: org.hibernate.dialect.MySQLDialect
+        dialect: ${HIBERNATE_DIALECT:org.hibernate.dialect.MySQLDialect}
 
   flyway:
     enabled: true
@@ -187,7 +187,7 @@ resilience4j:
         record-exceptions:
           - java.io.IOException
           - java.util.concurrent.TimeoutException
-          - com.aiagent.config.ResilientChatLanguageModel
+          - com.aiagent.infrastructure.config.ResilientChatLanguageModel$LlmServiceUnavailableException
   retry:
     instances:
       llmChat:

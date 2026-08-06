@@ -12,6 +12,7 @@ import io.milvus.v2.service.vector.request.InsertReq;
 import jakarta.annotation.PostConstruct;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -58,7 +59,7 @@ public class EcommerceKnowledgeImportService {
 
 
 
-    public EcommerceKnowledgeImportService(MilvusClientV2 milvusClient, ObjectMapper objectMapper,
+    public EcommerceKnowledgeImportService(@Autowired(required = false) MilvusClientV2 milvusClient, ObjectMapper objectMapper,
                                            EcommerceQaPairRepository qaPairRepository,
                                            EcommerceProperties ecommerceProperties) {
         this.milvusClient = milvusClient;
@@ -302,6 +303,9 @@ public class EcommerceKnowledgeImportService {
      */
     @Transactional
     public ImportResult importFromFile(String filePath) throws Exception {
+        if (milvusClient == null) {
+            throw new IllegalStateException("Milvus 客户端不可用，请检查连接配置");
+        }
         ImportResult result = new ImportResult();
         result.filePath = filePath;
         String fileName = Paths.get(filePath).getFileName().toString();

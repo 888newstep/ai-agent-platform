@@ -55,7 +55,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/agent/chat/stream").permitAll()
                 // Actuator endpoints
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                .requestMatchers("/actuator/metrics", "/actuator/prometheus").permitAll()
+                .requestMatchers("/actuator/metrics", "/actuator/metrics/**", "/actuator/prometheus").permitAll()
                 // Admin endpoints require authentication
                 .requestMatchers(HttpMethod.GET, "/api/v1/agent/document/**").authenticated()
                 .requestMatchers(

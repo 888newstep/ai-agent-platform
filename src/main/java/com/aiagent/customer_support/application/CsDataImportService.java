@@ -14,6 +14,7 @@ import io.milvus.v2.service.vector.request.InsertReq;
 import io.milvus.v2.service.utility.request.FlushReq;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -59,7 +60,7 @@ public class CsDataImportService {
     /** 是否正在运行 */
     private volatile boolean running = false;
 
-    public CsDataImportService(MilvusClientV2 milvusClient,
+    public CsDataImportService(@Autowired(required = false) MilvusClientV2 milvusClient,
                                EmbeddingModel embeddingModel,
                                ObjectMapper objectMapper,
                                EcommerceQaPairRepository qaPairRepository,
