@@ -35,7 +35,18 @@
         <tomcat.version>10.1.55</tomcat.version>
         <milvus-sdk.version>2.4.11</milvus-sdk.version>
         <pdfbox.version>2.0.31</pdfbox.version>
-        <poi.version>5.2.5</poi.version>
+        <poi.version>5.4.0</poi.version>
+        <commons-lang3.version>3.18.0</commons-lang3.version>
+        <commons-beanutils.version>1.11.0</commons-beanutils.version>
+        <parquet-avro.version>1.15.2</parquet-avro.version>
+        <avro.version>1.11.4</avro.version>
+        <hadoop-common.version>3.4.0</hadoop-common.version>
+        <protobuf-java.version>3.25.5</protobuf-java.version>
+        <dnsjava.version>3.6.0</dnsjava.version>
+        <azure-identity.version>1.12.2</azure-identity.version>
+        <commons-compress.version>1.26.0</commons-compress.version>
+        <snappy-java.version>1.1.10.4</snappy-java.version>
+        <mysql-connector-j.version>8.2.0</mysql-connector-j.version>
     </properties>
 
     <dependencies>
@@ -157,9 +168,9 @@
         </dependency>
 
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <version>8.0.33</version>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>${mysql-connector-j.version}</version>
         </dependency>
 
         <dependency>
@@ -206,6 +217,57 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-beanutils</groupId>
+                <artifactId>commons-beanutils</artifactId>
+                <version>${commons-beanutils.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.parquet</groupId>
+                <artifactId>parquet-avro</artifactId>
+                <version>${parquet-avro.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.avro</groupId>
+                <artifactId>avro</artifactId>
+                <version>${avro.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-common</artifactId>
+                <version>${hadoop-common.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java</artifactId>
+                <version>${protobuf-java.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dnsjava</groupId>
+                <artifactId>dnsjava</artifactId>
+                <version>${dnsjava.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.azure</groupId>
+                <artifactId>azure-identity</artifactId>
+                <version>${azure-identity.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>${commons-compress.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.xerial.snappy</groupId>
+                <artifactId>snappy-java</artifactId>
+                <version>${snappy-java.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
