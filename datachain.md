@@ -14,6 +14,7 @@
 - [10. 可观测性与指标链路](#10-可观测性与指标链路)
 - [11. 电商知识库导入链路](#11-电商知识库导入链路)
 - [12. 客服数据导入链路](#12-客服数据导入链路)
+- [13. 供应链安全与依赖加固链路](#13-供应链安全与依赖加固链路)
 
 ---
 
@@ -1323,7 +1324,45 @@ ai:
 - 迁移脚本：`src/main/resources/db/migration/V1__initial_schema.sql`
 - 配置：`baseline-on-migrate: true`, `validate-on-migrate: true`
 
+
 ---
 
-**文档版本**: v2.0
-**最后更新**: 2026-08-06
+## 13. 供应链安全与依赖加固链路
+
+### 数据流向
+
+```
+Dependabot Alerts -> 依赖版本审计 -> pom.xml 版本提升 -> 本地构建验证 -> 测试验证 -> 提交推送
+```
+
+### 关键步骤
+
+1. **告警收集**
+   - 通过 GitHub Dependabot alerts 导出当前开放漏洞清单
+   - 按依赖坐标、传递依赖和受影响版本分组
+
+2. **版本定位**
+   - 优先升级 Spring Boot / Spring Framework / Spring Security 等上游 BOM
+   - 同步覆盖 Jackson、Netty、Tomcat、Logback、jsoup、gRPC、MinIO 等高频组件
+
+3. **风险收敛**
+   - 将受影响版本替换为已修复版本
+   - 保持 BOM 统一，避免单点版本漂移
+
+4. **构建验证**
+   - 执行 `mvn -B -DskipTests compile`
+   - 执行 `mvn test`
+
+5. **文档同步**
+   - 将安全加固结论同步到主文档，便于后续 CI/CD 审计和复盘
+
+### 本次加固版本
+
+- Spring Boot 3.5.16 / Spring Framework 6.2.19 / Spring Security 6.5.11
+- Spring Data BOM 2025.0.13 / Jackson 2.21.5 / Netty 4.1.136.Final / Tomcat 10.1.55
+- Logback 1.5.34 / jsoup 1.23.1 / opennlp-tools 2.5.9 / commons-configuration2 2.15.0
+- grpc-netty-shaded 1.75.0 / minio 8.6.0 / bcprov-jdk18on 1.84 / nimbus-jose-jwt 9.37.4 / aircompressor 2.0.3 / plexus-utils 4.0.3
+---
+
+**文档版本**: v2.1
+**最后更新**: 2026-08-07
