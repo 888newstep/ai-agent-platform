@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
  * 支持断点续跑、进度查询、导入完成后建索引+加载
  *
  * 数据格式：OpenAI chat 格式 JSONL
- * 来源：E:\AI新质力\电商客服agent\训练数据
+ * 数据目录由 `cs.import.data-dir` 配置提供
  */
 @Slf4j
 @RestController

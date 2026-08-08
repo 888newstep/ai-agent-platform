@@ -78,23 +78,23 @@ public class SseService {
 
         // 完成回调
         emitter.onCompletion(() -> {
-            log.info("SSE 连接完成: sessionId={}", sessionId);
-            activeEmitters.remove(sessionId);
+            log.debug("SSE 连接完成: sessionId={}", sessionId);
+            removeEmitter(sessionId);
         });
 
         // 超时回调
         emitter.onTimeout(() -> {
             log.warn("SSE 连接超时: sessionId={}", sessionId);
-            activeEmitters.remove(sessionId);
+            removeEmitter(sessionId);
         });
 
         // 错误回调
         emitter.onError(e -> {
             log.warn("SSE 连接错误: sessionId={}, error={}", sessionId, e.getMessage());
-            activeEmitters.remove(sessionId);
+            removeEmitter(sessionId);
         });
 
-        log.info("SSE 连接创建: sessionId={}, 活跃连接数: {}", sessionId, activeEmitters.size());
+        log.debug("SSE 连接创建: sessionId={}, 活跃连接数: {}", sessionId, activeEmitters.size());
         return emitter;
     }
 
@@ -113,7 +113,7 @@ public class SseService {
             return true;
         } catch (IOException e) {
             log.warn("SSE 发送失败: sessionId={}, error={}", sessionId, e.getMessage());
-            activeEmitters.remove(sessionId);
+            removeEmitter(sessionId);
             return false;
         }
     }
@@ -133,7 +133,7 @@ public class SseService {
             return true;
         } catch (IOException e) {
             log.warn("SSE 发送事件失败: sessionId={}, event={}, error={}", sessionId, eventName, e.getMessage());
-            activeEmitters.remove(sessionId);
+            removeEmitter(sessionId);
             return false;
         }
     }
@@ -142,17 +142,14 @@ public class SseService {
      * 完成连接
      */
     public void complete(String sessionId) {
-        SseEmitter emitter = activeEmitters.remove(sessionId);
-        if (emitter != null) {
-            emitter.complete();
-        }
+        completeEmitter(removeEmitter(sessionId));
     }
 
     /**
      * 发送错误并关闭
      */
     public void completeWithError(String sessionId, Throwable error) {
-        SseEmitter emitter = activeEmitters.remove(sessionId);
+        SseEmitter emitter = removeEmitter(sessionId);
         if (emitter != null) {
             emitter.completeWithError(error);
         }
@@ -163,6 +160,20 @@ public class SseService {
      */
     public int getActiveCount() {
         return activeEmitters.size();
+    }
+
+    private SseEmitter removeEmitter(String sessionId) {
+        return activeEmitters.remove(sessionId);
+    }
+
+    private void completeEmitter(SseEmitter emitter) {
+        if (emitter == null) {
+            return;
+        }
+        try {
+            emitter.complete();
+        } catch (Exception ignored) {
+        }
     }
 
     /**
@@ -185,7 +196,7 @@ public class SseService {
                         .data(""));
             } catch (IOException e) {
                 log.warn("SSE 心跳发送失败: sessionId={}, 已移除", sessionId);
-                activeEmitters.remove(sessionId);
+                removeEmitter(sessionId);
             }
         });
     }
@@ -194,12 +205,7 @@ public class SseService {
     public void destroy() {
         log.info("SSE 服务关闭，清理 {} 个活跃连接", activeEmitters.size());
         heartbeatScheduler.shutdown();
-        activeEmitters.forEach((sessionId, emitter) -> {
-            try {
-                emitter.complete();
-            } catch (Exception ignored) {
-            }
-        });
+        activeEmitters.values().forEach(this::completeEmitter);
         activeEmitters.clear();
     }
 }

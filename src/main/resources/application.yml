@@ -7,10 +7,6 @@ server:
     max-connections: 10000
     accept-count: 100
 
-milvus:
-  host: ${MILVUS_HOST:localhost}
-  port: ${MILVUS_PORT:19530}
-
 spring:
   application:
     name: ai-agent-platform
@@ -20,7 +16,7 @@ spring:
       request-timeout: 300000
 
   datasource:
-    url: jdbc:mysql://localhost:3306/ai_agent?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:ai_agent}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -52,7 +48,7 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
-      database: 0
+      database: ${REDIS_DATABASE:0}
       lettuce:
         pool:
           max-active: 100
@@ -69,6 +65,8 @@ spring:
 
 ai:
   model:
+    # supported chat providers: deepseek | qianwen | doubao | qwen3-flash | local
+    # non-local providers automatically degrade to the local model; no separate fallback toggle is exposed
     provider: deepseek
     deepseek:
       api-key: ${DEEPSEEK_API_KEY:your-api-key}
@@ -90,14 +88,12 @@ ai:
       base-url: http://localhost:11434/v1
       model-name: coder:qwen7b
       api-key: dummy
-    fallback:
-      enabled: true
-      max-retries: 1
 
   embedding:
-    # provider: local          → bge-m3 (1024维, 中文混合检索, 推荐)
-    # provider: local-qwen3    → qwen3-embedding:4b (2560→1024维MRL, 质量更高)
-    # provider: siliconflow    → BAAI/bge-m3 (云端API, 免本地部署)
+    # supported embedding providers: deepseek | qianwen | local | local-qwen3 | siliconflow
+    # provider: local          -> bge-m3 on a local OpenAI-compatible endpoint
+    # provider: local-qwen3    -> qwen3-embedding:4b via local Ollama-compatible endpoint
+    # provider: siliconflow    -> hosted BAAI/bge-m3
     provider: siliconflow
     local:
       base-url: http://localhost:11434/v1
@@ -114,33 +110,32 @@ ai:
       dimension: 1024
 
   vector-store:
+    # supported vector stores: milvus | inmemory
     type: milvus
     milvus:
       host: ${MILVUS_HOST:localhost}
-      port: 19530
+      port: ${MILVUS_PORT:19530}
       collection-name: ai_agent_documents
       dimension: 1024
       connection-timeout-ms: ${MILVUS_CONNECTION_TIMEOUT_MS:2000}
-    pgvector:
-      host: localhost
-      port: 5432
-      database: ai_agent
-      table-name: document_embeddings
-      username: postgres
-      password: ${PGVECTOR_PASSWORD:postgres}
-
   document:
     chunk-size: 500
     chunk-overlap: 50
-    supported-formats: pdf,docx,doc,md,txt
 
   rag:
     top-k: 5
     similarity-threshold: 0.7
     enable-hybrid-search: true
+    adaptive:
+      enabled: true
+      max-retrieval-rounds: 2
+      max-context-chunks: 5
+      verification-threshold: 0.18
+      multi-hop-threshold: 0.28
+      direct-threshold: 0.45
+      min-keyword-count: 2
 
   tool:
-    enabled: true
     database-query:
       enabled: true
       max-rows: 100
@@ -149,12 +144,15 @@ ai:
       enabled: true
       timeout: 30000
       allowed-methods: GET,POST
+      # empty allowlist disables outbound API calls; private/loopback hosts are always rejected
       allowed-hosts: ${AI_TOOL_ALLOWED_HOSTS:api.example.com}
       max-response-chars: 8000
 
   session:
     ttl: 86400
     max-messages: 100
+    sliding-window-size: 10
+    summary-interval: 5
 
   security:
     admin-api-key: ${ADMIN_API_KEY:change-me-admin-key}
@@ -169,7 +167,6 @@ ai:
       max-size: 100
       queue-capacity: 200
     cache:
-      enabled: true
       ttl: 3600
 
 # =============================================
@@ -200,8 +197,8 @@ resilience4j:
 logging:
   level:
     root: INFO
-    com.aiagent: DEBUG
-    dev.langchain4j: DEBUG
+    com.aiagent: INFO
+    dev.langchain4j: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

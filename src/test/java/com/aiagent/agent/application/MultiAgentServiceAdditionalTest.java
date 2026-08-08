@@ -15,11 +15,18 @@ import static org.mockito.Mockito.*;
 class MultiAgentServiceAdditionalTest {
     @Mock private ChatLanguageModel chatLanguageModel;
     @Mock private ToolService toolService;
+    @Mock private ReActAgent reActAgent;
     private MultiAgentService service;
-    @BeforeEach void setUp() { service = new MultiAgentService(chatLanguageModel, toolService); }
+    @BeforeEach void setUp() { service = new MultiAgentService(chatLanguageModel, toolService, reActAgent); }
 
     @Test void shouldExecuteWithLongTask() {
-        when(chatLanguageModel.generate(anyString())).thenReturn("SUBTASK 1: task1\nSUBTASK 2: task2\nFinal");
+        when(chatLanguageModel.generate(contains("任务规划专家")))
+                .thenReturn("SUBTASK 1: task1\nSUBTASK 2: task2");
+        when(reActAgent.execute(anyString(), eq(""), eq("")))
+                .thenReturn("result1")
+                .thenReturn("result2");
+        when(chatLanguageModel.generate(contains("结果汇总专家")))
+                .thenReturn("Final");
         assertNotNull(service.execute("Complex task", "context"));
     }
     @Test void shouldExecuteWithSpecialChars() {
@@ -27,7 +34,12 @@ class MultiAgentServiceAdditionalTest {
         assertNotNull(service.execute("task <special>", ""));
     }
     @Test void shouldHandleMultipleSubtasks() {
-        when(chatLanguageModel.generate(anyString())).thenReturn("SUBTASK 1: a\nSUBTASK 2: b\nSUBTASK 3: c\nResult");
+        when(chatLanguageModel.generate(contains("任务规划专家")))
+                .thenReturn("SUBTASK 1: a\nSUBTASK 2: b\nSUBTASK 3: c");
+        when(reActAgent.execute(anyString(), eq(""), eq("")))
+                .thenReturn("r1").thenReturn("r2").thenReturn("r3");
+        when(chatLanguageModel.generate(contains("结果汇总专家")))
+                .thenReturn("Result");
         assertNotNull(service.execute("multi-step task", "ctx"));
     }
 }

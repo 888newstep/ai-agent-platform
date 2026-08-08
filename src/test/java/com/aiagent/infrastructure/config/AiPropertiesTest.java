@@ -23,7 +23,7 @@ class AiPropertiesTest {
     @Test void shouldHavePerformanceDefaults() {
         AiProperties p = new AiProperties();
         assertEquals(20, p.getPerformance().getAsyncThreadPool().getCoreSize());
-        assertTrue(p.getPerformance().getCache().isEnabled());
+        assertEquals(3600, p.getPerformance().getCache().getTtl());
     }
     @Test void shouldHaveSessionDefaults() {
         AiProperties p = new AiProperties();
@@ -37,8 +37,8 @@ class AiPropertiesTest {
     }
     @Test void shouldHaveToolDefaults() {
         AiProperties p = new AiProperties();
-        assertTrue(p.getTool().isEnabled());
         assertEquals(100, p.getTool().getDatabaseQuery().getMaxRows());
+        assertTrue(p.getTool().getApiCall().getAllowedMethods().contains("GET"));
     }
     @Test void shouldSetAndGet() {
         AiProperties p = new AiProperties();

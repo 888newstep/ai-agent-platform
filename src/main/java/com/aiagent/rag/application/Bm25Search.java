@@ -1,48 +1,48 @@
 package com.aiagent.rag.application;
 
 import com.aiagent.knowledge.domain.RetrievalChunk;
-import lombok.extern.slf4j.Slf4j;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * BM25 关键词检索 — 多路召回中的"关键词路"
+ * BM25 ????????????????????
  *
- * <p>BM25 是一种基于词频和逆文档频率的排序函数，与向量检索互补。
- * 向量检索擅长语义相似，BM25 擅长关键词精确匹配。
- *
- * <p>适用场景：向量检索未命中但用户问题包含精确关键词时，
- * BM25 可以兜底召回。
+ * <p>?????????????BM25 ???????????
+ * ??????????????? BM25 ??????????????
  */
-@Slf4j
 public class Bm25Search {
 
-    /** BM25 参数 k1（控制词频饱和度） */
+    /** BM25 ?? k1?????????? */
     private static final double K1 = 1.2;
 
-    /** BM25 参数 b（控制文档长度归一化） */
+    /** BM25 ?? b????????????? */
     private static final double B = 0.75;
 
-    /** 文档集合 */
+    /** ??????? */
     private final List<RetrievalChunk> documents;
 
-    /** 文档总数 */
+    /** ????? */
     private final int docCount;
 
-    /** 每个词在多少篇文档中出现（用于计算 IDF） */
+    /** ??????????? IDF? */
     private final Map<String, Integer> df;
 
-    /** 平均文档长度 */
+    /** ??????? */
     private final double avgDocLength;
 
-    /** 所有文档的词频列表 */
+    /** ????????? */
     private final List<Map<String, Integer>> termFrequencies;
 
     /**
-     * 创建一个 BM25 检索器
+     * ?????????? BM25 ????
      *
-     * @param documents 文档集合
+     * @param documents ??????
      */
     public Bm25Search(List<RetrievalChunk> documents) {
         this.documents = documents;
@@ -56,7 +56,7 @@ public class Bm25Search {
             List<String> terms = tokenize(content);
             totalLength += terms.size();
 
-            // 统计词频
+            // ?????
             Map<String, Integer> tf = new HashMap<>();
             Set<String> uniqueTerms = new HashSet<>();
             for (String term : terms) {
@@ -65,7 +65,7 @@ public class Bm25Search {
             }
             termFrequencies.add(tf);
 
-            // 统计文档频率
+            // ???????
             for (String term : uniqueTerms) {
                 df.merge(term, 1, Integer::sum);
             }
@@ -74,11 +74,11 @@ public class Bm25Search {
     }
 
     /**
-     * 执行 BM25 检索
+     * ?? BM25 ???
      *
-     * @param query  查询文本
-     * @param topK   返回 topK 条结果
-     * @return 排序后的文档片段
+     * @param query ????
+     * @param topK ???????
+     * @return ? BM25 ??????????
      */
     public List<RetrievalChunk> search(String query, int topK) {
         if (documents.isEmpty()) {
@@ -90,7 +90,7 @@ public class Bm25Search {
             return List.of();
         }
 
-        // 计算每个文档的 BM25 分数
+        // ??????? BM25 ???
         List<ScoredDoc> scoredDocs = new ArrayList<>();
         for (int i = 0; i < docCount; i++) {
             double score = 0;
@@ -99,13 +99,13 @@ public class Bm25Search {
 
             for (String term : queryTerms) {
                 Integer termFreq = tf.getOrDefault(term, 0);
-                if (termFreq == 0) continue;
+                if (termFreq == 0) {
+                    continue;
+                }
 
-                // IDF
-                Integer docFreq = df.getOrDefault(term, 0);
+                double docFreq = df.getOrDefault(term, 0);
                 double idf = Math.log(1 + (docCount - docFreq + 0.5) / (docFreq + 0.5));
 
-                // BM25 分数
                 double numerator = termFreq * (K1 + 1);
                 double denominator = termFreq + K1 * (1 - B + B * docLength / avgDocLength);
                 score += idf * numerator / denominator;
@@ -116,7 +116,6 @@ public class Bm25Search {
             }
         }
 
-        // 排序取 topK
         return scoredDocs.stream()
                 .sorted((a, b) -> Double.compare(b.score, a.score))
                 .limit(topK)
@@ -133,21 +132,21 @@ public class Bm25Search {
     }
 
     /**
-     * 简单中文分词（按非中文/非字母字符分割）
-     * 实际生产环境建议使用 HanLP、jieba 等分词器
+     * ??????????????????????????????
+     * ????????????????????????
      */
     private List<String> tokenize(String text) {
-        if (text == null || text.isEmpty()) return List.of();
+        if (text == null || text.isEmpty()) {
+            return List.of();
+        }
 
         List<String> tokens = new ArrayList<>();
-        // 按空白字符和标点分割
         String[] parts = text.toLowerCase()
                 .replaceAll("[\\p{P}\\p{S}\\s]+", " ")
                 .split("\\s+");
 
         for (String part : parts) {
             if (part.length() >= 1) {
-                // 对中文按字切分，对英文按词保留
                 StringBuilder current = new StringBuilder();
                 for (char c : part.toCharArray()) {
                     if (Character.isIdeographic(c)) {
@@ -169,6 +168,6 @@ public class Bm25Search {
         return tokens;
     }
 
-    /** 带分数的文档索引 */
+    /** ????????? */
     private record ScoredDoc(int index, double score) {}
 }

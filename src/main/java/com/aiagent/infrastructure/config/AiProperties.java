@@ -109,7 +109,6 @@ public class AiProperties {
     public static class VectorStore {
         private String type = "milvus";
         private Milvus milvus = new Milvus();
-        private Pgvector pgvector = new Pgvector();
     }
 
     @Data
@@ -121,33 +120,43 @@ public class AiProperties {
         private int connectionTimeoutMs = 2000;
     }
 
-    @Data
-    public static class Pgvector {
-        private String host = "localhost";
-        private int port = 5432;
-        private String database = "ai_agent";
-        private String tableName = "document_embeddings";
-        private String username;
-        private String password;
-    }
-
+    /** Document ingestion and chunking settings. */
     @Data
     public static class Document {
         private int chunkSize = 500;
         private int chunkOverlap = 50;
-        private String supportedFormats = "pdf,docx,doc,md,txt";
     }
 
+    /** Retrieval settings shared by classic and adaptive RAG. */
     @Data
     public static class Rag {
         private int topK = 5;
         private double similarityThreshold = 0.7;
         private boolean enableHybridSearch = true;
+        private Adaptive adaptive = new Adaptive();
+    }
+
+    /** Controls the router -> rewrite -> retrieve -> verify loop. */
+    @Data
+    public static class Adaptive {
+        /** Enables adaptive routing instead of unconditional retrieval. */
+        private boolean enabled = true;
+        /** Maximum number of retrieval rounds allowed in one request. */
+        private int maxRetrievalRounds = 2;
+        /** Maximum number of chunks injected into the final model context. */
+        private int maxContextChunks = 5;
+        /** Minimum verification score for single-hop retrieval to be accepted. */
+        private double verificationThreshold = 0.18;
+        /** Minimum verification score for multi-hop retrieval to be accepted. */
+        private double multiHopThreshold = 0.28;
+        /** Heuristic threshold reserved for future direct-answer routing tuning. */
+        private double directThreshold = 0.45;
+        /** Minimum number of keywords preserved during query rewriting. */
+        private int minKeywordCount = 2;
     }
 
     @Data
     public static class Tool {
-        private boolean enabled = true;
         private DatabaseQuery databaseQuery = new DatabaseQuery();
         private ApiCall apiCall = new ApiCall();
     }
@@ -178,13 +187,14 @@ public class AiProperties {
         private int maxResponseChars = 8000;
     }
 
+    /** Session memory settings for short-term context and summarization. */
     @Data
     public static class Session {
         private int ttl = 86400;
         private int maxMessages = 100;
-        /** 滑动窗口大小（保留最近 N 轮对话，超出部分丢弃） */
+        /** Number of recent dialogue turns kept in the sliding window. */
         private int slidingWindowSize = 10;
-        /** 摘要生成间隔（每 N 轮对话生成一次摘要） */
+        /** Generate one summary after every N dialogue turns. */
         private int summaryInterval = 5;
     }
 
@@ -216,7 +226,6 @@ public class AiProperties {
 
     @Data
     public static class Cache {
-        private boolean enabled = true;
         private int ttl = 3600;
     }
 }

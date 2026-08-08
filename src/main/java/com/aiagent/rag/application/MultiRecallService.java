@@ -2,17 +2,23 @@ package com.aiagent.rag.application;
 
 import com.aiagent.infrastructure.cache.RagCacheService;
 import com.aiagent.infrastructure.config.AiProperties;
-import com.aiagent.knowledge.domain.RetrievalChunk;
-import com.aiagent.knowledge.application.DocumentService;
 import com.aiagent.infrastructure.metrics.PlatformMetricsService;
+import com.aiagent.knowledge.application.DocumentService;
+import com.aiagent.knowledge.domain.RetrievalChunk;
 import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PostConstruct;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -37,54 +43,111 @@ public class MultiRecallService {
     }
 
     public List<RetrievalChunk> search(String query, int topK) {
+        AiProperties.Rag ragConfig = aiProperties.getRag();
+        return search(query, SearchOptions.builder()
+                .topK(topK)
+                .similarityThreshold(ragConfig.getSimilarityThreshold())
+                .hybridSearch(ragConfig.isEnableHybridSearch())
+                .cacheEnabled(true)
+                .build());
+    }
+
+    public List<RetrievalChunk> search(String query, SearchOptions requestedOptions) {
+        SearchOptions options = resolveOptions(requestedOptions);
         Timer.Sample sample = metricsService.startSample();
         boolean cacheHit = false;
         int resultCount = 0;
+        String cacheKeyMaterial = buildCacheKeyMaterial(query, options);
 
         try {
-            List<RetrievalChunk> cached = ragCacheService.getCachedResults(query);
-            if (cached != null) {
-                cacheHit = true;
-                resultCount = Math.min(cached.size(), topK);
-                log.info("RAG cache hit for query={}, size={}", query, cached.size());
-                return cached.size() > topK ? cached.subList(0, topK) : cached;
+            if (options.isCacheEnabled()) {
+                List<RetrievalChunk> cached = ragCacheService.getCachedResults(cacheKeyMaterial);
+                if (cached != null) {
+                    cacheHit = true;
+                    resultCount = Math.min(cached.size(), options.getTopK());
+                    log.debug("RAG cache hit for query={}, size={}, hybrid={}, threshold={}",
+                            query, cached.size(), options.isHybridSearch(), options.getSimilarityThreshold());
+                    return cached.size() > options.getTopK() ? cached.subList(0, options.getTopK()) : cached;
+                }
             }
 
-            List<RetrievalChunk> vectorCandidates = vectorSearch(query, BM25_CANDIDATE_POOL);
-            log.info("Vector candidate size={}", vectorCandidates.size());
+            List<RetrievalChunk> finalResults;
+            if (options.isHybridSearch()) {
+                List<RetrievalChunk> vectorCandidates = vectorSearch(query, BM25_CANDIDATE_POOL, options.getSimilarityThreshold());
+                log.debug("Vector candidate size={}", vectorCandidates.size());
 
-            List<RetrievalChunk> vectorResults = vectorCandidates.size() > PER_ROUTE_TOP_K
-                    ? vectorCandidates.subList(0, PER_ROUTE_TOP_K)
-                    : vectorCandidates;
+                List<RetrievalChunk> vectorResults = vectorCandidates.size() > PER_ROUTE_TOP_K
+                        ? vectorCandidates.subList(0, PER_ROUTE_TOP_K)
+                        : vectorCandidates;
 
-            List<RetrievalChunk> bm25Results = bm25SearchOnCandidates(query, vectorCandidates, PER_ROUTE_TOP_K);
-            log.info("BM25 result size={}", bm25Results.size());
+                List<RetrievalChunk> bm25Results = bm25SearchOnCandidates(
+                        query,
+                        vectorCandidates,
+                        PER_ROUTE_TOP_K,
+                        options.getSimilarityThreshold());
+                log.debug("BM25 result size={}", bm25Results.size());
 
-            List<RetrievalChunk> fusedResults = rrfFuse(List.of(vectorResults, bm25Results), topK);
-            resultCount = fusedResults.size();
-            log.info("RRF fused result size={}", fusedResults.size());
+                finalResults = rrfFuse(List.of(vectorResults, bm25Results), options.getTopK());
+                log.debug("RRF fused result size={}", finalResults.size());
+            } else {
+                finalResults = annotateVectorOnly(
+                        vectorSearch(query, options.getTopK(), options.getSimilarityThreshold()),
+                        options.getTopK());
+                log.debug("Vector-only result size={}", finalResults.size());
+            }
 
-            ragCacheService.cacheResults(query, fusedResults);
-            return fusedResults;
+            resultCount = finalResults.size();
+            if (options.isCacheEnabled()) {
+                ragCacheService.cacheResults(cacheKeyMaterial, finalResults);
+            }
+            return finalResults;
         } finally {
             metricsService.recordRagSearch(cacheHit, resultCount, sample);
         }
     }
 
-    private List<RetrievalChunk> vectorSearch(String query, int topK) {
+    private SearchOptions resolveOptions(SearchOptions options) {
+        AiProperties.Rag ragConfig = aiProperties.getRag();
+        if (options == null) {
+            return SearchOptions.builder()
+                    .topK(ragConfig.getTopK())
+                    .similarityThreshold(ragConfig.getSimilarityThreshold())
+                    .hybridSearch(ragConfig.isEnableHybridSearch())
+                    .cacheEnabled(true)
+                    .build();
+        }
+
+        return SearchOptions.builder()
+                .topK(options.getTopK() > 0 ? options.getTopK() : ragConfig.getTopK())
+                .similarityThreshold(options.getSimilarityThreshold() > 0 ? options.getSimilarityThreshold() : ragConfig.getSimilarityThreshold())
+                .hybridSearch(options.isHybridSearch())
+                .cacheEnabled(options.isCacheEnabled())
+                .build();
+    }
+
+    private String buildCacheKeyMaterial(String query, SearchOptions options) {
+        return query
+                + "|topK=" + options.getTopK()
+                + "|threshold=" + String.format(Locale.ROOT, "%.4f", options.getSimilarityThreshold())
+                + "|hybrid=" + options.isHybridSearch();
+    }
+
+    private List<RetrievalChunk> vectorSearch(String query, int topK, double threshold) {
         try {
-            AiProperties.Rag ragConfig = aiProperties.getRag();
-            return documentService.searchSimilar(query, topK, ragConfig.getSimilarityThreshold());
+            return documentService.searchSimilar(query, topK, threshold);
         } catch (Exception e) {
             log.warn("Vector search failed: {}", e.getMessage());
             return List.of();
         }
     }
 
-    private List<RetrievalChunk> bm25SearchOnCandidates(String query, List<RetrievalChunk> candidates, int topK) {
+    private List<RetrievalChunk> bm25SearchOnCandidates(String query,
+                                                        List<RetrievalChunk> candidates,
+                                                        int topK,
+                                                        double similarityThreshold) {
         if (candidates == null || candidates.isEmpty()) {
             log.warn("BM25 candidate pool is empty, falling back to vector search");
-            candidates = vectorSearch(query, BM25_CANDIDATE_POOL);
+            candidates = vectorSearch(query, BM25_CANDIDATE_POOL, similarityThreshold);
             if (candidates.isEmpty()) {
                 return List.of();
             }
@@ -99,16 +162,48 @@ public class MultiRecallService {
         }
     }
 
+    private List<RetrievalChunk> annotateVectorOnly(List<RetrievalChunk> vectorResults, int topK) {
+        List<RetrievalChunk> limited = vectorResults.size() > topK
+                ? vectorResults.subList(0, topK)
+                : vectorResults;
+
+        java.util.ArrayList<RetrievalChunk> annotated = new java.util.ArrayList<>(limited.size());
+        for (int index = 0; index < limited.size(); index++) {
+            RetrievalChunk chunk = limited.get(index);
+            Map<String, Object> metadata = new LinkedHashMap<>();
+            if (chunk.getMetadata() != null) {
+                metadata.putAll(chunk.getMetadata());
+            }
+            metadata.put("retrievalSource", "vector_only");
+            metadata.put("vectorRank", index + 1);
+            annotated.add(RetrievalChunk.builder()
+                    .id(chunk.getId())
+                    .content(chunk.getContent())
+                    .score(chunk.getScore())
+                    .metadata(metadata)
+                    .build());
+        }
+        return annotated;
+    }
+
     private List<RetrievalChunk> rrfFuse(List<List<RetrievalChunk>> lists, int topK) {
         Map<String, Double> rrfScores = new HashMap<>();
         Map<String, RetrievalChunk> docMap = new HashMap<>();
+        Map<String, Integer> vectorRanks = new HashMap<>();
+        Map<String, Integer> bm25Ranks = new HashMap<>();
 
-        for (List<RetrievalChunk> list : lists) {
+        for (int listIndex = 0; listIndex < lists.size(); listIndex++) {
+            List<RetrievalChunk> list = lists.get(listIndex);
             for (int rank = 0; rank < list.size(); rank++) {
                 RetrievalChunk doc = list.get(rank);
                 String docId = doc.getId();
                 docMap.putIfAbsent(docId, doc);
                 rrfScores.merge(docId, 1.0 / (RRF_K + rank + 1), Double::sum);
+                if (listIndex == 0) {
+                    vectorRanks.putIfAbsent(docId, rank + 1);
+                } else if (listIndex == 1) {
+                    bm25Ranks.putIfAbsent(docId, rank + 1);
+                }
             }
         }
 
@@ -117,13 +212,52 @@ public class MultiRecallService {
                 .limit(topK)
                 .map(entry -> {
                     RetrievalChunk doc = docMap.get(entry.getKey());
+                    Map<String, Object> metadata = new LinkedHashMap<>();
+                    if (doc.getMetadata() != null) {
+                        metadata.putAll(doc.getMetadata());
+                    }
+                    Integer vectorRank = vectorRanks.get(entry.getKey());
+                    Integer bm25Rank = bm25Ranks.get(entry.getKey());
+                    metadata.put("retrievalSource", retrievalSource(vectorRank, bm25Rank));
+                    if (vectorRank != null) {
+                        metadata.put("vectorRank", vectorRank);
+                    }
+                    if (bm25Rank != null) {
+                        metadata.put("bm25Rank", bm25Rank);
+                    }
+                    metadata.put("rrfScore", entry.getValue());
+
                     return RetrievalChunk.builder()
                             .id(doc.getId())
                             .content(doc.getContent())
                             .score(entry.getValue())
-                            .metadata(doc.getMetadata())
+                            .metadata(metadata)
                             .build();
                 })
                 .collect(Collectors.toList());
+    }
+
+    private String retrievalSource(Integer vectorRank, Integer bm25Rank) {
+        if (vectorRank != null && bm25Rank != null) {
+            return "both";
+        }
+        if (vectorRank != null) {
+            return "vector_only";
+        }
+        if (bm25Rank != null) {
+            return "bm25_only";
+        }
+        return "unknown";
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SearchOptions {
+        private int topK;
+        private double similarityThreshold;
+        private boolean hybridSearch;
+        private boolean cacheEnabled;
     }
 }

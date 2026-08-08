@@ -19,7 +19,7 @@ import java.util.regex.Pattern;
  * <p>核心流程：
  * <ol>
  *   <li><b>规划</b>：Supervisor 将复杂任务拆解为多个子任务</li>
- *   <li><b>执行</b>：多个 Worker 并行执行子任务（各使用独立的 ReAct 循环）</li>
+ *   <li><b>执行</b>：多个 Worker 并行执行子任务（委托给 ReActAgent）</li>
  *   <li><b>汇总</b>：Supervisor 收集所有 Worker 结果，合成最终回答</li>
  * </ol>
  *
@@ -37,12 +37,15 @@ public class MultiAgentService {
 
     private final ChatLanguageModel chatLanguageModel;
     private final ToolService toolService;
+    private final ReActAgent reActAgent;
 
     /** Worker 并行超时时间 */
     private static final Duration WORKER_TIMEOUT = Duration.ofMinutes(2);
 
     /** 最大子任务数 */
     private static final int MAX_SUBTASKS = 5;
+    /** Subtask parsing pattern */
+    private static final Pattern SUBTASK_PATTERN = Pattern.compile("SUBTASK\\s+(\\d+):\\s*(.+)", Pattern.MULTILINE);
 
     /** Supervisor 规划提示词 */
     private static final String PLANNER_PROMPT = """
@@ -87,12 +90,12 @@ public class MultiAgentService {
      */
     public String execute(String task, String context) {
         Instant startTime = Instant.now();
-        log.info("Multi-Agent 开始执行任务: {}", task);
+        log.debug("Multi-Agent 开始执行任务: {}", task);
 
         try {
             // 1. 规划阶段：Supervisor 拆解任务
             List<String> subtasks = plan(task);
-            log.info("任务拆解为 {} 个子任务", subtasks.size());
+            log.debug("任务拆解为 {} 个子任务", subtasks.size());
 
             if (subtasks.isEmpty()) {
                 log.warn("任务拆解失败，退化为单 Agent 执行");
@@ -105,7 +108,7 @@ public class MultiAgentService {
             // 3. 汇总阶段：Supervisor 合成最终回答
             String finalAnswer = synthesize(task, subtasks, results);
 
-            log.info("Multi-Agent 完成，耗时 {}ms，{} 个 Worker",
+            log.debug("Multi-Agent 完成，耗时 {}ms，{} 个 Worker",
                     Duration.between(startTime, Instant.now()).toMillis(),
                     results.size());
 
@@ -127,8 +130,7 @@ public class MultiAgentService {
             log.debug("Supervisor 规划结果:\n{}", response);
 
             List<String> subtasks = new ArrayList<>();
-            Pattern pattern = Pattern.compile("SUBTASK\\s+(\\d+):\\s*(.+)", Pattern.MULTILINE);
-            Matcher matcher = pattern.matcher(response);
+            Matcher matcher = SUBTASK_PATTERN.matcher(response);
 
             while (matcher.find()) {
                 String subtask = matcher.group(2).trim();
@@ -137,143 +139,82 @@ public class MultiAgentService {
                 }
             }
 
-            return subtasks;
+            if (subtasks.isEmpty() && !response.isBlank()) {
+                subtasks.add(task);
+            }
+
+            return subtasks.stream().limit(MAX_SUBTASKS).toList();
         } catch (Exception e) {
             log.error("任务规划失败", e);
-            return List.of();
+            return List.of(task);
         }
     }
 
     /**
-     * 执行阶段：Worker 并行执行子任务
+     * 执行阶段：多个 Worker 并行执行子任务
      */
-    private List<String> executeInParallel(String task, List<String> subtasks) {
-        // 使用 ForkJoinPool 实现并行执行
-        ExecutorService executor = Executors.newWorkStealingPool();
+    private List<String> executeInParallel(String originalTask, List<String> subtasks) {
+        ExecutorService executor = Executors.newFixedThreadPool(
+                Math.min(subtasks.size(), MAX_SUBTASKS));
+
         try {
             List<CompletableFuture<WorkerResult>> futures = new ArrayList<>();
 
             for (int i = 0; i < subtasks.size(); i++) {
-                int index = i;
-                String subtask = subtasks.get(i);
-                CompletableFuture<WorkerResult> future = CompletableFuture
-                        .supplyAsync(() -> {
-                            log.info("Worker {} 开始执行: {}", index + 1, subtask);
-                            String result = workerExecute(subtask);
-                            log.info("Worker {} 完成, 结果长度: {}", index + 1, result.length());
-                            return new WorkerResult(index, subtask, result);
-                        }, executor)
-                        .orTimeout(WORKER_TIMEOUT.getSeconds(), TimeUnit.SECONDS)
-                        .exceptionally(e -> {
-                            log.warn("Worker {} 执行失败: {}", index + 1, e.getMessage());
-                            return new WorkerResult(index, subtask, "[Worker " + (index + 1) + " 执行失败: " + e.getMessage() + "]");
-                        });
+                final int index = i;
+                final String subtask = subtasks.get(i);
+
+                CompletableFuture<WorkerResult> future = CompletableFuture.supplyAsync(() -> {
+                    String result = executeWorker(originalTask, subtask);
+                    return new WorkerResult(index, subtask, result);
+                }, executor);
+
                 futures.add(future);
             }
 
-            // 等待所有 Worker 完成
-            return futures.stream()
-                    .map(CompletableFuture::join)
-                    .sorted(Comparator.comparingInt(WorkerResult::index))
-                    .map(WorkerResult::result)
-                    .toList();
+            CompletableFuture<Void> allDone = CompletableFuture.allOf(
+                    futures.toArray(new CompletableFuture[0]));
+
+            try {
+                allDone.get(WORKER_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                log.warn("部分 Worker 执行超时");
+            } catch (Exception e) {
+                log.error("Worker 并行执行异常", e);
+            }
+
+            List<String> results = new ArrayList<>(Collections.nCopies(subtasks.size(), ""));
+            for (CompletableFuture<WorkerResult> future : futures) {
+                if (future.isDone() && !future.isCompletedExceptionally()) {
+                    WorkerResult wr = future.getNow(null);
+                    if (wr != null) {
+                        results.set(wr.index(), wr.result());
+                    }
+                }
+            }
+
+            return results;
         } finally {
             executor.shutdown();
         }
     }
 
     /**
-     * Worker 执行单个子任务（使用 ReAct 循环或直接 LLM）
+     * 单个 Worker 执行子任务（委托给 ReActAgent）
      */
-    private String workerExecute(String subtask) {
+    private String executeWorker(String originalTask, String subtask) {
         try {
-            // 检查是否需要工具调用（包含"查询""搜索""计算"等关键词）
-            boolean needsTools = subtask.matches(".*(查询|搜索|计算|统计|查找|获取|数据库|API).*");
-
-            if (needsTools) {
-                // 需要工具调用时使用 ReAct 模式
-                return executeWorkerReAct(subtask);
-            } else {
-                // 纯推理任务直接使用 LLM
-                String prompt = String.format("请完成以下任务：\n%s\n\n请用中文回答。", subtask);
+            if (toolService == null) {
+                String prompt = String.format(
+                        "你是子任务执行专家。请完成以下子任务。\n\n原始任务：%s\n\n子任务：%s",
+                        originalTask, subtask);
                 return chatLanguageModel.generate(prompt);
             }
+            return reActAgent.execute(subtask, "", "");
         } catch (Exception e) {
             log.error("Worker 执行子任务失败: {}", subtask, e);
             return "执行失败: " + e.getMessage();
         }
-    }
-
-    /**
-     * Worker 的 ReAct 循环（简化版，不含死循环检测）
-     */
-    private String executeWorkerReAct(String task) {
-        String toolsDesc = """
-                - query_database: 执行 SQL 查询数据库
-                - call_external_api: 调用外部 HTTP API
-                """;
-
-        String systemPrompt = String.format("""
-                你是一个 Worker Agent，负责完成以下子任务。
-                你可以使用工具来获取信息。
-                
-                可用工具：
-                %s
-                
-                格式：
-                Thought: 你的思考
-                Action: 工具名
-                Action Input: 工具参数
-                Observation: 工具结果
-                ...（重复）
-                Final Answer: 最终回答
-                """, toolsDesc);
-
-        StringBuilder conversation = new StringBuilder();
-        conversation.append("子任务：").append(task).append("\n\n");
-
-        for (int step = 0; step < 5; step++) {
-            String prompt = systemPrompt + "\n\n" + conversation + "\n请继续：";
-            String response = chatLanguageModel.generate(prompt);
-
-            Pattern finalAnswerPattern = Pattern.compile("Final Answer:\\s*(.+)", Pattern.DOTALL);
-            Matcher finalMatcher = finalAnswerPattern.matcher(response);
-            if (finalMatcher.find()) {
-                return finalMatcher.group(1).trim();
-            }
-
-            Pattern actionPattern = Pattern.compile("Action:\\s*(\\w+)\\s*Action\\s+Input:\\s*(.+?)(?=Thought:|Observation:|Final Answer:|$)", Pattern.DOTALL);
-            Matcher actionMatcher = actionPattern.matcher(response);
-            if (actionMatcher.find()) {
-                String actionName = actionMatcher.group(1).trim();
-                String actionInput = actionMatcher.group(2).trim();
-                String observation;
-
-                try {
-                    observation = switch (actionName) {
-                        case "query_database" -> toolService.queryDatabase(actionInput);
-                        case "call_external_api" -> {
-                            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                            Map<String, String> params = mapper.readValue(actionInput, Map.class);
-                            yield toolService.callExternalApi(
-                                    params.getOrDefault("url", ""),
-                                    params.getOrDefault("method", "GET"),
-                                    params.getOrDefault("body", ""));
-                        }
-                        default -> "未知工具: " + actionName;
-                    };
-                } catch (Exception e) {
-                    observation = "工具执行错误: " + e.getMessage();
-                }
-
-                conversation.append("\n").append(response).append("\nObservation: ").append(observation);
-            } else {
-                // 没有找到 Action 也没有 Final Answer，返回原始响应
-                return response;
-            }
-        }
-
-        return "已尽力完成，但未能完全解决子任务。";
     }
 
     /**
@@ -291,7 +232,6 @@ public class MultiAgentService {
             return chatLanguageModel.generate(prompt);
         } catch (Exception e) {
             log.error("结果汇总失败", e);
-            // 汇总失败时，直接拼接所有结果
             StringBuilder fallback = new StringBuilder();
             fallback.append("以下是各子任务的结果：\n\n");
             for (int i = 0; i < results.size(); i++) {

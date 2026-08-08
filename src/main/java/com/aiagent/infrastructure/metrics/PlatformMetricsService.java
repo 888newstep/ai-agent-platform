@@ -5,13 +5,20 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-@Slf4j
+import java.time.Duration;
+
 @Service
 @RequiredArgsConstructor
 public class PlatformMetricsService {
+
+    private static final double[] DEFAULT_PERCENTILES = {0.5, 0.95, 0.99};
+    private static final Duration[] CHAT_SLOS = {
+            Duration.ofMillis(100),
+            Duration.ofMillis(500),
+            Duration.ofSeconds(2)
+    };
 
     private final MeterRegistry meterRegistry;
 
@@ -20,79 +27,99 @@ public class PlatformMetricsService {
     }
 
     public void recordChat(String mode, boolean useRag, boolean cacheHit, boolean success, Timer.Sample sample) {
-        Counter.builder("ai.chat.requests.total")
-                .tag("mode", mode)
-                .tag("rag", Boolean.toString(useRag))
-                .tag("cache", cacheHit ? "hit" : "miss")
-                .tag("status", success ? "success" : "error")
-                .register(meterRegistry)
-                .increment();
-
-        sample.stop(Timer.builder("ai.chat.latency")
-                .tag("mode", mode)
-                .tag("rag", Boolean.toString(useRag))
-                .tag("cache", cacheHit ? "hit" : "miss")
-                .tag("status", success ? "success" : "error")
-                .publishPercentiles(0.5, 0.95, 0.99)
-                .serviceLevelObjectives(java.time.Duration.ofMillis(100), java.time.Duration.ofMillis(500), java.time.Duration.ofSeconds(2))
-                .register(meterRegistry));
+        String[] tags = {
+                "mode", mode,
+                "rag", Boolean.toString(useRag),
+                "cache", hitTag(cacheHit),
+                "status", statusTag(success)
+        };
+        incrementCounter("ai.chat.requests.total", tags);
+        stopSample(sample, "ai.chat.latency", CHAT_SLOS, tags);
     }
 
     public void recordRagSearch(boolean cacheHit, int resultCount, Timer.Sample sample) {
-        Counter.builder("ai.rag.search.total")
-                .tag("cache", cacheHit ? "hit" : "miss")
-                .register(meterRegistry)
-                .increment();
-
-        DistributionSummary.builder("ai.rag.results.count")
-                .publishPercentiles(0.5, 0.95, 0.99)
-                .register(meterRegistry)
-                .record(resultCount);
-
-        sample.stop(Timer.builder("ai.rag.search.latency")
-                .tag("cache", cacheHit ? "hit" : "miss")
-                .publishPercentiles(0.5, 0.95, 0.99)
-                .register(meterRegistry));
+        String[] tags = {"cache", hitTag(cacheHit)};
+        incrementCounter("ai.rag.search.total", tags);
+        recordSummary("ai.rag.results.count", resultCount);
+        stopSample(sample, "ai.rag.search.latency", new Duration[0], tags);
     }
 
     public void recordDocumentQueued() {
-        Counter.builder("ai.document.ingestion.queued.total")
-                .register(meterRegistry)
-                .increment();
+        incrementCounter("ai.document.ingestion.queued.total");
     }
 
     public void recordDocumentIngestion(String status, int chunkCount, Timer.Sample sample) {
-        Counter.builder("ai.document.ingestion.total")
-                .tag("status", status)
-                .register(meterRegistry)
-                .increment();
-
-        DistributionSummary.builder("ai.document.chunk.count")
-                .publishPercentiles(0.5, 0.95, 0.99)
-                .register(meterRegistry)
-                .record(Math.max(chunkCount, 0));
-
-        sample.stop(Timer.builder("ai.document.ingestion.latency")
-                .tag("status", status)
-                .publishPercentiles(0.5, 0.95, 0.99)
-                .register(meterRegistry));
+        String[] tags = {"status", status};
+        incrementCounter("ai.document.ingestion.total", tags);
+        recordSummary("ai.document.chunk.count", chunkCount);
+        stopSample(sample, "ai.document.ingestion.latency", new Duration[0], tags);
     }
-    
+
     public void recordCacheOperation(String cacheName, String operation, boolean hit) {
-        Counter.builder("ai.cache.operations.total")
-                .tag("cache", cacheName)
-                .tag("operation", operation)
-                .tag("result", hit ? "hit" : "miss")
+        incrementCounter("ai.cache.operations.total",
+                "cache", cacheName,
+                "operation", operation,
+                "result", hitTag(hit));
+    }
+
+    public void recordDatabaseQuery(String table, String operation, long durationMs) {
+        timerBuilder("ai.database.query.latency", "table", table, "operation", operation)
+                .register(meterRegistry)
+                .record(Duration.ofMillis(durationMs));
+    }
+
+    public void recordAdaptiveRag(String routeType,
+                                  String verificationLevel,
+                                  boolean rewritten,
+                                  int retrievalRounds,
+                                  int chunkCount,
+                                  boolean success,
+                                  Timer.Sample sample) {
+        String[] tags = {
+                "route", routeType,
+                "verification", verificationLevel,
+                "rewritten", Boolean.toString(rewritten),
+                "status", statusTag(success)
+        };
+        incrementCounter("ai.rag.adaptive.total", tags);
+        recordSummary("ai.rag.adaptive.rounds", retrievalRounds);
+        recordSummary("ai.rag.adaptive.chunk.count", chunkCount);
+        stopSample(sample, "ai.rag.adaptive.latency", new Duration[0], tags);
+    }
+
+    private void incrementCounter(String name, String... tags) {
+        Counter.builder(name)
+                .tags(tags)
                 .register(meterRegistry)
                 .increment();
     }
-    
-    public void recordDatabaseQuery(String table, String operation, long durationMs) {
-        Timer.builder("ai.database.query.latency")
-                .tag("table", table)
-                .tag("operation", operation)
-                .publishPercentiles(0.5, 0.95, 0.99)
+
+    private void recordSummary(String name, int value) {
+        DistributionSummary.builder(name)
+                .publishPercentiles(DEFAULT_PERCENTILES)
                 .register(meterRegistry)
-                .record(java.time.Duration.ofMillis(durationMs));
+                .record(Math.max(value, 0));
+    }
+
+    private void stopSample(Timer.Sample sample, String name, Duration[] slos, String... tags) {
+        Timer.Builder builder = timerBuilder(name, tags);
+        if (slos.length > 0) {
+            builder.serviceLevelObjectives(slos);
+        }
+        sample.stop(builder.register(meterRegistry));
+    }
+
+    private Timer.Builder timerBuilder(String name, String... tags) {
+        return Timer.builder(name)
+                .tags(tags)
+                .publishPercentiles(DEFAULT_PERCENTILES);
+    }
+
+    private String hitTag(boolean hit) {
+        return hit ? "hit" : "miss";
+    }
+
+    private String statusTag(boolean success) {
+        return success ? "success" : "error";
     }
 }

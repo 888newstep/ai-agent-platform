@@ -1,11 +1,10 @@
 package com.aiagent.agent.application;
 
 import com.aiagent.infrastructure.cache.SemanticCacheService;
-import com.aiagent.infrastructure.config.AiProperties;
-import com.aiagent.knowledge.domain.RetrievalChunk;
+import com.aiagent.rag.application.AdaptiveRagContext;
 import com.aiagent.infrastructure.memory.LongContextManager;
 import com.aiagent.infrastructure.metrics.PlatformMetricsService;
-import com.aiagent.rag.application.MultiRecallService;
+import com.aiagent.rag.application.AdaptiveRagService;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.model.input.PromptTemplate;
@@ -19,7 +18,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,10 +35,9 @@ public class AiAgentService {
 
     private final ChatLanguageModel chatLanguageModel;
     private final StreamingChatLanguageModel streamingChatLanguageModel;
-    private final AiProperties aiProperties;
     private final ReActAgent reActAgent;
     private final SemanticCacheService semanticCacheService;
-    private final MultiRecallService multiRecallService;
+    private final AdaptiveRagService adaptiveRagService;
     private final LongContextManager longContextManager;
     private final PlatformMetricsService metricsService;
 
@@ -59,7 +56,7 @@ public class AiAgentService {
                 return cached;
             }
 
-            String context = useRag ? buildContextFromMultiRecall(question) : "";
+            String context = resolveAdaptiveContext(question, useRag).getContext();
             String optimizedHistory = longContextManager.getOptimizedContext(sessionId, question);
             String fullPrompt = buildPrompt(optimizedHistory, context, question);
             String response = chatLanguageModel.generate(fullPrompt);
@@ -89,7 +86,7 @@ public class AiAgentService {
                 return cached;
             }
 
-            String context = useRag ? buildContextFromMultiRecall(question) : "";
+            String context = resolveAdaptiveContext(question, useRag).getContext();
             String optimizedHistory = longContextManager.getOptimizedContext(sessionId, question);
             String response = reActAgent.execute(question, context, optimizedHistory);
 
@@ -117,7 +114,7 @@ public class AiAgentService {
             return sink.asFlux();
         }
 
-        String context = useRag ? buildContextFromMultiRecall(question) : "";
+        String context = resolveAdaptiveContext(question, useRag).getContext();
         String optimizedHistory = longContextManager.getOptimizedContext(sessionId, question);
         String fullPrompt = buildPrompt(optimizedHistory, context, question);
 
@@ -131,7 +128,7 @@ public class AiAgentService {
                     .build()
                     .chat(fullPrompt);
         } catch (Exception e) {
-            log.error("流式 Chat 初始化失败", e);
+            log.error("Streaming chat initialization failed", e);
             metricsService.recordChat("stream", useRag, false, false, sample);
             sink.tryEmitError(e);
             return sink.asFlux()
@@ -169,32 +166,21 @@ public class AiAgentService {
 
     public String createSession() {
         String sessionId = UUID.randomUUID().toString();
-        log.info("Create session: {}", sessionId);
+        log.debug("Create session: {}", sessionId);
         return sessionId;
     }
 
     public void clearSession(String sessionId) {
         longContextManager.clearSession(sessionId);
-        log.info("Clear session: {}", sessionId);
+        log.debug("Clear session: {}", sessionId);
     }
 
-    private String buildContextFromMultiRecall(String question) {
-        AiProperties.Rag ragConfig = aiProperties.getRag();
-        List<RetrievalChunk> chunks = multiRecallService.search(question, ragConfig.getTopK());
-        return buildContext(chunks);
+    public AdaptiveRagContext inspectAdaptiveRag(String question, boolean useRag) {
+        return resolveAdaptiveContext(question, useRag);
     }
 
-    private String buildContext(List<RetrievalChunk> chunks) {
-        if (chunks == null || chunks.isEmpty()) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder();
-        sb.append("Relevant reference information:\n");
-        for (int i = 0; i < chunks.size(); i++) {
-            RetrievalChunk chunk = chunks.get(i);
-            sb.append("[").append(i + 1).append("] ").append(chunk.getContent()).append("\n");
-        }
-        return sb.toString();
+    private AdaptiveRagContext resolveAdaptiveContext(String question, boolean useRag) {
+        return useRag ? adaptiveRagService.resolve(question) : AdaptiveRagContext.empty(question);
     }
 
     private String buildPrompt(String history, String context, String question) {

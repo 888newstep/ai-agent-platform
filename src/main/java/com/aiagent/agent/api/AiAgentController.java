@@ -2,13 +2,17 @@ package com.aiagent.agent.api;
 
 import com.aiagent.agent.application.AiAgentService;
 import com.aiagent.agent.application.MultiAgentService;
+import com.aiagent.rag.application.AdaptiveRagContext;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.aiagent.infrastructure.cache.SemanticCacheService;
 import com.aiagent.knowledge.application.DocumentService;
 import com.aiagent.rag.application.RagEvaluationService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,18 +22,22 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 
-import java.util.HashMap;
+import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-@Slf4j
 @RestController
 @RequestMapping("/api/v1/agent")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class AiAgentController {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final String EVALUATION_NOTE = "chunkSize/chunkOverlap are snapshot-only and require re-ingestion for fair comparison";
 
     private final AiAgentService aiAgentService;
     private final DocumentService documentService;
@@ -40,10 +48,10 @@ public class AiAgentController {
     @PostMapping("/session")
     public ResponseEntity<Map<String, String>> createSession() {
         String sessionId = aiAgentService.createSession();
-        Map<String, String> response = new HashMap<>();
-        response.put("sessionId", sessionId);
-        response.put("message", "Session created");
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(stringResponse(
+                "sessionId", sessionId,
+                "message", "Session created"
+        ));
     }
 
     @DeleteMapping("/session/{sessionId}")
@@ -57,13 +65,12 @@ public class AiAgentController {
             @RequestParam String sessionId,
             @RequestParam String question,
             @RequestParam(defaultValue = "true") boolean useRag) {
-        String response = aiAgentService.chat(sessionId, question, useRag);
-        Map<String, Object> result = new HashMap<>();
-        result.put("sessionId", sessionId);
-        result.put("question", question);
-        result.put("answer", response);
-        result.put("mode", "normal");
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(buildChatResponse(
+                sessionId,
+                question,
+                aiAgentService.chat(sessionId, question, useRag),
+                "normal"
+        ));
     }
 
     @PostMapping("/react/chat")
@@ -71,25 +78,23 @@ public class AiAgentController {
             @RequestParam String sessionId,
             @RequestParam String question,
             @RequestParam(defaultValue = "true") boolean useRag) {
-        String response = aiAgentService.reactChat(sessionId, question, useRag);
-        Map<String, Object> result = new HashMap<>();
-        result.put("sessionId", sessionId);
-        result.put("question", question);
-        result.put("answer", response);
-        result.put("mode", "react");
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(buildChatResponse(
+                sessionId,
+                question,
+                aiAgentService.reactChat(sessionId, question, useRag),
+                "react"
+        ));
     }
 
     @PostMapping("/multi-agent/execute")
     public ResponseEntity<Map<String, Object>> multiAgentExecute(
             @RequestParam String task,
             @RequestParam(defaultValue = "") String context) {
-        String response = multiAgentService.execute(task, context);
-        Map<String, Object> result = new HashMap<>();
-        result.put("task", task);
-        result.put("answer", response);
-        result.put("mode", "multi-agent");
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(objectResponse(
+                "task", task,
+                "answer", multiAgentService.execute(task, context),
+                "mode", "multi-agent"
+        ));
     }
 
     @GetMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -100,15 +105,23 @@ public class AiAgentController {
         return aiAgentService.streamChat(sessionId, question, useRag);
     }
 
+
+    @PostMapping("/rag/debug")
+    public ResponseEntity<AdaptiveRagContext> debugAdaptiveRag(
+            @RequestParam String question,
+            @RequestParam(defaultValue = "true") boolean useRag) {
+        return ResponseEntity.ok(aiAgentService.inspectAdaptiveRag(question, useRag));
+    }
+
     @PostMapping("/document/upload")
     public ResponseEntity<Map<String, Object>> uploadDocument(@RequestParam("file") MultipartFile file) {
         var document = documentService.uploadDocument(file);
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "Document accepted and queued for async ingestion");
-        response.put("documentId", document.getId());
-        response.put("fileName", document.getFileName());
-        response.put("status", document.getProcessingStatus());
-        return ResponseEntity.accepted().body(response);
+        return ResponseEntity.accepted().body(objectResponse(
+                "message", "Document accepted and queued for async ingestion",
+                "documentId", document.getId(),
+                "fileName", document.getFileName(),
+                "status", document.getProcessingStatus()
+        ));
     }
 
     @GetMapping("/document/{documentId}/status")
@@ -122,44 +135,142 @@ public class AiAgentController {
             @RequestParam(defaultValue = "5") int topK,
             @RequestParam(defaultValue = "0.7") double threshold) {
         var chunks = documentService.searchSimilar(query, topK, threshold);
-        Map<String, Object> response = new HashMap<>();
-        response.put("query", query);
-        response.put("results", chunks);
-        response.put("count", chunks.size());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(objectResponse(
+                "query", query,
+                "results", chunks,
+                "count", chunks.size()
+        ));
     }
 
     @DeleteMapping("/cache")
     public ResponseEntity<Map<String, String>> clearCache() {
         semanticCacheService.clear();
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Semantic cache cleared");
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(stringResponse("message", "Semantic cache cleared"));
     }
 
     @PostMapping("/evaluate")
     public ResponseEntity<Map<String, Object>> evaluateRag(
-            @RequestParam(defaultValue = "1,3,5,10") String topKs) {
-        List<Integer> kValues = java.util.Arrays.stream(topKs.split(","))
-                .map(String::trim)
-                .map(Integer::parseInt)
-                .toList();
-        var report = ragEvaluationService.quickEvaluate(kValues);
-        Map<String, Object> response = new HashMap<>();
-        response.put("summary", report.toFormattedSummary());
-        response.put("metrics", report.getMetrics());
-        response.put("datasetSize", report.getDatasetSize());
-        response.put("config", report.getConfigSnapshot());
-        return ResponseEntity.ok(response);
+            @RequestParam(defaultValue = "1,3,5,10") String topKs,
+            @RequestParam(required = false) String datasetPath,
+            @RequestParam(required = false) Double similarityThreshold,
+            @RequestParam(required = false) Boolean hybridSearch) {
+        List<Integer> kValues = parseTopKs(topKs);
+        RagEvaluationService.EvaluationReport report = StringUtils.hasText(datasetPath)
+                ? ragEvaluationService.evaluateFromFile(datasetPath, kValues, similarityThreshold, hybridSearch)
+                : ragEvaluationService.quickEvaluate(kValues, similarityThreshold, hybridSearch);
+        return ResponseEntity.ok(buildEvaluationResponse(report));
+    }
+
+    @PostMapping("/evaluate/compare")
+    public ResponseEntity<Map<String, Object>> compareRag(
+            @RequestParam String datasetPath,
+            @RequestParam(defaultValue = "1,3,5,10") String topKs,
+            @RequestParam(required = false) String profilesJson) {
+        var report = ragEvaluationService.compareFromFile(datasetPath, parseTopKs(topKs), parseProfiles(profilesJson));
+        return ResponseEntity.ok(buildComparisonResponse(report));
+    }
+
+    private List<Integer> parseTopKs(String topKs) {
+        if (!StringUtils.hasText(topKs)) {
+            return List.of();
+        }
+
+        try {
+            return java.util.Arrays.stream(topKs.split(","))
+                    .map(String::trim)
+                    .filter(StringUtils::hasText)
+                    .map(Integer::parseInt)
+                    .toList();
+        } catch (NumberFormatException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid topKs: " + topKs, ex);
+        }
+    }
+
+    private List<RagEvaluationService.EvaluationProfile> parseProfiles(String profilesJson) {
+        if (!StringUtils.hasText(profilesJson)) {
+            return List.of();
+        }
+
+        try {
+            return OBJECT_MAPPER.readValue(
+                    profilesJson,
+                    new TypeReference<List<RagEvaluationService.EvaluationProfile>>() {
+                    }
+            );
+        } catch (IOException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid profilesJson payload", ex);
+        }
+    }
+
+    private Map<String, Object> buildEvaluationResponse(RagEvaluationService.EvaluationReport report) {
+        return objectResponse(
+                "summary", report.toFormattedSummary(),
+                "datasetSource", report.getDatasetSource(),
+                "datasetSize", report.getDatasetSize(),
+                "topKs", report.getTopKs(),
+                "metrics", report.getMetrics(),
+                "categoryMetrics", report.getCategoryMetrics(),
+                "config", report.getConfigSnapshot(),
+                "note", EVALUATION_NOTE
+        );
+    }
+
+    private Map<String, Object> buildComparisonResponse(RagEvaluationService.ComparisonReport report) {
+        Map<String, Object> reports = new LinkedHashMap<>();
+        for (Map.Entry<String, RagEvaluationService.EvaluationReport> entry : report.getReports().entrySet()) {
+            reports.put(entry.getKey(), buildEvaluationResponse(entry.getValue()));
+        }
+        return objectResponse(
+                "summary", report.toFormattedSummary(),
+                "datasetSource", report.getDatasetSource(),
+                "datasetSize", report.getDatasetSize(),
+                "topKs", report.getTopKs(),
+                "reports", reports,
+                "note", EVALUATION_NOTE
+        );
+    }
+
+    private Map<String, Object> buildChatResponse(String sessionId,
+                                                  String question,
+                                                  String answer,
+                                                  String mode) {
+        return objectResponse(
+                "sessionId", sessionId,
+                "question", question,
+                "answer", answer,
+                "mode", mode
+        );
+    }
+
+    private Map<String, String> stringResponse(String... entries) {
+        if (entries.length % 2 != 0) {
+            throw new IllegalArgumentException("stringResponse requires key/value pairs");
+        }
+        Map<String, String> response = new LinkedHashMap<>();
+        for (int index = 0; index < entries.length; index += 2) {
+            response.put(entries[index], entries[index + 1]);
+        }
+        return response;
+    }
+
+    private Map<String, Object> objectResponse(Object... entries) {
+        if (entries.length % 2 != 0) {
+            throw new IllegalArgumentException("objectResponse requires key/value pairs");
+        }
+        Map<String, Object> response = new LinkedHashMap<>();
+        for (int index = 0; index < entries.length; index += 2) {
+            response.put((String) entries[index], entries[index + 1]);
+        }
+        return response;
     }
 
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> health() {
-        Map<String, String> response = new HashMap<>();
-        response.put("status", "UP");
-        response.put("service", "AI Customer Service Agent");
-        response.put("version", "1.0.0");
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(stringResponse(
+                "status", "UP",
+                "service", "AI Customer Service Agent",
+                "version", "1.0.0"
+        ));
     }
 
     @GetMapping({"/", "/admin"})

@@ -62,7 +62,9 @@ public class SecurityConfig {
                         "/api/v1/agent/multi-agent/**",
                         "/api/v1/agent/document/upload",
                         "/api/v1/agent/cache",
+                        "/api/v1/agent/rag/**",
                         "/api/v1/agent/evaluate",
+                        "/api/v1/agent/evaluate/**",
                         "/api/v1/ecommerce/**",
                         "/api/cs/**"
                 ).authenticated()
