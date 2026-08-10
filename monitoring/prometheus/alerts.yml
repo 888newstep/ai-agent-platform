@@ -1,0 +1,57 @@
+groups:
+  - name: ai-agent-platform
+    rules:
+      - alert: AiAgentChatErrorRateHigh
+        expr: |
+          sum(rate(ai_chat_requests_total{status="error"}[5m]))
+            / clamp_min(sum(rate(ai_chat_requests_total[5m])), 0.001) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI Agent chat error rate is high"
+          description: "Chat error rate has exceeded 10% for 10 minutes."
+
+      - alert: AiAgentChatP95LatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(ai_chat_latency_seconds_bucket[5m])) by (le)) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI Agent chat P95 latency is high"
+          description: "Chat P95 latency has exceeded 2 seconds for 10 minutes."
+
+      - alert: AiAgentAdaptiveRagErrorRateHigh
+        expr: |
+          sum(rate(ai_rag_adaptive_total{status="error"}[5m]))
+            / clamp_min(sum(rate(ai_rag_adaptive_total[5m])), 0.001) > 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Adaptive RAG error rate is high"
+          description: "Adaptive RAG errors have exceeded 15% for 10 minutes."
+
+      - alert: AiAgentReActToolErrorRateHigh
+        expr: |
+          sum(rate(ai_agent_react_total{tool_error="true"}[5m]))
+            / clamp_min(sum(rate(ai_agent_react_total[5m])), 0.001) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ReAct tool error rate is high"
+          description: "ReAct tool errors have exceeded 20% for 10 minutes."
+
+      - alert: AiAgentMultiAgentWorkerFailuresHigh
+        expr: |
+          sum(rate(ai_agent_multi_worker_failures_sum[5m]))
+            / clamp_min(sum(rate(ai_agent_multi_total[5m])), 0.001) > 0.50
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Multi-Agent worker failures are high"
+          description: "The average worker failure count per Multi-Agent request has exceeded 0.5."

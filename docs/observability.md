@@ -130,10 +130,10 @@ Access URLs:
 - Prometheus: `http://localhost:9090`
 - Grafana: `http://localhost:3000`
 
-Default Grafana credentials:
+Grafana credentials must be configured before starting the monitoring stack:
 
-- Username: `admin`
-- Password: `admin123456`
+- Username: `GRAFANA_ADMIN_USER` (defaults to `admin`)
+- Password: `GRAFANA_ADMIN_PASSWORD` (required; no repository default)
 
 Optional overrides in `.env`:
 
@@ -145,6 +145,9 @@ GRAFANA_ADMIN_PASSWORD=change-me
 Grafana auto-loads:
 
 - Prometheus datasource
+- Prometheus alert rules from `monitoring/prometheus/alerts.yml`
+
+Prometheus evaluates alerts for chat error rate/P95 latency, Adaptive RAG errors, ReAct tool errors, and Multi-Agent worker failures. An Alertmanager is intentionally not bundled; connect one in deployment environments that need notifications.
 - `AI Agent Platform Overview` dashboard
 
 Recommended dashboard grouping:

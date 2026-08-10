@@ -3,7 +3,7 @@
   "uid": "ai-agent-platform-overview",
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "panels": [
     {
@@ -73,6 +73,103 @@
           "refId": "A",
           "expr": "sum(increase(ai_document_ingestion_total[24h])) by (status)",
           "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Adaptive RAG Routes and End Reasons",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ai_rag_adaptive_total[5m])) by (route, end_reason)",
+          "legendFormat": "{{route}} / {{end_reason}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Adaptive RAG Error Rate",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ai_rag_adaptive_total{status=\"error\"}[5m])) / clamp_min(sum(rate(ai_rag_adaptive_total[5m])), 0.001)",
+          "legendFormat": "error rate"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "ReAct Stop Reasons",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ai_agent_react_total[5m])) by (stop_reason)",
+          "legendFormat": "{{stop_reason}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Multi-Agent Fallbacks",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ai_agent_multi_total{single_agent_fallback=\"true\"}[5m]))",
+          "legendFormat": "single-agent fallback"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(ai_agent_multi_total{synthesis_fallback=\"true\"}[5m]))",
+          "legendFormat": "synthesis fallback"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Semantic Cache Hit Rate",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ai_cache_semantic_total{result=\"hit\"}[5m])) / clamp_min(sum(rate(ai_cache_semantic_total[5m])), 0.001)",
+          "legendFormat": "semantic cache hit rate"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Multi-Agent Worker Failures per Request",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ai_agent_multi_worker_failures_sum[5m])) / clamp_min(sum(rate(ai_agent_multi_total[5m])), 0.001)",
+          "legendFormat": "worker failures / request"
         }
       ]
     }
