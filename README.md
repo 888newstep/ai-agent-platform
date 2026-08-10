@@ -28,6 +28,7 @@
 - **ReAct Agent 循环** — Thought → Action → Observation → Final Answer 推理循环，含死循环防护和超时控制
 - **多路召回 RAG** — 向量检索（Milvus）+ BM25 关键词检索 + RRF 融合排序
 - **语义缓存** — 基于 embedding 余弦相似度，自动缓存相似问题回答，降低 API 成本
+- **API 保护** — Redis 分布式固定窗口限流 + 估算 Token 预算，按认证主体/IP 隔离高成本请求
 - **多模型支持** — 策略模式动态切换（DeepSeek / 通义千问 / 豆包 / Qwen3-Flash / Ollama 本地）
 - **工具调用框架** — 数据库查询、外部 API 调用，注册表模式自动发现
 - **流式输出** — SSE 实时推送，5 分钟超时保护

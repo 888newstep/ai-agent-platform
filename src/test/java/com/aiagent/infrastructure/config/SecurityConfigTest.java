@@ -1,6 +1,7 @@
 package com.aiagent.infrastructure.config;
 
 import com.aiagent.agent.api.AiAgentController;
+import jakarta.servlet.FilterChain;
 import com.aiagent.agent.application.AiAgentService;
 import com.aiagent.infrastructure.cache.SemanticCacheService;
 import com.aiagent.infrastructure.security.JwtAuthenticationFilter;
@@ -19,8 +20,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -52,17 +55,29 @@ class SecurityConfigTest {
     private EvaluationReportHistoryService evaluationReportHistoryService;
 
     @MockitoBean
+    private ApiProtectionFilter apiProtectionFilter;
+
+    @MockitoBean
     private AiProperties aiProperties;
 
     @MockitoBean
     private com.aiagent.infrastructure.security.JwtTokenProvider jwtTokenProvider;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         AiProperties.Security security = new AiProperties.Security();
         security.setAdminApiKey("test-admin-key");
         security.setAdminHeaderName("X-Admin-Api-Key");
         when(aiProperties.getSecurity()).thenReturn(security);
+        doAnswer(invocation -> {
+            FilterChain chain = invocation.getArgument(2);
+            try {
+                chain.doFilter(invocation.getArgument(0), invocation.getArgument(1));
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+            return null;
+        }).when(apiProtectionFilter).doFilter(any(), any(), any());
     }
 
     @Test

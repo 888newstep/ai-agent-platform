@@ -89,6 +89,13 @@ Key tags for Multi-Agent trace metrics:
 - `GET /api/v1/agent/evaluate/history/compare?baseline={fileName}&candidate={fileName}` returns `candidate - baseline` deltas for every common numeric metric. It marks reports as non-comparable when dataset source, size, or top-K values differ.
 - History endpoints accept generated report file names only; path traversal and arbitrary local file reads are rejected.
 
+### API protection
+
+- High-cost public endpoints (`/chat`, `/react/chat`, streaming chat, and document search) use a Redis fixed-window request limit.
+- The same identity receives an estimated-token budget per minute. The estimate is admission control, not provider billing: it combines input characters with a configurable prompt overhead.
+- Authenticated requests are keyed by a hash of the authenticated principal; anonymous requests use the remote IP. `X-Forwarded-For` and client-supplied tenant headers are not trusted by this filter.
+- Rejections return HTTP `429` with `Retry-After`; oversized input or per-request cost returns HTTP `413`.
+- Redis failures fail open by default for local availability. Production deployments can set the two `fail-open` flags to `false` after validating Redis high availability.
 ### Document ingestion
 
 - `ai.document.ingestion.queued.total`

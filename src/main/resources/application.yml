@@ -138,6 +138,19 @@ ai:
   evaluation:
     dataset-directory: ${AI_EVALUATION_DATASET_DIRECTORY:./evaluation-datasets}
     report-directory: ${AI_EVALUATION_REPORT_DIRECTORY:./evaluation-reports}
+  protection:
+    rate-limit:
+      enabled: ${AI_RATE_LIMIT_ENABLED:true}
+      requests-per-minute: ${AI_RATE_LIMIT_REQUESTS_PER_MINUTE:30}
+      fail-open: ${AI_RATE_LIMIT_FAIL_OPEN:true}
+    cost-budget:
+      enabled: ${AI_COST_BUDGET_ENABLED:true}
+      estimated-tokens-per-minute: ${AI_ESTIMATED_TOKENS_PER_MINUTE:12000}
+      max-estimated-tokens-per-request: ${AI_MAX_ESTIMATED_TOKENS_PER_REQUEST:4000}
+      max-input-characters: ${AI_MAX_INPUT_CHARACTERS:12000}
+      tokens-per-character: ${AI_TOKENS_PER_CHARACTER:1.0}
+      prompt-overhead-tokens: ${AI_PROMPT_OVERHEAD_TOKENS:256}
+      fail-open: ${AI_COST_BUDGET_FAIL_OPEN:true}
   tool:
     database-query:
       enabled: true

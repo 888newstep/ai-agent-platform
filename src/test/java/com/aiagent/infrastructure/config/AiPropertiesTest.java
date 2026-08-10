@@ -9,6 +9,7 @@ class AiPropertiesTest {
         assertNotNull(p.getModel()); assertNotNull(p.getEmbedding()); assertNotNull(p.getVectorStore());
         assertNotNull(p.getDocument()); assertNotNull(p.getRag()); assertNotNull(p.getTool());
         assertNotNull(p.getSession()); assertNotNull(p.getSecurity()); assertNotNull(p.getPerformance());
+        assertNotNull(p.getProtection());
     }
     @Test void shouldHaveModelDefaults() {
         AiProperties p = new AiProperties();
@@ -19,6 +20,11 @@ class AiPropertiesTest {
         AiProperties p = new AiProperties();
         assertEquals(86400000, p.getSecurity().getJwt().getExpiration());
         assertEquals("X-Admin-Api-Key", p.getSecurity().getAdminHeaderName());
+    }
+    @Test void shouldHaveProtectionDefaults() {
+        AiProperties p = new AiProperties();
+        assertEquals(30, p.getProtection().getRateLimit().getRequestsPerMinute());
+        assertEquals(12000, p.getProtection().getCostBudget().getEstimatedTokensPerMinute());
     }
     @Test void shouldHavePerformanceDefaults() {
         AiProperties p = new AiProperties();

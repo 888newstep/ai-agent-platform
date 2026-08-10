@@ -20,6 +20,7 @@ public class AiProperties {
     private Session session = new Session();
     private Security security = new Security();
     private Performance performance = new Performance();
+    private Protection protection = new Protection();
 
     @Data
     public static class Model {
@@ -198,6 +199,29 @@ public class AiProperties {
         private int summaryInterval = 5;
     }
 
+    @Data
+    public static class Protection {
+        private RateLimit rateLimit = new RateLimit();
+        private CostBudget costBudget = new CostBudget();
+    }
+
+    @Data
+    public static class RateLimit {
+        private boolean enabled = true;
+        private int requestsPerMinute = 30;
+        private boolean failOpen = true;
+    }
+
+    @Data
+    public static class CostBudget {
+        private boolean enabled = true;
+        private long estimatedTokensPerMinute = 12000;
+        private long maxEstimatedTokensPerRequest = 4000;
+        private int maxInputCharacters = 12000;
+        private double tokensPerCharacter = 1.0;
+        private long promptOverheadTokens = 256;
+        private boolean failOpen = true;
+    }
     @Data
     public static class Security {
         private String adminApiKey;

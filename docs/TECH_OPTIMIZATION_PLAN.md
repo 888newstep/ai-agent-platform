@@ -50,6 +50,7 @@
 - `AI_EVALUATION_REPORT_DIRECTORY`：评测报告目录，默认 `./evaluation-reports`。
 - `JWT_SECRET` 和 `ADMIN_API_KEY` 必须通过环境变量配置。
 - `GRAFANA_ADMIN_PASSWORD` 必须通过环境变量配置，Compose 不再提供弱默认密码。
+- `AI_RATE_LIMIT_*` 和 `AI_COST_BUDGET_*` 控制 Redis 分布式限流与估算 Token 预算；`fail-open` 仅用于 Redis 故障时的可用性取舍。
 - 生产环境应关闭公开 Actuator 指标，并配置明确的 CORS 白名单。
 
 ## 验证标准
@@ -63,5 +64,5 @@
 
 - 评测报告历史对比已完成；可视化页面暂不引入，先通过 JSON 接口和 Grafana 面板复用数据。
 - Grafana 面板已补充 Adaptive RAG、ReAct、Multi-Agent、缓存和故障率视图，并加入 Prometheus 告警规则。
-- 增加公开 API 的请求限流、成本预算和租户隔离。
+- Redis 固定窗口限流和估算 Token 预算已完成，配额按认证主体或远端 IP 隔离；完整的 `tenant_id` 数据级隔离暂缓，避免伪造租户模型。
 - 将评测数据集与报告纳入独立的示例目录，避免混入运行时数据。
