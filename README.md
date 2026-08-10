@@ -136,7 +136,7 @@ curl -H "X-Admin-Api-Key: ${ADMIN_API_KEY}" \
 
 ### 可复现 RAG 评测
 
-仓库提供最小示例数据集 `examples/evaluation-datasets/rag-sample.json`，默认配置已指向该目录。数据集中的 `relevantDocIds` 是评测基准的 chunk ID；只有先导入包含这些 ID 的文档，召回率和准确率才具有业务意义。真实数据请通过 `AI_EVALUATION_DATASET_DIRECTORY` 指向本地私有目录，避免提交到 GitHub。
+仓库提供最小示例数据集 `examples/evaluation-datasets/rag-sample.json`，默认配置已指向该目录。详细的双配置真实评测流程见 `docs/RAG_BENCHMARK.md`，运行脚本为 `scripts/run-rag-evaluation.ps1`。数据集中的 `relevantDocIds` 是评测基准的 chunk ID；只有先导入包含这些 ID 的文档，召回率和准确率才具有业务意义。真实数据请通过 `AI_EVALUATION_DATASET_DIRECTORY` 指向本地私有目录，避免提交到 GitHub。
 
 ```bash
 curl -X POST \

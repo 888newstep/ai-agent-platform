@@ -23,6 +23,7 @@ RUN apk add --no-cache curl
 
 # 从 build 阶段复制构建产物
 COPY --from=build /build/target/ai-agent-platform-*.jar app.jar
+COPY examples/evaluation-datasets ./examples/evaluation-datasets
 
 # 暴露端口
 EXPOSE 8081
