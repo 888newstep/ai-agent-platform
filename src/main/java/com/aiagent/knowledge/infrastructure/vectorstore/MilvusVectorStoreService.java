@@ -10,7 +10,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +25,7 @@ import java.util.concurrent.TimeoutException;
 @Service
 @Primary
 @RequiredArgsConstructor
-@ConditionalOnProperty(prefix = "ai.vector-store", name = "type", havingValue = "milvus", matchIfMissing = true)
+@ConditionalOnExpression("'${ai.vector-store.type:milvus}' == 'milvus' and '${ai.vector-store.mode:langchain}' == 'langchain'")
 public class MilvusVectorStoreService implements VectorStoreService {
 
     private final AiProperties aiProperties;

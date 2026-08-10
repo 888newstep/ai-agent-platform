@@ -42,6 +42,22 @@ class PlatformMetricsServiceTest {
     }
 
     @Test
+    void shouldRecordToolExecutionMetricsWithBoundedTags() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        PlatformMetricsService service = new PlatformMetricsService(registry);
+        Timer.Sample sample = service.startSample();
+
+        service.recordToolExecution("query_database", "success", true, sample);
+
+        assertThat(registry.get("ai.agent.tool.total")
+                .tags("tool", "query_database", "status", "success", "outcome", "success")
+                .counter().count()).isEqualTo(1.0);
+        assertThat(registry.get("ai.agent.tool.latency")
+                .tags("tool", "query_database", "status", "success", "outcome", "success")
+                .timer().count()).isEqualTo(1);
+    }
+
+    @Test
     void shouldRecordDocumentMetrics() {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         PlatformMetricsService service = new PlatformMetricsService(registry);

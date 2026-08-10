@@ -1,7 +1,9 @@
 package com.aiagent.agent.infrastructure.tool;
 
 import com.aiagent.infrastructure.config.AiProperties;
+import com.aiagent.infrastructure.metrics.PlatformMetricsService;
 import dev.langchain4j.agent.tool.Tool;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,10 +45,13 @@ public class ToolService {
 
     private final DataSource dataSource;
     private final AiProperties aiProperties;
+    private final PlatformMetricsService metricsService;
 
     @Tool("query_database")
     public String queryDatabase(String sql) {
+        Timer.Sample sample = startToolSample();
         if (!aiProperties.getTool().getDatabaseQuery().isEnabled()) {
+            recordToolExecution("query_database", "disabled", false, sample);
             return "Error: database query tool is disabled.";
         }
 
@@ -55,6 +60,7 @@ public class ToolService {
             executableSql = buildExecutableSelect(sql);
         } catch (IllegalArgumentException e) {
             log.warn("Rejected SQL query: {}", e.getMessage());
+            recordToolExecution("query_database", "invalid_input", false, sample);
             return "Error: " + e.getMessage();
         }
 
@@ -62,6 +68,8 @@ public class ToolService {
 
         List<Map<String, Object>> results = new ArrayList<>();
         int maxRows = aiProperties.getTool().getDatabaseQuery().getMaxRows();
+        String status = "error";
+        boolean success = false;
 
         try (Connection conn = dataSource.getConnection();
              PreparedStatement stmt = conn.prepareStatement(executableSql)) {
@@ -82,16 +90,22 @@ public class ToolService {
                 }
             }
 
+            status = "success";
+            success = true;
             return formatResults(results);
         } catch (SQLException e) {
             log.error("Database query failed", e);
             return "Error: " + e.getMessage();
+        } finally {
+            recordToolExecution("query_database", status, success, sample);
         }
     }
 
     @Tool("call_external_api")
     public String callExternalApi(String url, String method, String body) {
+        Timer.Sample sample = startToolSample();
         if (!aiProperties.getTool().getApiCall().isEnabled()) {
+            recordToolExecution("call_external_api", "disabled", false, sample);
             return "Error: external API tool is disabled.";
         }
 
@@ -102,6 +116,7 @@ public class ToolService {
             uri = validateUri(url, normalizedMethod);
         } catch (IllegalArgumentException e) {
             log.warn("Rejected external API call: {}", e.getMessage());
+            recordToolExecution("call_external_api", "invalid_input", false, sample);
             return "Error: " + e.getMessage();
         }
 
@@ -111,6 +126,8 @@ public class ToolService {
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(timeoutMs))
                 .build();
+        String status = "error";
+        boolean success = false;
 
         try {
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
@@ -129,12 +146,35 @@ public class ToolService {
                     HttpResponse.BodyHandlers.ofString()
             );
 
+            success = response.statusCode() >= 200 && response.statusCode() < 300;
+            status = success ? "success" : "http_error";
             String responseBody = truncate(response.body(), aiProperties.getTool().getApiCall().getMaxResponseChars());
             return "Status: " + response.statusCode() + "\nResponse: " + responseBody;
+        } catch (java.net.http.HttpTimeoutException e) {
+            status = "timeout";
+            log.warn("External API call timed out: {} {}", normalizedMethod, uri);
+            return "Error: request timed out.";
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("External API call interrupted: {} {}", normalizedMethod, uri);
+            return "Error: request interrupted.";
         } catch (Exception e) {
             log.error("API call failed", e);
             return "Error: " + e.getMessage();
+        } finally {
+            recordToolExecution("call_external_api", status, success, sample);
         }
+    }
+
+    private Timer.Sample startToolSample() {
+        return metricsService.startSample();
+    }
+
+    private void recordToolExecution(String toolName,
+                                     String status,
+                                     boolean success,
+                                     Timer.Sample sample) {
+        metricsService.recordToolExecution(toolName, status, success, sample);
     }
 
     private String buildExecutableSelect(String sql) {

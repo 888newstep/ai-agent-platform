@@ -26,6 +26,7 @@
 ## 功能特性
 
 - **ReAct Agent 循环** — Thought → Action → Observation → Final Answer 推理循环，含死循环防护和超时控制
+- **Adaptive RAG** — Query Router、查询改写、自适应多轮检索与 Self-RAG 结果验证
 - **多路召回 RAG** — 向量检索（Milvus）+ BM25 关键词检索 + RRF 融合排序
 - **语义缓存** — 基于 embedding 余弦相似度，自动缓存相似问题回答，降低 API 成本
 - **API 保护** — Redis 分布式固定窗口限流 + 估算 Token 预算，按认证主体/IP 隔离高成本请求
@@ -33,7 +34,7 @@
 - **工具调用框架** — 数据库查询、外部 API 调用，注册表模式自动发现
 - **流式输出** — SSE 实时推送，5 分钟超时保护
 - **会话管理** — Redis 存储会话上下文，24 小时 TTL 自动过期
-- **Docker 一键部署** — 4 个服务编排（MySQL + Redis + Milvus + App）
+- **Docker 一键部署** — 核心 4 个服务编排（MySQL + Redis + Milvus + App），Prometheus/Grafana 可选
 
 ---
 
@@ -83,7 +84,7 @@ docker compose up -d
 
 ```bash
 curl http://localhost:8081/api/v1/agent/health
-# 返回: {"status":"UP","mode":"react"}
+# 返回: {"status":"UP","service":"AI Customer Service Agent","version":"1.0.0"}
 ```
 
 ---
@@ -136,7 +137,7 @@ curl -H "X-Admin-Api-Key: ${ADMIN_API_KEY}" \
 
 ### 可复现 RAG 评测
 
-仓库提供最小示例数据集 `examples/evaluation-datasets/rag-sample.json`，默认配置已指向该目录。详细的双配置真实评测流程见 `docs/RAG_BENCHMARK.md`，运行脚本为 `scripts/run-rag-evaluation.ps1`。数据集中的 `relevantDocIds` 是评测基准的 chunk ID；只有先导入包含这些 ID 的文档，召回率和准确率才具有业务意义。真实数据请通过 `AI_EVALUATION_DATASET_DIRECTORY` 指向本地私有目录，避免提交到 GitHub。
+仓库提供最小示例数据集 `examples/evaluation-datasets/rag-sample.json`，默认配置已指向该目录。详细的双配置真实评测流程见 `docs/RAG_BENCHMARK.md`，运行脚本为 `scripts/run-rag-evaluation.ps1`。数据集中的 `relevantDocIds` 是评测基准的 chunk ID；只有先导入包含这些 ID 的文档，召回率和准确率才具有业务意义。若复用已有 `ecommerce_qa` collection，请先设置 `AI_VECTOR_STORE_MODE=qa`、`MILVUS_COLLECTION_NAME=ecommerce_qa` 和 `MILVUS_READ_ONLY=true`；真实数据请通过 `AI_EVALUATION_DATASET_DIRECTORY` 指向本地私有目录，避免提交到 GitHub。
 
 ```bash
 curl -X POST \
@@ -244,34 +245,20 @@ score(d) = Σ 1/(k + rank_i(d))
 ```
 src/main/java/com/aiagent/
 ├── agent/
-│   ├── AiAgentService.java      # AI 聊天服务（集成长上下文管理 + ReAct + 语义缓存）
-│   ├── ReActAgent.java          # ReAct 推理循环
-│   └── MultiAgentService.java   # 多智能体协作（Supervisor + Worker）
-├── cache/
-│   └── SemanticCacheService.java # 语义缓存（降低 API 成本）
-├── config/
-│   ├── AiModelConfig.java       # 多模型配置（策略模式）
-│   ├── AiProperties.java        # 配置属性绑定
-│   └── MilvusInitConfig.java    # Milvus 初始化
-├── controller/
-│   └── AiAgentController.java   # REST API 控制器
-├── document/
-│   ├── DocumentService.java     # 文档上传与检索
-│   └── parser/                  # 多格式文档解析器
-├── evaluation/
-│   ├── RagEvaluationService.java # RAG 效果评估（召回率/准确率/延迟）
-│   └── EvaluationReportHistoryService.java # 评测报告历史与指标对比
-├── memory/
-│   └── LongContextManager.java  # 长上下文管理（滑动窗口 + 摘要压缩 + 历史检索）
-├── retrieval/
-│   ├── MultiRecallService.java  # 多路召回 + RRF 融合
-│   └── Bm25Search.java          # BM25 关键词检索
-├── tool/
-│   └── ToolService.java         # 工具调用框架
-└── vectorstore/
-    └── MilvusVectorStoreService.java  # Milvus 向量存储
+│   ├── api/                         # Agent REST API
+│   ├── application/                 # 普通聊天、ReAct、Multi-Agent 编排
+│   └── infrastructure/tool/         # 数据库与外部 API 工具
+├── infrastructure/
+│   ├── cache/                       # 语义缓存与 RAG 缓存
+│   ├── config/                      # 模型、Milvus、安全与限流配置
+│   └── metrics/                     # Micrometer 业务指标
+├── knowledge/
+│   ├── application/                 # 文档上传、解析与入库
+│   └── infrastructure/              # Parser、Splitter、VectorStore
+├── rag/application/                 # Adaptive RAG、Multi-Recall、评测
+├── chat/                            # 会话与 SSE 流式响应
+└── shared/                          # 公共响应体与异常处理
 ```
-
 ---
 
 ## 配置说明

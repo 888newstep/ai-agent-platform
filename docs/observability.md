@@ -60,6 +60,16 @@ Key tags for adaptive RAG:
 - `ai.agent.multi.latency`
 - `ai.agent.multi.subtasks`
 - `ai.agent.multi.worker.failures`
+- `ai.agent.tool.total`
+- `ai.agent.tool.latency`
+
+Tool metrics use bounded tags only:
+
+- `tool`: `query_database|call_external_api|unknown`
+- `status`: `success|disabled|invalid_input|timeout|http_error|error|unknown_tool`
+- `outcome`: `success|error`
+
+Raw SQL, URL, request body and error text are not written into metric labels.
 
 Key tags for ReAct trace metrics:
 
@@ -111,7 +121,7 @@ Recommended debug flow for open-source demos and interview walkthroughs:
 1. Call `POST /api/v1/agent/chat?...&explain=true` to inspect adaptive RAG route, rewrite, verification, evidence, and `reactTrace`.
 2. Call `POST /api/v1/agent/react/chat?...&explain=true` to inspect step-by-step ReAct execution.
 3. Call `POST /api/v1/agent/multi-agent/execute?...&explain=true` to inspect subtasks, worker results, nested ReAct traces, and synthesis stop reason.
-4. Open `/actuator/prometheus` and correlate trace output with `ai.rag.adaptive.*`, `ai.agent.react.*`, and `ai.agent.multi.*` metrics. Normal ReAct and Multi-Agent API requests also record trace metrics; `explain=true` only controls response detail.
+4. Open `/actuator/prometheus` and correlate trace output with `ai.rag.adaptive.*`, `ai.agent.react.*`, `ai.agent.multi.*`, and `ai.agent.tool.*` metrics. Normal ReAct and Multi-Agent API requests also record trace metrics; `explain=true` only controls response detail.
 
 ## Prometheus queries
 

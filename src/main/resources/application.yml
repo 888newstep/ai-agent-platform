@@ -111,13 +111,16 @@ ai:
 
   vector-store:
     # supported vector stores: milvus | inmemory
+    # mode: langchain (default) | qa (Milvus V2 question-answer schema)
     type: milvus
+    mode: ${AI_VECTOR_STORE_MODE:langchain}
     milvus:
       host: ${MILVUS_HOST:localhost}
       port: ${MILVUS_PORT:19530}
-      collection-name: ai_agent_documents
+      collection-name: ${MILVUS_COLLECTION_NAME:ai_agent_documents}
       dimension: 1024
       connection-timeout-ms: ${MILVUS_CONNECTION_TIMEOUT_MS:2000}
+      read-only: ${MILVUS_READ_ONLY:false}
   document:
     chunk-size: 500
     chunk-overlap: 50

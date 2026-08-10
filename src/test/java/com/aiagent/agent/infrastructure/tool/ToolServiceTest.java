@@ -1,8 +1,10 @@
 package com.aiagent.agent.infrastructure.tool;
 
 import com.aiagent.infrastructure.config.AiProperties;
+import com.aiagent.infrastructure.metrics.PlatformMetricsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,6 +41,7 @@ class ToolServiceTest {
 
     private AiProperties aiProperties;
     private ToolService toolService;
+    private SimpleMeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() {
@@ -46,7 +49,8 @@ class ToolServiceTest {
         aiProperties.getTool().getDatabaseQuery().setAllowedTables(List.of("users"));
         aiProperties.getTool().getDatabaseQuery().setMaxRows(5);
         aiProperties.getTool().getApiCall().setAllowedHosts(List.of("api.example.com"));
-        toolService = new ToolService(dataSource, aiProperties);
+        meterRegistry = new SimpleMeterRegistry();
+        toolService = new ToolService(dataSource, aiProperties, new PlatformMetricsService(meterRegistry));
     }
 
     @Test
@@ -61,6 +65,9 @@ class ToolServiceTest {
         String response = toolService.queryDatabase("select * from admins");
 
         assertThat(response).contains("Access to table is not allowed");
+        assertThat(meterRegistry.get("ai.agent.tool.total")
+                .tags("tool", "query_database", "status", "invalid_input", "outcome", "error")
+                .counter().count()).isEqualTo(1.0);
     }
 
     @Test
@@ -77,6 +84,9 @@ class ToolServiceTest {
         String response = toolService.queryDatabase("select id from users");
 
         assertThat(response).contains("Found 1 results").contains("id: 123");
+        assertThat(meterRegistry.get("ai.agent.tool.total")
+                .tags("tool", "query_database", "status", "success", "outcome", "success")
+                .counter().count()).isEqualTo(1.0);
         verify(connection).setReadOnly(true);
         verify(preparedStatement).setMaxRows(5);
     }

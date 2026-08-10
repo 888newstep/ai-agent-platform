@@ -61,6 +61,7 @@ public class ReActAgent {
     );
     private static final Pattern LEGACY_FINAL_ANSWER_PATTERN = Pattern.compile("Final Answer:\\s*(.+)", Pattern.DOTALL);
     private static final Pattern LEGACY_THOUGHT_PATTERN = Pattern.compile("Thought:\\s*(.+?)(?=Action:|Final Answer:|$)", Pattern.DOTALL);
+    private static final Pattern HTTP_STATUS_PATTERN = Pattern.compile("^Status:\\s*(\\d{3})");
 
     private final ChatLanguageModel chatLanguageModel;
     private final ToolService toolService;
@@ -222,7 +223,7 @@ public class ReActAgent {
             String toolStatus;
             try {
                 observation = executeTool(actionName, stepResult.getActionInput());
-                toolStatus = determineToolStatus(actionName);
+                toolStatus = determineToolStatus(actionName, observation);
             } catch (Exception e) {
                 observation = "工具执行错误: " + e.getMessage();
                 toolStatus = "tool_error";
@@ -313,12 +314,23 @@ public class ReActAgent {
         }
     }
 
-    private String determineToolStatus(String actionName) {
-        return switch (actionName) {
-            case "query_database", "call_external_api" -> "success";
-            default -> "unknown_tool";
-        };
+    private String determineToolStatus(String actionName, String observation) {
+        if (!"query_database".equals(actionName) && !"call_external_api".equals(actionName)) {
+            return "unknown_tool";
+        }
+        if (observation != null
+                && (observation.startsWith("Error:") || observation.startsWith("参数解析失败"))) {
+            return "tool_error";
+        }
+        if (observation != null) {
+            Matcher statusMatcher = HTTP_STATUS_PATTERN.matcher(observation.trim());
+            if (statusMatcher.find() && Integer.parseInt(statusMatcher.group(1)) >= 400) {
+                return "tool_error";
+            }
+        }
+        return "success";
     }
+
     private ReActStepResult parseStepResult(String llmOutput) {
         ReActStepResult structured = parseStructuredJson(llmOutput);
         if (structured != null) {

@@ -24,6 +24,8 @@
 
 - 新增 ReAct 和 Multi-Agent 结构化 Trace DTO。
 - 记录 stop reason、步骤数、Worker 失败数和降级状态。
+- 细化工具调用指标，区分成功、禁用、参数拒绝、超时和下游 HTTP 错误。
+- ReAct Trace 将工具返回的 `Error:` 和参数解析失败归因为工具错误，而不是误记为成功。
 - 通过 `/actuator/prometheus` 暴露 Agent 执行指标。
 
 ### P2：缓存与评测
@@ -48,6 +50,7 @@
 
 - `AI_EVALUATION_DATASET_DIRECTORY`：评测数据集目录，默认 `./examples/evaluation-datasets`；真实数据建议配置为本地私有目录。
 - `AI_EVALUATION_REPORT_DIRECTORY`：评测报告目录，默认 `./evaluation-reports`。
+- `AI_VECTOR_STORE_MODE=qa` + `MILVUS_COLLECTION_NAME`：复用已有 QA schema collection 时启用 V2 适配器；只读评测建议设置 `MILVUS_READ_ONLY=true`。
 - `JWT_SECRET` 和 `ADMIN_API_KEY` 必须通过环境变量配置。
 - `GRAFANA_ADMIN_PASSWORD` 必须通过环境变量配置，Compose 不再提供弱默认密码。
 - `AI_RATE_LIMIT_*` 和 `AI_COST_BUDGET_*` 控制 Redis 分布式限流与估算 Token 预算；`fail-open` 仅用于 Redis 故障时的可用性取舍。

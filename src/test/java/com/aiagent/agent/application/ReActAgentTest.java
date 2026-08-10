@@ -195,6 +195,33 @@ class ReActAgentTest {
     }
 
     @Test
+    void shouldMarkToolErrorReturnedByToolService() {
+        when(chatLanguageModel.generate(anyString())).thenReturn(
+                "{\"thought\":\"查询数据\",\"action\":\"query_database\",\"actionInput\":\"SELECT 1\",\"finalAnswer\":null}",
+                "{\"thought\":\"工具失败\",\"action\":null,\"actionInput\":null,\"finalAnswer\":\"无法查询\"}"
+        );
+        when(toolService.queryDatabase("SELECT 1")).thenReturn("Error: database unavailable");
+
+        ReActAgent agent = new ReActAgent(chatLanguageModel, toolService);
+        ReActExecutionResult result = agent.executeDetailed("查询", "", "");
+
+        assertEquals("tool_error", result.getTrace().getSteps().get(0).getToolStatus());
+    }
+    @Test
+    void shouldMarkHttpErrorAsToolError() {
+        when(chatLanguageModel.generate(anyString())).thenReturn(
+                "{\"thought\":\"调用接口\",\"action\":\"call_external_api\",\"actionInput\":{\"url\":\"https://api.example.com/orders\",\"method\":\"GET\",\"body\":\"\"},\"finalAnswer\":null}",
+                "{\"thought\":\"接口失败\",\"action\":null,\"actionInput\":null,\"finalAnswer\":\"请求失败\"}"
+        );
+        when(toolService.callExternalApi("https://api.example.com/orders", "GET", ""))
+                .thenReturn("Status: 503\nResponse: unavailable");
+
+        ReActAgent agent = new ReActAgent(chatLanguageModel, toolService);
+        ReActExecutionResult result = agent.executeDetailed("查询订单", "", "");
+
+        assertEquals("tool_error", result.getTrace().getSteps().get(0).getToolStatus());
+    }
+    @Test
     void shouldBuildUserPromptWithContextAndHistory() {
         when(chatLanguageModel.generate(anyString()))
                 .thenReturn("""

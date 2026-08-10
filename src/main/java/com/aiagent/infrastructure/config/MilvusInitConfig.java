@@ -15,6 +15,7 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
@@ -29,6 +30,7 @@ import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @Configuration
+@ConditionalOnProperty(prefix = "ai.vector-store", name = "type", havingValue = "milvus", matchIfMissing = true)
 @RequiredArgsConstructor
 public class MilvusInitConfig {
 
@@ -84,6 +86,7 @@ public class MilvusInitConfig {
 
     @Slf4j
     @Component
+    @ConditionalOnProperty(prefix = "ai.vector-store", name = "type", havingValue = "milvus", matchIfMissing = true)
     public static class CollectionsInitializer {
 
         private final MilvusClientV2 milvusClient;
@@ -100,6 +103,11 @@ public class MilvusInitConfig {
         public void init() {
             if (milvusClient == null) {
                 log.warn("Milvus client unavailable, skipping collection initialization");
+                return;
+            }
+            if (!"qa".equalsIgnoreCase(aiProperties.getVectorStore().getMode())) {
+                log.info("Skipping QA collection initialization for vector-store mode [{}]",
+                        aiProperties.getVectorStore().getMode());
                 return;
             }
             log.info("Initializing Milvus collections");

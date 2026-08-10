@@ -75,3 +75,27 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 - 样例数据集中的文档 ID 是占位 ID，不能直接代表项目实际召回率。
 - 没有真实文档和 Milvus 时，不应在简历或 README 中填写评测提升百分比。
 - 该脚本比较的是两次真实 API 调用；它不替代压测工具，也不提供 QPS/P99 端到端容量结论。
+
+## 已有 QA collection 模式
+
+如果 Milvus 中已经存在本项目导入的 `ecommerce_qa` collection，需要显式启用 V2 QA schema 适配器。该 collection 的字段是 `question`、`answer`、`qa_text`、`qa_pair_id`、`embedding`，不能直接使用默认的 LangChain4j `text/metadata/vector` schema。
+
+```powershell
+$env:AI_VECTOR_STORE_MODE = "qa"
+$env:MILVUS_COLLECTION_NAME = "ecommerce_qa"
+$env:MILVUS_READ_ONLY = "true"
+$env:MILVUS_CONNECTION_TIMEOUT_MS = "60000"
+```
+
+`qa` 模式只读时不会向已有业务 collection 写入数据；数据导入仍由电商 QA 导入服务负责。默认 `langchain` 模式保持通用文档链路不变。
+
+## 2026-08-10 本机结果（脱敏）
+
+本次使用已有 `ecommerce_qa` collection 中抽取的 20 条实体，按其 `qa_pair_id` 生成本地私有一致性数据集，阈值为 `0.60`，`Top-K=1,3,5`。结果如下：
+
+| 配置 | Recall@1 | Recall@3 | Recall@5 | F1@3 | P99@3 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 向量基线 | 20.00% | 50.00% | 65.00% | 25.00% | 166 ms |
+| 混合检索 | 20.00% | 55.00% | 70.00% | 27.50% | 796 ms |
+
+该数据集是从现有 collection 自动抽样的检索一致性 smoke benchmark，不是独立人工标注集；不能直接作为简历中的最终业务效果数据。正式对外指标必须使用脱敏、独立标注的 `question/relevantDocIds/category` 数据集，并保留原始运行报告在本地私有目录。仓库不提交问题原文、Milvus 地址、API 响应或评测 JSON。

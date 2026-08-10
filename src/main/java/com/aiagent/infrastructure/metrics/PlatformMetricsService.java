@@ -136,6 +136,19 @@ public class PlatformMetricsService {
         stopSample(sample, "ai.agent.multi.latency", new Duration[0], tags);
     }
 
+    public void recordToolExecution(String toolName,
+                                    String status,
+                                    boolean success,
+                                    Timer.Sample sample) {
+        String[] tags = {
+                "tool", normalizeToolName(toolName),
+                "status", normalizeToolStatus(status),
+                "outcome", statusTag(success)
+        };
+        incrementCounter("ai.agent.tool.total", tags);
+        stopSample(sample, "ai.agent.tool.latency", new Duration[0], tags);
+    }
+
     private void incrementCounter(String name, String... tags) {
         Counter.builder(name)
                 .tags(tags)
@@ -174,5 +187,19 @@ public class PlatformMetricsService {
 
     private String normalizeTag(String value) {
         return value == null || value.isBlank() ? "unknown" : value;
+    }
+
+    private String normalizeToolName(String value) {
+        return switch (value == null ? "" : value) {
+            case "query_database", "call_external_api" -> value;
+            default -> "unknown";
+        };
+    }
+
+    private String normalizeToolStatus(String value) {
+        return switch (value == null ? "" : value) {
+            case "success", "disabled", "invalid_input", "timeout", "http_error", "error", "unknown_tool" -> value;
+            default -> "error";
+        };
     }
 }

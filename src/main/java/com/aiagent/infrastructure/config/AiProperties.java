@@ -110,6 +110,7 @@ public class AiProperties {
     @Data
     public static class VectorStore {
         private String type = "milvus";
+        private String mode = "langchain";
         private Milvus milvus = new Milvus();
     }
 
@@ -120,6 +121,7 @@ public class AiProperties {
         private String collectionName = "ai_agent_documents";
         private int dimension = 1024;
         private int connectionTimeoutMs = 2000;
+        private boolean readOnly = false;
     }
 
     /** Document ingestion and chunking settings. */
