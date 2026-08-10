@@ -1,10 +1,11 @@
 package com.aiagent.agent.application;
 
 import com.aiagent.infrastructure.cache.SemanticCacheService;
-import com.aiagent.rag.application.AdaptiveRagContext;
 import com.aiagent.infrastructure.memory.LongContextManager;
 import com.aiagent.infrastructure.metrics.PlatformMetricsService;
+import com.aiagent.rag.application.AdaptiveRagContext;
 import com.aiagent.rag.application.AdaptiveRagService;
+import com.aiagent.rag.application.RagRouteType;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.model.input.PromptTemplate;
@@ -41,7 +42,7 @@ public class AiAgentService {
     private final LongContextManager longContextManager;
     private final PlatformMetricsService metricsService;
 
-    public String chat(String sessionId, String question, boolean useRag) {
+    public ChatExecutionResult chatDetailed(String sessionId, String question, boolean useRag) {
         Timer.Sample sample = metricsService.startSample();
         boolean cacheHit = false;
         boolean success = false;
@@ -53,21 +54,79 @@ public class AiAgentService {
                 longContextManager.saveMessageAndMaybeSummarize(sessionId, "user", question);
                 longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", cached);
                 success = true;
-                return cached;
+                return ChatExecutionResult.builder()
+                        .answer(cached)
+                        .adaptiveRagContext(null)
+                        .cacheHit(true)
+                        .responseSource("semantic_cache")
+                        .build();
             }
 
-            String context = resolveAdaptiveContext(question, useRag).getContext();
+            AdaptiveRagContext adaptiveContext = resolveAdaptiveContext(question, useRag);
             String optimizedHistory = longContextManager.getOptimizedContext(sessionId, question);
-            String fullPrompt = buildPrompt(optimizedHistory, context, question);
+            String fullPrompt = buildPrompt(optimizedHistory, adaptiveContext.getContext(), question);
             String response = chatLanguageModel.generate(fullPrompt);
 
             semanticCacheService.put(question, response);
             longContextManager.saveMessageAndMaybeSummarize(sessionId, "user", question);
             longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", response);
             success = true;
-            return response;
+            return ChatExecutionResult.builder()
+                    .answer(response)
+                    .adaptiveRagContext(adaptiveContext)
+                    .cacheHit(false)
+                    .responseSource(determineResponseSource(useRag, adaptiveContext))
+                    .build();
         } finally {
             metricsService.recordChat("normal", useRag, cacheHit, success, sample);
+        }
+    }
+
+    public String chat(String sessionId, String question, boolean useRag) {
+        return chatDetailed(sessionId, question, useRag).getAnswer();
+    }
+
+    public ChatExecutionResult reactChatDetailed(String sessionId, String question, boolean useRag) {
+        Timer.Sample sample = metricsService.startSample();
+        boolean cacheHit = false;
+        boolean success = false;
+
+        try {
+            String cached = semanticCacheService.getIfCached(question);
+            if (cached != null) {
+                cacheHit = true;
+                longContextManager.saveMessageAndMaybeSummarize(sessionId, "user", question);
+                longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", cached);
+                success = true;
+                return ChatExecutionResult.builder()
+                        .answer(cached)
+                        .adaptiveRagContext(null)
+                        .cacheHit(true)
+                        .responseSource("semantic_cache")
+                        .reactTrace(null)
+                        .build();
+            }
+
+            AdaptiveRagContext adaptiveContext = resolveAdaptiveContext(question, useRag);
+            String optimizedHistory = longContextManager.getOptimizedContext(sessionId, question);
+            ReActExecutionResult reactResult = reActAgent.executeDetailed(question, adaptiveContext.getContext(), optimizedHistory);
+            String response = reactResult.getAnswer();
+
+            semanticCacheService.put(question, response);
+            longContextManager.saveMessageAndMaybeSummarize(sessionId, "user", question);
+            longContextManager.saveMessageAndMaybeSummarize(sessionId, "assistant", response);
+            success = true;
+            ChatExecutionResult result = ChatExecutionResult.builder()
+                    .answer(response)
+                    .adaptiveRagContext(adaptiveContext)
+                    .cacheHit(false)
+                    .responseSource(determineResponseSource(useRag, adaptiveContext))
+                    .reactTrace(reactResult.getTrace())
+                    .build();
+            recordReActTraceMetrics(result.getReactTrace());
+            return result;
+        } finally {
+            metricsService.recordChat("react", useRag, cacheHit, success, sample);
         }
     }
 
@@ -86,9 +145,9 @@ public class AiAgentService {
                 return cached;
             }
 
-            String context = resolveAdaptiveContext(question, useRag).getContext();
+            AdaptiveRagContext adaptiveContext = resolveAdaptiveContext(question, useRag);
             String optimizedHistory = longContextManager.getOptimizedContext(sessionId, question);
-            String response = reActAgent.execute(question, context, optimizedHistory);
+            String response = reActAgent.execute(question, adaptiveContext.getContext(), optimizedHistory);
 
             semanticCacheService.put(question, response);
             longContextManager.saveMessageAndMaybeSummarize(sessionId, "user", question);
@@ -181,6 +240,33 @@ public class AiAgentService {
 
     private AdaptiveRagContext resolveAdaptiveContext(String question, boolean useRag) {
         return useRag ? adaptiveRagService.resolve(question) : AdaptiveRagContext.empty(question);
+    }
+
+    private void recordReActTraceMetrics(ReActExecutionTrace trace) {
+        if (trace == null) {
+            return;
+        }
+        boolean toolUsed = trace.getSteps() != null
+                && trace.getSteps().stream().anyMatch(step -> step.getAction() != null && !step.getAction().isBlank());
+        boolean toolError = trace.getSteps() != null
+                && trace.getSteps().stream().anyMatch(step -> "tool_error".equals(step.getToolStatus()) || "unknown_tool".equals(step.getToolStatus()));
+        Timer.Sample sample = metricsService.startSample();
+        metricsService.recordReActTrace(trace.getStopReason(), trace.getStepCount(), toolUsed, toolError, trace.isCompleted(), sample);
+    }
+    private String determineResponseSource(boolean useRag, AdaptiveRagContext adaptiveContext) {
+        if (!useRag || adaptiveContext == null || adaptiveContext.getRouteType() == null) {
+            return "llm_direct";
+        }
+        if (!adaptiveContext.isUsedAdaptive()) {
+            return "llm_direct";
+        }
+        if (adaptiveContext.getRouteType() == RagRouteType.DIRECT_ANSWER) {
+            return "adaptive_direct_answer";
+        }
+        if (adaptiveContext.getChunkCount() > 0) {
+            return "adaptive_rag";
+        }
+        return "adaptive_rag_no_evidence";
     }
 
     private String buildPrompt(String history, String context, String question) {

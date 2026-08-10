@@ -1,13 +1,21 @@
 package com.aiagent.agent.api;
 
 import com.aiagent.agent.application.AiAgentService;
+import com.aiagent.agent.application.ChatExecutionResult;
+import com.aiagent.agent.application.MultiAgentExecutionResult;
 import com.aiagent.agent.application.MultiAgentService;
 import com.aiagent.rag.application.AdaptiveRagContext;
+import com.aiagent.rag.application.AdaptiveRagRoundTrace;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.aiagent.infrastructure.cache.SemanticCacheService;
 import com.aiagent.knowledge.application.DocumentService;
 import com.aiagent.rag.application.RagEvaluationService;
+import org.springframework.beans.factory.annotation.Value;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -39,6 +47,9 @@ public class AiAgentController {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String EVALUATION_NOTE = "chunkSize/chunkOverlap are snapshot-only and require re-ingestion for fair comparison";
 
+    @Value("${ai.evaluation.report-directory:evaluation-reports}")
+    private String evaluationReportDirectory = "evaluation-reports";
+
     private final AiAgentService aiAgentService;
     private final DocumentService documentService;
     private final SemanticCacheService semanticCacheService;
@@ -64,37 +75,49 @@ public class AiAgentController {
     public ResponseEntity<Map<String, Object>> chat(
             @RequestParam String sessionId,
             @RequestParam String question,
-            @RequestParam(defaultValue = "true") boolean useRag) {
-        return ResponseEntity.ok(buildChatResponse(
-                sessionId,
-                question,
-                aiAgentService.chat(sessionId, question, useRag),
-                "normal"
-        ));
+            @RequestParam(defaultValue = "true") boolean useRag,
+            @RequestParam(defaultValue = "false") boolean explain) {
+        if (!explain) {
+            return ResponseEntity.ok(buildChatResponse(
+                    sessionId,
+                    question,
+                    aiAgentService.chat(sessionId, question, useRag),
+                    "normal"
+            ));
+        }
+
+        ChatExecutionResult result = aiAgentService.chatDetailed(sessionId, question, useRag);
+        return ResponseEntity.ok(buildChatResponse(sessionId, question, result, "normal"));
     }
 
     @PostMapping("/react/chat")
     public ResponseEntity<Map<String, Object>> reactChat(
             @RequestParam String sessionId,
             @RequestParam String question,
-            @RequestParam(defaultValue = "true") boolean useRag) {
-        return ResponseEntity.ok(buildChatResponse(
-                sessionId,
-                question,
-                aiAgentService.reactChat(sessionId, question, useRag),
-                "react"
-        ));
+            @RequestParam(defaultValue = "true") boolean useRag,
+            @RequestParam(defaultValue = "false") boolean explain) {
+        ChatExecutionResult result = aiAgentService.reactChatDetailed(sessionId, question, useRag);
+        if (!explain) {
+            return ResponseEntity.ok(buildChatResponse(sessionId, question, result.getAnswer(), "react"));
+        }
+        return ResponseEntity.ok(buildChatResponse(sessionId, question, result, "react"));
     }
 
     @PostMapping("/multi-agent/execute")
     public ResponseEntity<Map<String, Object>> multiAgentExecute(
             @RequestParam String task,
-            @RequestParam(defaultValue = "") String context) {
-        return ResponseEntity.ok(objectResponse(
+            @RequestParam(defaultValue = "") String context,
+            @RequestParam(defaultValue = "false") boolean explain) {
+        MultiAgentExecutionResult result = multiAgentService.executeDetailed(task, context);
+        Map<String, Object> response = objectResponse(
                 "task", task,
-                "answer", multiAgentService.execute(task, context),
+                "answer", result.getAnswer(),
                 "mode", "multi-agent"
-        ));
+        );
+        if (explain) {
+            response.put("explain", result.getTrace());
+        }
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -170,6 +193,40 @@ public class AiAgentController {
         return ResponseEntity.ok(buildComparisonResponse(report));
     }
 
+    @PostMapping("/evaluate/export")
+    public ResponseEntity<Map<String, Object>> exportEvaluation(
+            @RequestParam(defaultValue = "1,3,5,10") String topKs,
+            @RequestParam(required = false) String datasetPath,
+            @RequestParam(required = false) Double similarityThreshold,
+            @RequestParam(required = false) Boolean hybridSearch) {
+        List<Integer> kValues = parseTopKs(topKs);
+        RagEvaluationService.EvaluationReport report = StringUtils.hasText(datasetPath)
+                ? ragEvaluationService.evaluateFromFile(datasetPath, kValues, similarityThreshold, hybridSearch)
+                : ragEvaluationService.quickEvaluate(kValues, similarityThreshold, hybridSearch);
+
+        String generatedAt = Instant.now().toString();
+        Map<String, Object> reportPayload = buildEvaluationResponse(report);
+        reportPayload.put("generatedAt", generatedAt);
+        try {
+            Path reportDirectory = Path.of(evaluationReportDirectory).toAbsolutePath().normalize();
+            Files.createDirectories(reportDirectory);
+            Path reportPath = reportDirectory.resolve("rag-evaluation-" + Instant.now().toEpochMilli() + ".json");
+            Files.writeString(
+                    reportPath,
+                    OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(reportPayload),
+                    StandardCharsets.UTF_8
+            );
+            return ResponseEntity.ok(objectResponse(
+                    "exported", true,
+                    "filePath", reportPath.toString(),
+                    "generatedAt", generatedAt,
+                    "report", reportPayload
+            ));
+        } catch (IOException ex) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to export evaluation report", ex);
+        }
+    }
     private List<Integer> parseTopKs(String topKs) {
         if (!StringUtils.hasText(topKs)) {
             return List.of();
@@ -240,6 +297,90 @@ public class AiAgentController {
                 "answer", answer,
                 "mode", mode
         );
+    }
+
+    private Map<String, Object> buildChatResponse(String sessionId,
+                                                  String question,
+                                                  ChatExecutionResult result,
+                                                  String mode) {
+        Map<String, Object> response = buildChatResponse(sessionId, question, result.getAnswer(), mode);
+        response.put("explain", buildExplainPayload(result));
+        return response;
+    }
+
+    private Map<String, Object> buildExplainPayload(ChatExecutionResult result) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("responseSource", result.getResponseSource());
+        payload.put("cacheHit", result.isCacheHit());
+
+        AdaptiveRagContext context = result.getAdaptiveRagContext();
+        boolean adaptiveEvaluated = context != null && context.isUsedAdaptive();
+        payload.put("adaptiveEvaluated", adaptiveEvaluated);
+
+        if (context == null) {
+            payload.put("routeType", null);
+            payload.put("rewrittenQuery", null);
+            payload.put("decisionReason", null);
+            payload.put("decisionConfidence", null);
+            payload.put("verificationLevel", null);
+            payload.put("verificationReason", null);
+            payload.put("retrievalRounds", 0);
+            payload.put("chunkCount", 0);
+            payload.put("rewritten", false);
+            payload.put("verified", false);
+            payload.put("usedAdaptive", false);
+            payload.put("endReason", null);
+            payload.put("roundTraces", List.of());
+            payload.put("evidence", List.of());
+            payload.put("reactTrace", result.getReactTrace());
+            return payload;
+        }
+
+        payload.put("routeType", context.getRouteType() == null ? null : context.getRouteType().name());
+        payload.put("rewrittenQuery", context.getRewrittenQuery());
+        payload.put("decisionReason", context.getDecisionReason());
+        payload.put("decisionConfidence", context.getDecisionConfidence());
+        payload.put("verificationLevel", context.getVerificationLevel() == null ? null : context.getVerificationLevel().name());
+        payload.put("verificationReason", context.getVerificationReason());
+        payload.put("retrievalRounds", context.getRetrievalRounds());
+        payload.put("chunkCount", context.getChunkCount());
+        payload.put("rewritten", context.isRewritten());
+        payload.put("verified", context.isVerified());
+        payload.put("usedAdaptive", context.isUsedAdaptive());
+        payload.put("endReason", context.getEndReason());
+        payload.put("roundTraces", context.getRoundTraces() == null ? List.of() : context.getRoundTraces());
+        payload.put("evidence", buildEvidence(context));
+        payload.put("reactTrace", result.getReactTrace());
+        return payload;
+    }
+
+    private List<Map<String, Object>> buildEvidence(AdaptiveRagContext context) {
+        if (context.getRoundTraces() == null || context.getRoundTraces().isEmpty()) {
+            return List.of();
+        }
+
+        List<Map<String, Object>> evidence = new java.util.ArrayList<>();
+        for (AdaptiveRagRoundTrace roundTrace : context.getRoundTraces()) {
+            if (roundTrace.getRetrievedChunks() == null || roundTrace.getRetrievedChunks().isEmpty()) {
+                continue;
+            }
+            for (AdaptiveRagRoundTrace.ChunkTrace chunk : roundTrace.getRetrievedChunks()) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("round", roundTrace.getRound());
+                item.put("rewrittenQuery", roundTrace.getRewrittenQuery());
+                item.put("verificationLevel", roundTrace.getVerificationLevel() == null ? null : roundTrace.getVerificationLevel().name());
+                item.put("terminal", roundTrace.isTerminal());
+                item.put("terminalReason", roundTrace.getTerminalReason());
+                item.put("chunkId", chunk.getChunkId());
+                item.put("score", chunk.getScore());
+                item.put("retrievalSource", chunk.getRetrievalSource());
+                item.put("vectorRank", chunk.getVectorRank());
+                item.put("bm25Rank", chunk.getBm25Rank());
+                item.put("rrfScore", chunk.getRrfScore());
+                evidence.add(item);
+            }
+        }
+        return evidence;
     }
 
     private Map<String, String> stringResponse(String... entries) {

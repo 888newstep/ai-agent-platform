@@ -11,7 +11,7 @@ mvn verify
 
 - `mvn test`: runs unit tests and web-layer tests.
 - `mvn verify`: runs the full validation lifecycle and generates JaCoCo coverage reports.
-- `mvn verify` also enforces a minimum bundle line coverage of `35%` as the current baseline.
+- `mvn verify` also enforces a minimum bundle line coverage of `45%` as the current baseline.
 
 ## Coverage artifacts
 
@@ -30,15 +30,90 @@ After `mvn verify`, coverage outputs are generated in:
 
 ## Custom business metrics
 
+### Chat and RAG
+
 - `ai.chat.requests.total`
 - `ai.chat.latency`
 - `ai.rag.search.total`
 - `ai.rag.search.latency`
 - `ai.rag.results.count`
+- `ai.rag.adaptive.total`
+- `ai.rag.adaptive.latency`
+- `ai.rag.adaptive.rounds`
+- `ai.rag.adaptive.chunk.count`
+
+Key tags for adaptive RAG:
+
+- `route`
+- `verification`
+- `rewritten`
+- `end_reason`
+- `status`
+
+### Agent trace metrics
+
+- `ai.agent.react.total`
+- `ai.agent.react.latency`
+- `ai.agent.react.steps`
+- `ai.agent.multi.total`
+- `ai.agent.multi.latency`
+- `ai.agent.multi.subtasks`
+- `ai.agent.multi.worker.failures`
+
+Key tags for ReAct trace metrics:
+
+- `stop_reason`
+- `tool_used`
+- `tool_error`
+- `status`
+
+Key tags for Multi-Agent trace metrics:
+
+- `stop_reason`
+- `single_agent_fallback`
+- `synthesis_fallback`
+- `status`
+
+### Cache metrics
+
+- `ai.cache.semantic.total` (tags: `result=hit|miss`)
+- `ai.cache.semantic.similarity` (distribution, scaled ×100)
+- `ai.cache.semantic.latency` (tags: `result=hit|miss`)
+- `ai.cache.rag.total` (tags: `result=hit|miss`)
+- `ai.cache.operations.total` (tags: `cache`, `operation`, `result`)
+
+### Evaluation export
+
+- `POST /api/v1/agent/evaluate/export` saves the evaluation report as JSON to the configured report directory and returns the file path. The default is `evaluation-reports/`. Dataset files must be under the configured `AI_EVALUATION_DATASET_DIRECTORY`.
+
+### Document ingestion
+
 - `ai.document.ingestion.queued.total`
 - `ai.document.ingestion.total`
 - `ai.document.ingestion.latency`
 - `ai.document.chunk.count`
+
+## Explain-mode observability workflow
+
+Recommended debug flow for open-source demos and interview walkthroughs:
+
+1. Call `POST /api/v1/agent/chat?...&explain=true` to inspect adaptive RAG route, rewrite, verification, evidence, and `reactTrace`.
+2. Call `POST /api/v1/agent/react/chat?...&explain=true` to inspect step-by-step ReAct execution.
+3. Call `POST /api/v1/agent/multi-agent/execute?...&explain=true` to inspect subtasks, worker results, nested ReAct traces, and synthesis stop reason.
+4. Open `/actuator/prometheus` and correlate trace output with `ai.rag.adaptive.*`, `ai.agent.react.*`, and `ai.agent.multi.*` metrics. Normal ReAct and Multi-Agent API requests also record trace metrics; `explain=true` only controls response detail.
+
+## Prometheus queries
+
+Example queries for local dashboards:
+
+```promql
+sum by (stop_reason) (rate(ai_agent_react_total[5m]))
+sum by (stop_reason) (rate(ai_agent_multi_total[5m]))
+sum by (route, end_reason) (rate(ai_rag_adaptive_total[5m]))
+histogram_quantile(0.99, sum(rate(ai_chat_latency_seconds_bucket[5m])) by (le, mode))
+sum by (result) (rate(ai_cache_semantic_total[5m]))
+avg(ai_cache_semantic_similarity)
+```
 
 ## Local Prometheus + Grafana
 
@@ -69,6 +144,13 @@ Grafana auto-loads:
 - Prometheus datasource
 - `AI Agent Platform Overview` dashboard
 
+Recommended dashboard grouping:
+
+- Adaptive RAG routing and end reasons
+- ReAct stop reasons and step counts
+- Multi-Agent subtask counts and worker failure counts
+- Chat latency and cache hit distribution
+
 ## CI artifacts
 
 The GitHub Actions workflow uploads:
@@ -79,6 +161,6 @@ The GitHub Actions workflow uploads:
 
 Current CI baseline:
 
-- JaCoCo bundle line coverage must be at least `35%`
+- JaCoCo bundle line coverage must be at least `45%`
 
 This makes it easier for contributors to inspect failures and quality signals directly from CI.

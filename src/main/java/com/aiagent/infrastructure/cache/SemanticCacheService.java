@@ -3,6 +3,7 @@ package com.aiagent.infrastructure.cache;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import jakarta.annotation.PostConstruct;
+import com.aiagent.infrastructure.metrics.PlatformMetricsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -31,6 +32,7 @@ public class SemanticCacheService {
     private final EmbeddingModel embeddingModel;
     private final RedisTemplate<String, Object> redisTemplate;
     private final EmbeddingCacheService embeddingCacheService;
+    private final PlatformMetricsService metricsService;
 
     private static final String CACHE_PREFIX = "ai:semantic-cache:";
     private static final String CACHE_INDEX = CACHE_PREFIX + "index";
@@ -43,53 +45,62 @@ public class SemanticCacheService {
     }
 
     public String getIfCached(String question) {
-        Embedding queryEmbedding = getEmbedding(question);
-        if (queryEmbedding == null) {
-            return null;
-        }
-
-        Set<Object> cachedKeys = redisTemplate.opsForSet().members(CACHE_INDEX);
-        if (cachedKeys == null || cachedKeys.isEmpty()) {
-            return null;
-        }
-
-        String bestMatch = null;
+        var sample = metricsService.startSample();
+        boolean hit = false;
         double bestScore = 0;
-
-        for (Object keyObj : cachedKeys) {
-            String cacheKey = (String) keyObj;
-            Map<String, Object> entry = CacheExceptionHandler.safeRead("Semantic", () -> {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> e = (Map<String, Object>) redisTemplate.opsForValue().get(cacheKey);
-                return e;
-            });
-
-            if (entry == null) {
-                redisTemplate.opsForSet().remove(CACHE_INDEX, cacheKey);
-                continue;
+        try {
+            Embedding queryEmbedding = getEmbedding(question);
+            if (queryEmbedding == null) {
+                return null;
             }
 
-            float[] cachedEmbedding = (float[]) entry.get("embedding");
-            String cachedAnswer = (String) entry.get("answer");
+            Set<Object> cachedKeys = redisTemplate.opsForSet().members(CACHE_INDEX);
+            if (cachedKeys == null || cachedKeys.isEmpty()) {
+                return null;
+            }
 
-            double similarity = cosineSimilarity(queryEmbedding.vector(), cachedEmbedding);
-            if (similarity > bestScore) {
-                bestScore = similarity;
-                if (similarity >= SIMILARITY_THRESHOLD) {
-                    bestMatch = cachedAnswer;
+            String bestMatch = null;
+            for (Object keyObj : cachedKeys) {
+                String cacheKey = String.valueOf(keyObj);
+                Map<String, Object> entry = CacheExceptionHandler.safeRead("Semantic", () -> {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> value = (Map<String, Object>) redisTemplate.opsForValue().get(cacheKey);
+                    return value;
+                });
+
+                if (entry == null) {
+                    redisTemplate.opsForSet().remove(CACHE_INDEX, cacheKey);
+                    continue;
+                }
+
+                Object embeddingValue = entry.get("embedding");
+                Object answerValue = entry.get("answer");
+                if (!(embeddingValue instanceof float[] cachedEmbedding) || !(answerValue instanceof String cachedAnswer)) {
+                    log.warn("Ignoring malformed semantic cache entry: {}", cacheKey);
+                    continue;
+                }
+
+                double similarity = cosineSimilarity(queryEmbedding.vector(), cachedEmbedding);
+                if (similarity > bestScore) {
+                    bestScore = similarity;
+                    if (similarity >= SIMILARITY_THRESHOLD) {
+                        bestMatch = cachedAnswer;
+                    }
                 }
             }
-        }
 
-        if (bestMatch != null) {
-            log.info("✓ Semantic cache hit, similarity: {}", String.format("%.4f", bestScore));
-            return bestMatch;
-        }
+            if (bestMatch != null) {
+                hit = true;
+                log.info("Semantic cache hit, similarity: {}", String.format("%.4f", bestScore));
+                return bestMatch;
+            }
 
-        log.info("Semantic cache miss, best similarity: {}", String.format("%.4f", bestScore));
-        return null;
+            log.info("Semantic cache miss, best similarity: {}", String.format("%.4f", bestScore));
+            return null;
+        } finally {
+            metricsService.recordSemanticCache(hit, bestScore, sample);
+        }
     }
-
     public void put(String question, String answer) {
         CacheExceptionHandler.safeWrite("Semantic", () -> {
             Embedding embedding = getEmbedding(question);

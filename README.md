@@ -1,4 +1,4 @@
-﻿# AI Agent Platform
+# AI Agent Platform
 
 基于 Spring Boot 3 + LangChain4j 构建的企业级 AI Agent 平台，集成 ReAct 推理循环、多路召回 RAG、语义缓存和工具调用框架。
 
@@ -250,6 +250,8 @@ src/main/java/com/aiagent/
 ---
 
 ## 配置说明
+
+> 安全提示：启动前必须通过环境变量设置 `JWT_SECRET` 和 `ADMIN_API_KEY`。仓库中的 `.env.example` 仅是占位模板，不要直接用于生产环境。
 
 ### 模型切换
 

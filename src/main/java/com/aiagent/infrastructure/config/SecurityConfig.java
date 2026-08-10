@@ -67,7 +67,7 @@ public class SecurityConfig {
                         "/api/v1/agent/evaluate/**",
                         "/api/v1/ecommerce/**",
                         "/api/cs/**"
-                ).authenticated()
+                ).hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(adminApiKeyFilter, AnonymousAuthenticationFilter.class)

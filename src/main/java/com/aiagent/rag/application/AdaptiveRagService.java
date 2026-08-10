@@ -44,7 +44,7 @@ package com.aiagent.rag.application;
             try {
                 if (shouldBypassAdaptive(question)) {
                     success = true;
-                    recordAdaptiveMetrics(RagRouteType.DIRECT_ANSWER.name(), RagVerificationLevel.NONE.name(), false, 0, 0, true, sample);
+                    recordAdaptiveMetrics(RagRouteType.DIRECT_ANSWER.name(), RagVerificationLevel.NONE.name(), false, 0, 0, context.getEndReason(), true, sample);
                     return context;
                 }
 
@@ -52,7 +52,7 @@ package com.aiagent.rag.application;
                 if (decision.getRouteType() == RagRouteType.DIRECT_ANSWER) {
                     context = buildDirectAnswerContext(question, decision);
                     success = true;
-                    recordAdaptiveMetrics(decision.getRouteType().name(), RagVerificationLevel.NONE.name(), false, 0, 0, true, sample);
+                    recordAdaptiveMetrics(decision.getRouteType().name(), RagVerificationLevel.NONE.name(), false, 0, 0, context.getEndReason(), true, sample);
                     return context;
                 }
 
@@ -94,13 +94,14 @@ package com.aiagent.rag.application;
                         rewriteResult != null && rewriteResult.isChanged(),
                         actualRounds,
                         chunks.size(),
+                        endReason,
                         true,
                         sample
                 );
                 return context;
             } catch (Exception e) {
                 log.warn("Adaptive RAG failed for question: {}", e.getMessage());
-                recordAdaptiveMetrics("ERROR", RagVerificationLevel.NONE.name(), false, 0, 0, false, sample);
+                recordAdaptiveMetrics("ERROR", RagVerificationLevel.NONE.name(), false, 0, 0, context.getEndReason(), false, sample);
                 return context;
             } finally {
                 if (!success) {
@@ -166,9 +167,10 @@ package com.aiagent.rag.application;
                                            boolean rewritten,
                                            int rounds,
                                            int chunkCount,
+                                           String endReason,
                                            boolean success,
                                            Timer.Sample sample) {
-            metricsService.recordAdaptiveRag(route, verificationLevel, rewritten, rounds, chunkCount, success, sample);
+            metricsService.recordAdaptiveRag(route, verificationLevel, rewritten, rounds, chunkCount, endReason, success, sample);
         }
 
         private AdaptiveRagRoundTrace buildRoundTrace(int round,

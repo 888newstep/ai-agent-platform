@@ -75,7 +75,7 @@ class AdaptiveRagServiceTest {
         assertThat(context.getContext()).contains("Adaptive RAG route: SINGLE_HOP");
         assertThat(context.getRewrittenQuery()).contains("RAG");
         verify(multiRecallService).search(anyString(), eq(5));
-        verify(metricsService).recordAdaptiveRag(eq("SINGLE_HOP"), eq("HIGH"), anyBoolean(), eq(1), eq(1), eq(true), any());
+        verify(metricsService).recordAdaptiveRag(eq("SINGLE_HOP"), eq("HIGH"), anyBoolean(), eq(1), eq(1), eq("verification_high"), eq(true), any());
     }
 
     @Test
@@ -90,6 +90,6 @@ class AdaptiveRagServiceTest {
         assertThat(context.getRetrievalRounds()).isEqualTo(2);
         assertThat(context.getContext()).contains("Adaptive RAG route: MULTI_HOP");
         verify(multiRecallService, times(2)).search(anyString(), eq(5));
-        verify(metricsService).recordAdaptiveRag(eq("MULTI_HOP"), eq("HIGH"), anyBoolean(), eq(2), eq(1), eq(true), any());
+        verify(metricsService).recordAdaptiveRag(eq("MULTI_HOP"), eq("HIGH"), anyBoolean(), eq(2), eq(1), eq("verification_high"), eq(true), any());
     }
 }

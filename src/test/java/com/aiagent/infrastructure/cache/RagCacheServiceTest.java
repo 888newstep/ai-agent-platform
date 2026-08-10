@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import com.aiagent.infrastructure.metrics.PlatformMetricsService;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
@@ -25,11 +26,14 @@ class RagCacheServiceTest {
     @Mock
     private ValueOperations<String, Object> valueOperations;
 
+    @Mock
+    private PlatformMetricsService metricsService;
+
     private RagCacheService ragCacheService;
 
     @BeforeEach
     void setUp() {
-        ragCacheService = new RagCacheService(redisTemplate);
+        ragCacheService = new RagCacheService(redisTemplate, metricsService);
     }
 
     @Test

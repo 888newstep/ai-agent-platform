@@ -135,6 +135,190 @@ public class ReActAgent {
                 + (observations.isEmpty() ? "" : "最后获取到的信息：\n" + observations.get(observations.size() - 1));
     }
 
+    public ReActExecutionResult executeDetailed(String question, String context) {
+        return executeDetailed(question, context, "");
+    }
+
+    public ReActExecutionResult executeDetailed(String question, String context, String history) {
+        Instant startTime = Instant.now();
+        List<String> observations = new ArrayList<>();
+        List<ReActExecutionTrace.StepTrace> steps = new ArrayList<>();
+
+        String toolsDescription = buildToolsDescription();
+        String userPrompt = buildUserPrompt(question, context, history);
+        StringBuilder conversation = new StringBuilder(userPrompt);
+
+        for (int step = 0; step < MAX_STEPS; step++) {
+            Instant stepStart = Instant.now();
+            if (Duration.between(startTime, Instant.now()).compareTo(TIMEOUT) > 0) {
+                return buildDetailedResult(
+                        question,
+                        steps,
+                        startTime,
+                        "timeout",
+                        false,
+                        "抱歉，处理超时了，请简化问题后重试。"
+                );
+            }
+
+            String fullPrompt = String.format(
+                    "%s\n\n%s\n\n%s",
+                    SYSTEM_PROMPT.formatted(toolsDescription),
+                    conversation,
+                    "请继续推理。如果已有足够信息，请直接返回 finalAnswer。"
+            );
+
+            String llmOutput;
+            try {
+                llmOutput = chatLanguageModel.generate(fullPrompt);
+            } catch (Exception e) {
+                steps.add(buildStepTrace(step + 1, null, null, null, null, null,
+                        Duration.between(stepStart, Instant.now()).toMillis(), "llm_error"));
+                return buildDetailedResult(
+                        question,
+                        steps,
+                        startTime,
+                        "llm_error",
+                        false,
+                        "抱歉，AI 模型调用失败，请稍后重试。错误：" + e.getMessage()
+                );
+            }
+
+            ReActStepResult stepResult = parseStepResult(llmOutput);
+            if (stepResult.getFinalAnswer() != null && !stepResult.getFinalAnswer().isBlank()) {
+                String finalAnswer = stepResult.getFinalAnswer().trim();
+                steps.add(buildStepTrace(
+                        step + 1,
+                        stepResult.getThought(),
+                        stepResult.getAction(),
+                        stepResult.getActionInput(),
+                        null,
+                        finalAnswer,
+                        Duration.between(stepStart, Instant.now()).toMillis(),
+                        "not_used"
+                ));
+                return buildDetailedResult(question, steps, startTime, "final_answer", true, finalAnswer);
+            }
+
+            if (stepResult.getAction() == null || stepResult.getAction().isBlank()) {
+                String fallbackAnswer = stepResult.getThought() != null && !stepResult.getThought().isBlank()
+                        ? stepResult.getThought().trim()
+                        : llmOutput == null ? "" : llmOutput.trim();
+                steps.add(buildStepTrace(
+                        step + 1,
+                        stepResult.getThought(),
+                        stepResult.getAction(),
+                        stepResult.getActionInput(),
+                        null,
+                        null,
+                        Duration.between(stepStart, Instant.now()).toMillis(),
+                        "not_used"
+                ));
+                return buildDetailedResult(question, steps, startTime, "no_action", false, fallbackAnswer);
+            }
+
+            String actionName = stepResult.getAction().trim();
+            String observation;
+            String toolStatus;
+            try {
+                observation = executeTool(actionName, stepResult.getActionInput());
+                toolStatus = determineToolStatus(actionName);
+            } catch (Exception e) {
+                observation = "工具执行错误: " + e.getMessage();
+                toolStatus = "tool_error";
+            }
+
+            steps.add(buildStepTrace(
+                    step + 1,
+                    stepResult.getThought(),
+                    actionName,
+                    stepResult.getActionInput(),
+                    observation,
+                    null,
+                    Duration.between(stepStart, Instant.now()).toMillis(),
+                    toolStatus
+            ));
+
+            observations.add(observation);
+            if (isRepeating(observations)) {
+                return buildDetailedResult(
+                        question,
+                        steps,
+                        startTime,
+                        "repeated_observation",
+                        false,
+                        "我尝试了多次仍无法完成这个任务。最后获取到的信息：\n" + observation
+                );
+            }
+
+            conversation.append("\nAssistant JSON: ").append(compactForPrompt(llmOutput));
+            conversation.append("\nObservation: ").append(observation).append("\n");
+        }
+
+        String answer = "我已经尝试了多种方法，但无法在限制步数内完成请求。"
+                + (observations.isEmpty() ? "" : "最后获取到的信息：\n" + observations.get(observations.size() - 1));
+        return buildDetailedResult(question, steps, startTime, "max_steps", false, answer);
+    }
+
+    private ReActExecutionResult buildDetailedResult(String question,
+                                                     List<ReActExecutionTrace.StepTrace> steps,
+                                                     Instant startTime,
+                                                     String stopReason,
+                                                     boolean completed,
+                                                     String answer) {
+        return ReActExecutionResult.builder()
+                .answer(answer)
+                .trace(ReActExecutionTrace.builder()
+                        .question(question)
+                        .stepCount(steps.size())
+                        .totalLatencyMs(Duration.between(startTime, Instant.now()).toMillis())
+                        .stopReason(stopReason)
+                        .completed(completed)
+                        .steps(List.copyOf(steps))
+                        .build())
+                .build();
+    }
+
+    private ReActExecutionTrace.StepTrace buildStepTrace(int step,
+                                                         String thought,
+                                                         String action,
+                                                         Object actionInput,
+                                                         String observation,
+                                                         String finalAnswer,
+                                                         long stepLatencyMs,
+                                                         String toolStatus) {
+        return ReActExecutionTrace.StepTrace.builder()
+                .step(step)
+                .thought(thought)
+                .action(action)
+                .actionInput(stringifyActionInput(actionInput))
+                .observation(observation)
+                .finalAnswer(finalAnswer)
+                .stepLatencyMs(stepLatencyMs)
+                .toolStatus(toolStatus)
+                .build();
+    }
+
+    private String stringifyActionInput(Object actionInput) {
+        if (actionInput == null) {
+            return null;
+        }
+        if (actionInput instanceof String text) {
+            return text;
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(actionInput);
+        } catch (JsonProcessingException e) {
+            return String.valueOf(actionInput);
+        }
+    }
+
+    private String determineToolStatus(String actionName) {
+        return switch (actionName) {
+            case "query_database", "call_external_api" -> "success";
+            default -> "unknown_tool";
+        };
+    }
     private ReActStepResult parseStepResult(String llmOutput) {
         ReActStepResult structured = parseStructuredJson(llmOutput);
         if (structured != null) {

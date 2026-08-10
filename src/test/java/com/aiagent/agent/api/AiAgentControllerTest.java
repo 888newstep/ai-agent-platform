@@ -1,6 +1,9 @@
 package com.aiagent.agent.api;
 
 import com.aiagent.agent.application.AiAgentService;
+import com.aiagent.agent.application.ChatExecutionResult;
+import com.aiagent.agent.application.MultiAgentExecutionResult;
+import com.aiagent.agent.application.MultiAgentExecutionTrace;
 import com.aiagent.agent.application.MultiAgentService;
 import com.aiagent.infrastructure.cache.SemanticCacheService;
 import com.aiagent.knowledge.application.DocumentService;
@@ -8,8 +11,11 @@ import com.aiagent.knowledge.domain.Document;
 import com.aiagent.knowledge.domain.DocumentProcessingStatus;
 import com.aiagent.knowledge.domain.RetrievalChunk;
 import com.aiagent.rag.application.AdaptiveRagContext;
+import com.aiagent.rag.application.AdaptiveRagRoundTrace;
 import com.aiagent.rag.application.RagEvaluationService;
+import com.aiagent.rag.application.RagVerificationLevel;
 import com.aiagent.rag.application.RagRouteType;
+import com.aiagent.agent.application.ReActExecutionTrace;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,8 +24,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -64,15 +73,17 @@ class AiAgentControllerTest {
     void shouldHandleSessionAndChatOperations() {
         when(aiAgentService.createSession()).thenReturn("session-1");
         when(aiAgentService.chat("session-1", "hello", true)).thenReturn("normal answer");
-        when(aiAgentService.reactChat("session-1", "analyze task", false)).thenReturn("react answer");
-        when(multiAgentService.execute("plan task", "context")).thenReturn("multi-agent result");
+        when(aiAgentService.reactChatDetailed("session-1", "analyze task", false))
+                .thenReturn(ChatExecutionResult.builder().answer("react answer").build());
+        when(multiAgentService.executeDetailed("plan task", "context"))
+                .thenReturn(MultiAgentExecutionResult.builder().answer("multi-agent result").build());
         when(aiAgentService.streamChat("session-1", "stream question", true)).thenReturn(Flux.just("A", "B"));
 
         ResponseEntity<Map<String, String>> session = controller.createSession();
         controller.clearSession("session-1");
-        ResponseEntity<Map<String, Object>> chat = controller.chat("session-1", "hello", true);
-        ResponseEntity<Map<String, Object>> react = controller.reactChat("session-1", "analyze task", false);
-        ResponseEntity<Map<String, Object>> multiAgent = controller.multiAgentExecute("plan task", "context");
+        ResponseEntity<Map<String, Object>> chat = controller.chat("session-1", "hello", true, false);
+        ResponseEntity<Map<String, Object>> react = controller.reactChat("session-1", "analyze task", false, false);
+        ResponseEntity<Map<String, Object>> multiAgent = controller.multiAgentExecute("plan task", "context", false);
         List<String> stream = controller.streamChat("session-1", "stream question", true).collectList().block();
 
         assertThat(session.getBody()).containsEntry("sessionId", "session-1");
@@ -89,6 +100,63 @@ class AiAgentControllerTest {
         verify(aiAgentService).clearSession("session-1");
     }
 
+    @Test
+    void shouldExposeExplainPayloadForReactAndMultiAgent() {
+        ReActExecutionTrace reactTrace = ReActExecutionTrace.builder()
+                .question("analyze task")
+                .stepCount(1)
+                .stopReason("final_answer")
+                .completed(true)
+                .steps(List.of())
+                .build();
+        when(aiAgentService.reactChatDetailed("session-1", "analyze task", true)).thenReturn(ChatExecutionResult.builder()
+                .answer("react explain answer")
+                .adaptiveRagContext(AdaptiveRagContext.empty("analyze task"))
+                .cacheHit(false)
+                .responseSource("adaptive_direct_answer")
+                .reactTrace(reactTrace)
+                .build());
+        when(multiAgentService.executeDetailed("plan task", "context")).thenReturn(MultiAgentExecutionResult.builder()
+                .answer("multi explain answer")
+                .trace(MultiAgentExecutionTrace.builder()
+                        .task("plan task")
+                        .subtaskCount(1)
+                        .stopReason("completed")
+                        .subtasks(List.of("subtask"))
+                        .workers(List.of())
+                        .build())
+                .build());
+
+        ResponseEntity<Map<String, Object>> react = controller.reactChat("session-1", "analyze task", true, true);
+        ResponseEntity<Map<String, Object>> multi = controller.multiAgentExecute("plan task", "context", true);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> reactExplain = (Map<String, Object>) react.getBody().get("explain");
+        assertThat(reactExplain).containsKey("reactTrace");
+        MultiAgentExecutionTrace multiExplain = (MultiAgentExecutionTrace) multi.getBody().get("explain");
+        assertThat(multiExplain.getTask()).isEqualTo("plan task");
+        assertThat(multiExplain.getStopReason()).isEqualTo("completed");
+    }
+
+    @Test
+    void shouldExportEvaluationReportToConfiguredDirectory() throws Exception {
+        RagEvaluationService.EvaluationReport report = new RagEvaluationService.EvaluationReport();
+        report.setDatasetSource("built-in-sample");
+        report.setDatasetSize(1);
+        report.setTopKs(List.of(1));
+        report.setConfigSnapshot(Map.of("profile", "default"));
+        when(ragEvaluationService.quickEvaluate(anyList(), eq(null), eq(null))).thenReturn(report);
+
+        Path reportDirectory = Files.createTempDirectory("evaluation-report-test");
+        ReflectionTestUtils.setField(controller, "evaluationReportDirectory", reportDirectory.toString());
+        ResponseEntity<Map<String, Object>> response = controller.exportEvaluation("1", null, null, null);
+
+        assertThat(response.getBody()).containsEntry("exported", true);
+        String filePath = (String) response.getBody().get("filePath");
+        assertThat(Files.exists(Path.of(filePath))).isTrue();
+        Files.deleteIfExists(Path.of(filePath));
+        Files.deleteIfExists(reportDirectory);
+    }
     @Test
     void shouldHandleDocumentAndCacheOperations() {
         MockMultipartFile file = new MockMultipartFile("file", "guide.md", "text/markdown", "hello".getBytes());

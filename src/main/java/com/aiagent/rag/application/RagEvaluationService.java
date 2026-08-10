@@ -5,6 +5,7 @@ import com.aiagent.knowledge.domain.RetrievalChunk;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -50,6 +51,9 @@ public class RagEvaluationService {
 
     private final MultiRecallService multiRecallService;
     private final AiProperties aiProperties;
+
+    @Value("${ai.evaluation.dataset-directory:}")
+    private String datasetDirectory;
 
     public EvaluationReport evaluate(Map<String, List<String>> testDataset, List<Integer> topKs) {
         return evaluate(toDataset(testDataset), sanitizeTopKs(topKs), defaultProfile());
@@ -183,7 +187,13 @@ public class RagEvaluationService {
             throw new IllegalArgumentException("datasetPath must not be blank");
         }
 
-        Path path = Path.of(datasetPath.trim());
+        Path path = Path.of(datasetPath.trim()).toAbsolutePath().normalize();
+        if (StringUtils.hasText(datasetDirectory)) {
+            Path allowedDirectory = Path.of(datasetDirectory).toAbsolutePath().normalize();
+            if (!path.startsWith(allowedDirectory)) {
+                throw new IllegalArgumentException("Dataset path must be inside: " + allowedDirectory);
+            }
+        }
         if (!Files.exists(path) || !Files.isRegularFile(path)) {
             throw new IllegalArgumentException("Dataset file not found: " + datasetPath);
         }

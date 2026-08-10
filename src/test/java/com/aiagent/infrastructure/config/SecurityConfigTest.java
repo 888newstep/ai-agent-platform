@@ -88,6 +88,15 @@ class SecurityConfigTest {
     }
 
     @Test
+    void shouldRejectProtectedEvaluateEndpointWithRegularUserJwt() throws Exception {
+        when(jwtTokenProvider.validateToken("user-token")).thenReturn(true);
+        when(jwtTokenProvider.getUsernameFromToken("user-token")).thenReturn("user");
+
+        mockMvc.perform(post("/api/v1/agent/evaluate")
+                        .header("Authorization", "Bearer user-token"))
+                .andExpect(status().isForbidden());
+    }
+    @Test
     void shouldAllowProtectedEvaluateEndpointWithValidAdminApiKey() throws Exception {
         RagEvaluationService.EvaluationReport report = new RagEvaluationService.EvaluationReport();
         report.setDatasetSource("built-in-sample");

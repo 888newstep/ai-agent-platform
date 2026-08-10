@@ -175,6 +175,26 @@ class ReActAgentTest {
     }
 
     @Test
+    void shouldCaptureDetailedTrace() {
+        when(chatLanguageModel.generate(anyString())).thenReturn("""
+                {
+                  \"thought\": \"直接回答即可\",
+                  \"action\": null,
+                  \"actionInput\": null,
+                  \"finalAnswer\": \"这是详细回答\"
+                }
+                """);
+
+        ReActAgent agent = new ReActAgent(chatLanguageModel, toolService);
+        ReActExecutionResult result = agent.executeDetailed("测试", "", "");
+
+        assertEquals("这是详细回答", result.getAnswer());
+        assertEquals("final_answer", result.getTrace().getStopReason());
+        assertEquals(1, result.getTrace().getStepCount());
+        assertTrue(result.getTrace().isCompleted());
+    }
+
+    @Test
     void shouldBuildUserPromptWithContextAndHistory() {
         when(chatLanguageModel.generate(anyString()))
                 .thenReturn("""

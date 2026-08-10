@@ -55,6 +55,17 @@ public class PlatformMetricsService {
         stopSample(sample, "ai.document.ingestion.latency", new Duration[0], tags);
     }
 
+    public void recordSemanticCache(boolean hit, double bestSimilarity, Timer.Sample sample) {
+        String[] tags = {"result", hitTag(hit)};
+        incrementCounter("ai.cache.semantic.total", tags);
+        recordSummary("ai.cache.semantic.similarity", (int) (bestSimilarity * 100));
+        stopSample(sample, "ai.cache.semantic.latency", new Duration[0], tags);
+    }
+
+    public void recordRagCache(boolean hit) {
+        incrementCounter("ai.cache.rag.total", "result", hitTag(hit));
+    }
+
     public void recordCacheOperation(String cacheName, String operation, boolean hit) {
         incrementCounter("ai.cache.operations.total",
                 "cache", cacheName,
@@ -73,18 +84,56 @@ public class PlatformMetricsService {
                                   boolean rewritten,
                                   int retrievalRounds,
                                   int chunkCount,
+                                  String endReason,
                                   boolean success,
                                   Timer.Sample sample) {
         String[] tags = {
                 "route", routeType,
                 "verification", verificationLevel,
                 "rewritten", Boolean.toString(rewritten),
+                "end_reason", endReason == null ? "unknown" : endReason,
                 "status", statusTag(success)
         };
         incrementCounter("ai.rag.adaptive.total", tags);
         recordSummary("ai.rag.adaptive.rounds", retrievalRounds);
         recordSummary("ai.rag.adaptive.chunk.count", chunkCount);
         stopSample(sample, "ai.rag.adaptive.latency", new Duration[0], tags);
+    }
+
+    public void recordReActTrace(String stopReason,
+                                 int stepCount,
+                                 boolean toolUsed,
+                                 boolean toolError,
+                                 boolean success,
+                                 Timer.Sample sample) {
+        String[] tags = {
+                "stop_reason", normalizeTag(stopReason),
+                "tool_used", Boolean.toString(toolUsed),
+                "tool_error", Boolean.toString(toolError),
+                "status", statusTag(success)
+        };
+        incrementCounter("ai.agent.react.total", tags);
+        recordSummary("ai.agent.react.steps", stepCount);
+        stopSample(sample, "ai.agent.react.latency", new Duration[0], tags);
+    }
+
+    public void recordMultiAgentTrace(String stopReason,
+                                      int subtaskCount,
+                                      int workerFailureCount,
+                                      boolean singleAgentFallback,
+                                      boolean synthesisFallback,
+                                      boolean success,
+                                      Timer.Sample sample) {
+        String[] tags = {
+                "stop_reason", normalizeTag(stopReason),
+                "single_agent_fallback", Boolean.toString(singleAgentFallback),
+                "synthesis_fallback", Boolean.toString(synthesisFallback),
+                "status", statusTag(success)
+        };
+        incrementCounter("ai.agent.multi.total", tags);
+        recordSummary("ai.agent.multi.subtasks", subtaskCount);
+        recordSummary("ai.agent.multi.worker.failures", workerFailureCount);
+        stopSample(sample, "ai.agent.multi.latency", new Duration[0], tags);
     }
 
     private void incrementCounter(String name, String... tags) {
@@ -121,5 +170,9 @@ public class PlatformMetricsService {
 
     private String statusTag(boolean success) {
         return success ? "success" : "error";
+    }
+
+    private String normalizeTag(String value) {
+        return value == null || value.isBlank() ? "unknown" : value;
     }
 }

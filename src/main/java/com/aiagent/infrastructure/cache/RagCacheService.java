@@ -2,6 +2,7 @@ package com.aiagent.infrastructure.cache;
 
 import com.aiagent.knowledge.domain.RetrievalChunk;
 import jakarta.annotation.PostConstruct;
+import com.aiagent.infrastructure.metrics.PlatformMetricsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -16,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 public class RagCacheService {
 
     private final RedisTemplate<String, Object> redisTemplate;
+    private final PlatformMetricsService metricsService;
 
     private static final String CACHE_PREFIX = "ai:rag-cache:";
     private static final long CACHE_TTL_HOURS = 1;
@@ -28,12 +30,13 @@ public class RagCacheService {
     @SuppressWarnings("unchecked")
     public List<RetrievalChunk> getCachedResults(String query) {
         String key = CacheKeyUtil.buildKey(CACHE_PREFIX, query);
-        return CacheExceptionHandler.safeRead("RAG", () -> {
+        List<RetrievalChunk> result = CacheExceptionHandler.safeRead("RAG", () -> {
             Object cached = redisTemplate.opsForValue().get(key);
             return cached instanceof List ? (List<RetrievalChunk>) cached : null;
         });
+        metricsService.recordRagCache(result != null);
+        return result;
     }
-
     public void cacheResults(String query, List<RetrievalChunk> results) {
         if (results == null || results.isEmpty()) {
             return;

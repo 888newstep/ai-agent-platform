@@ -6,6 +6,8 @@ import dev.langchain4j.model.output.Response;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import com.aiagent.infrastructure.metrics.PlatformMetricsService;
+import io.micrometer.core.instrument.Timer;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
@@ -19,9 +21,9 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * 语义缓存服务测试
+ * 閻犲浂鍘虹粻鐔虹磽閹惧磭鎽犻柡鍫濈Т婵喎霉鐎ｎ厾妲?
  *
- * 验证缓存命中/未命中逻辑、异常处理。
+ * 濡ょ姴鐭侀惁澶岀磽閹惧磭鎽犻柛娑欏灊閼?闁哄牜浜滈幊鈩冪▔椤撯懇鍋撻弰蹇曞竼闁靛棔绀佺槐鎾舵暜缁嬫妲遍柣鐐叉閳?
  */
 @ExtendWith(MockitoExtension.class)
 class SemanticCacheServiceTest {
@@ -41,19 +43,27 @@ class SemanticCacheServiceTest {
     @Mock
     private ValueOperations<String, Object> valueOps;
 
+    @Mock
+    private PlatformMetricsService metricsService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setupMetrics() {
+        org.mockito.Mockito.lenient().when(metricsService.startSample()).thenReturn(Timer.start());
+    }
+
     @Test
     void shouldReturnNullWhenCacheIsEmpty() {
-        // 模拟 embedding 缓存未命中
+        // 婵☆垪鍓濈€?embedding 缂傚倹鎸搁悺銊╁嫉椤忓嫭鍤掑☉?
         when(embeddingCacheService.getCachedEmbedding(anyString())).thenReturn(null);
-        // 模拟 embedding 成功
+        // 婵☆垪鍓濈€?embedding 闁瑰瓨鍔曟慨?
         float[] vector = new float[1024];
         when(embeddingModel.embed(anyString()))
                 .thenReturn(new Response<>(new Embedding(vector)));
-        // 模拟空缓存索引
+        // 婵☆垪鍓濈€氭瑧绮氶搹鍦閻庢稒顭囬崒銊ヮ嚕?
         when(redisTemplate.opsForSet()).thenReturn(setOps);
         when(setOps.members(anyString())).thenReturn(Set.of());
 
-        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
+        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService, metricsService);
         assertNull(cacheService.getIfCached("test question"));
     }
 
@@ -62,7 +72,7 @@ class SemanticCacheServiceTest {
         when(embeddingCacheService.getCachedEmbedding(anyString())).thenReturn(null);
         when(embeddingModel.embed(anyString())).thenThrow(new RuntimeException("API error"));
 
-        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
+        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService, metricsService);
         assertNull(cacheService.getIfCached("test question"));
     }
 
@@ -77,7 +87,7 @@ class SemanticCacheServiceTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOps);
         when(redisTemplate.opsForSet()).thenReturn(setOps);
 
-        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
+        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService, metricsService);
         assertDoesNotThrow(() -> cacheService.put("test question", "test answer"));
         verify(valueOps).set(anyString(), anyMap(), eq(24L), eq(TimeUnit.HOURS));
         verify(setOps).add(anyString(), anyString());
@@ -88,7 +98,7 @@ class SemanticCacheServiceTest {
         when(embeddingCacheService.getCachedEmbedding(anyString())).thenReturn(null);
         when(embeddingModel.embed(anyString())).thenThrow(new RuntimeException("Model unavailable"));
 
-        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
+        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService, metricsService);
         assertDoesNotThrow(() -> cacheService.put("test question", "test answer"));
     }
 
@@ -113,7 +123,7 @@ class SemanticCacheServiceTest {
         );
         when(valueOps.get("ai:semantic-cache:123")).thenReturn(cachedEntry);
 
-        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
+        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService, metricsService);
         String result = cacheService.getIfCached("test question");
 
         assertEquals("cached answer", result);
@@ -146,7 +156,7 @@ class SemanticCacheServiceTest {
         );
         when(valueOps.get("ai:semantic-cache:123")).thenReturn(cachedEntry);
 
-        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
+        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService, metricsService);
         String result = cacheService.getIfCached("test question");
 
         assertNull(result);
@@ -157,7 +167,7 @@ class SemanticCacheServiceTest {
         when(redisTemplate.opsForSet()).thenReturn(setOps);
         when(setOps.members(anyString())).thenReturn(Set.of("key1", "key2", "key3"));
 
-        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
+        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService, metricsService);
         cacheService.clear();
 
         verify(redisTemplate).delete("key1");
@@ -176,7 +186,7 @@ class SemanticCacheServiceTest {
         when(redisTemplate.opsForSet()).thenReturn(setOps);
         when(setOps.members(anyString())).thenReturn(Set.of());
 
-        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService);
+        SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService, metricsService);
         cacheService.getIfCached("test question");
 
         verify(embeddingModel, never()).embed(anyString());

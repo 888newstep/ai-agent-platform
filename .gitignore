@@ -92,4 +92,6 @@ generated_data/
 # Local planning / analysis notes
 datachain.md
 tech-deepening-checklist.md
-
+evaluation-datasets/
+evaluation-reports/
+.serena/
