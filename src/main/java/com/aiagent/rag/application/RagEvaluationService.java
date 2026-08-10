@@ -15,8 +15,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -26,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.HexFormat;
 import java.util.stream.Collectors;
 
 /**
@@ -215,7 +219,7 @@ public class RagEvaluationService {
     private EvaluationDataset loadJsonDataset(Path path) throws IOException {
         List<EvaluationCase> cases = OBJECT_MAPPER.readValue(path.toFile(), new TypeReference<>() {});
         return EvaluationDataset.builder()
-                .source(path.toAbsolutePath().toString())
+                .source(buildDatasetSource(path))
                 .cases(normalizeCases(cases))
                 .build();
     }
@@ -264,9 +268,31 @@ public class RagEvaluationService {
         }
 
         return EvaluationDataset.builder()
-                .source(path.toAbsolutePath().toString())
+                .source(buildDatasetSource(path))
                 .cases(normalizeCases(cases))
                 .build();
+    }
+
+    private String buildDatasetSource(Path path) throws IOException {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
+
+        try (InputStream input = Files.newInputStream(path)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) >= 0) {
+                if (read > 0) {
+                    digest.update(buffer, 0, read);
+                }
+            }
+        }
+
+        String fingerprint = HexFormat.of().formatHex(digest.digest()).substring(0, 16);
+        return path.getFileName() + "#" + fingerprint;
     }
 
     private int headerIndex(List<String> headers, String key) {

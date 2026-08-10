@@ -50,7 +50,7 @@ function Build-Uri {
     if ([string]::IsNullOrWhiteSpace($query)) {
         return "$BaseUrl$Path"
     }
-    return "$BaseUrl$Path?$query"
+    return "${BaseUrl}${Path}?${query}"
 }
 
 function Invoke-JsonApi {
@@ -120,6 +120,62 @@ function Get-DatasetProvenance {
     return $provenance
 }
 
+function Get-SafeReport {
+    param(
+        [object]$Report
+    )
+
+    if ($null -eq $Report) {
+        return $null
+    }
+
+    $safeReport = [ordered]@{}
+    foreach ($property in ($Report | Get-Member -MemberType NoteProperty)) {
+        $value = $Report.($property.Name)
+        switch ($property.Name) {
+            "datasetSource" {
+                $safeReport[$property.Name] = [System.IO.Path]::GetFileName([string]$value)
+            }
+            "summary" {
+                $safeReport[$property.Name] = ([string]$value) -replace '(?i)dataset=.*?, size=', 'dataset=<private>, size='
+            }
+            default {
+                $safeReport[$property.Name] = $value
+            }
+        }
+    }
+    return $safeReport
+}
+
+function Get-SafeExport {
+    param(
+        [object]$Export
+    )
+
+    return [ordered]@{
+        exported = $Export.exported
+        fileName = $Export.fileName
+        generatedAt = $Export.generatedAt
+        report = Get-SafeReport -Report $Export.report
+    }
+}
+
+function Get-SafeComparison {
+    param(
+        [object]$Comparison
+    )
+
+    $safeComparison = [ordered]@{}
+    foreach ($property in ($Comparison | Get-Member -MemberType NoteProperty)) {
+        if ($property.Name -in @("baseline", "candidate")) {
+            $safeComparison[$property.Name] = Get-SafeReport -Report $Comparison.($property.Name)
+        } else {
+            $safeComparison[$property.Name] = $Comparison.($property.Name)
+        }
+    }
+    return $safeComparison
+}
+
 $outputPath = [System.IO.Path]::GetFullPath($OutputDirectory)
 [System.IO.Directory]::CreateDirectory($outputPath) | Out-Null
 $runId = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -171,16 +227,15 @@ $run = [ordered]@{
     runId = $runId
     generatedAt = [DateTime]::UtcNow.ToString("o")
     gitCommit = Get-GitCommit
-    baseUrl = $BaseUrl
     dataset = $datasetProvenance
     runtime = $runtimeProvenance
     topKs = $TopKs
     similarityThreshold = $SimilarityThreshold
     baselineHybridSearch = $BaselineHybridSearch
     candidateHybridSearch = $CandidateHybridSearch
-    baseline = $baseline
-    candidate = $candidate
-    comparison = $comparison
+    baseline = Get-SafeExport -Export $baseline
+    candidate = Get-SafeExport -Export $candidate
+    comparison = Get-SafeComparison -Comparison $comparison
 }
 
 $runFile = Join-Path $outputPath "rag-benchmark-$runId.json"

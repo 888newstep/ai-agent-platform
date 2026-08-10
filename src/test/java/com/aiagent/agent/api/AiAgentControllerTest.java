@@ -163,9 +163,10 @@ class AiAgentControllerTest {
         ResponseEntity<Map<String, Object>> response = controller.exportEvaluation("1", null, null, null);
 
         assertThat(response.getBody()).containsEntry("exported", true);
-        String filePath = (String) response.getBody().get("filePath");
-        assertThat(Files.exists(Path.of(filePath))).isTrue();
-        Files.deleteIfExists(Path.of(filePath));
+        String fileName = (String) response.getBody().get("fileName");
+        assertThat(Files.exists(reportDirectory.resolve(fileName))).isTrue();
+        assertThat(response.getBody()).doesNotContainKey("filePath");
+        Files.deleteIfExists(reportDirectory.resolve(fileName));
         Files.deleteIfExists(reportDirectory);
     }
     @Test

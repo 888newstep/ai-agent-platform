@@ -114,7 +114,9 @@ class RagEvaluationServiceTest {
                 false
         );
 
-        assertThat(report.getDatasetSource()).isEqualTo(dataset.toAbsolutePath().toString());
+        assertThat(report.getDatasetSource())
+                .startsWith("dataset.json#")
+                .doesNotContain(tempDir.toString());
         assertThat(report.getDatasetSize()).isEqualTo(2);
         assertThat(report.getTopKs()).containsExactly(3);
         assertThat(report.getConfigSnapshot())
@@ -175,7 +177,9 @@ class RagEvaluationServiceTest {
                 )
         );
 
-        assertThat(report.getDatasetSource()).isEqualTo(dataset.toAbsolutePath().toString());
+        assertThat(report.getDatasetSource())
+                .startsWith("dataset.csv#")
+                .doesNotContain(tempDir.toString());
         assertThat(report.getDatasetSize()).isEqualTo(2);
         assertThat(report.getTopKs()).containsExactly(1);
         assertThat(report.getReports()).containsKeys("hybrid", "vector");

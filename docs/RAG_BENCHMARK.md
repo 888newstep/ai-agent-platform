@@ -2,8 +2,6 @@
 
 ## 目标
 
-Each report includes `sampleCount`, `recall`, `precision`, `f1`, `avgLatency`, `p50Latency`, `p95Latency`, and `p99Latency`. Category-level metrics are available under `categoryMetrics` for diagnosing differences between query types.
-
 本项目的评测接口已经可以输出 `sampleCount`、`recall`、`precision`、`f1`、平均延迟、P50、P95 和 P99，并按 `category` 输出分组指标。`scripts/run-rag-evaluation.ps1` 将同一数据集分别以“向量检索”和“混合检索”运行，导出两份真实报告，并调用历史对比接口生成差值。
 
 脚本只保存服务端返回的指标，不生成或填充虚假结果。没有可用的 Milvus、Embedding 模型或已导入文档时，脚本应失败或得到低召回结果，不能把测试桩数据当成线上结论。
@@ -53,7 +51,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ## 如何记录结果
 
-The benchmark script records the current Git commit, dataset file name, dataset SHA-256, file size, and non-secret vector-store settings in the local run artifact. It deliberately omits the dataset absolute path and all API keys so the artifact can be reviewed before sharing.
+基准脚本记录当前 Git commit、数据集文件名、数据集 SHA-256、文件大小和非敏感向量库配置。汇总产物只保留报告文件名与指标，不写入数据集绝对路径、导出文件绝对路径、服务地址或 API 密钥，可在脱敏检查后分享。
 
 每次基准至少记录以下信息：
 
@@ -93,13 +91,13 @@ $env:MILVUS_CONNECTION_TIMEOUT_MS = "60000"
 
 `qa` 模式只读时不会向已有业务 collection 写入数据；数据导入仍由电商 QA 导入服务负责。默认 `langchain` 模式保持通用文档链路不变。
 
-## 2026-08-10 本机结果（脱敏）
+## 2026-08-10 云端 Milvus 结果（脱敏）
 
-本次使用已有 `ecommerce_qa` collection 中抽取的 20 条实体，按其 `qa_pair_id` 生成本地私有一致性数据集，阈值为 `0.60`，`Top-K=1,3,5`。结果如下：
+本次连接云服务器上的 `ecommerce_qa` collection，应用使用 QA schema 适配器和只读模式，基于 20 条本地私有 query 构造 smoke 数据集，并以真实 `qa_pair_id` 作为相关 ID，阈值为 `0.60`，`Top-K=1,3,5`。结果如下：
 
-| 配置 | Recall@1 | Recall@3 | Recall@5 | F1@3 | P99@3 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| 向量基线 | 20.00% | 50.00% | 65.00% | 25.00% | 166 ms |
-| 混合检索 | 20.00% | 55.00% | 70.00% | 27.50% | 796 ms |
+| 配置 | Recall@1 | Recall@3 | Recall@5 | F1@3 | Avg latency@3 | P99@3 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 向量基线 | 33.33% | 98.33% | 100.00% | 98.33% | 162.05 ms | 265 ms |
+| 混合检索 | 21.67% | 41.67% | 53.33% | 41.67% | 178.65 ms | 666 ms |
 
-该数据集是从现有 collection 自动抽样的检索一致性 smoke benchmark，不是独立人工标注集；不能直接作为简历中的最终业务效果数据。正式对外指标必须使用脱敏、独立标注的 `question/relevantDocIds/category` 数据集，并保留原始运行报告在本地私有目录。仓库不提交问题原文、Milvus 地址、API 响应或评测 JSON。
+这次结果不代表“混合检索无价值”，但说明当前实现和数据集之间存在需要继续分析的回归：数据集的相关 ID 是根据向量检索结果自动构造的，天然偏向向量基线，不能用于证明业务场景中的最终优劣。下一步应使用独立人工标注的 `question/relevantDocIds/category` 数据集，或重新设计不依赖单一路由结果的标注规则，再调节 BM25 候选池、RRF 权重和中文分词策略。该结果不能直接写入简历为业务提升数据；原始 query、ID 列表、API 响应和评测 JSON 均保持本地私有。

@@ -205,7 +205,6 @@ public class AiAgentController {
             return ResponseEntity.ok(objectResponse(
                     "exported", true,
                     "fileName", savedReport.fileName(),
-                    "filePath", savedReport.absolutePath(),
                     "generatedAt", generatedAt,
                     "report", reportPayload
             ));
