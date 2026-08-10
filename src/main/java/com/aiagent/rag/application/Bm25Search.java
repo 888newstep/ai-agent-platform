@@ -11,38 +11,38 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * BM25 ????????????????????
+ * 基于内存倒排统计的 BM25 检索器。
  *
- * <p>?????????????BM25 ???????????
- * ??????????????? BM25 ??????????????
+ * <p>初始化阶段计算文档频率和词频，查询阶段根据 BM25 公式对候选片段排序。
+ * 中文文本按单字切分，英文和数字按连续词元切分。
  */
 public class Bm25Search {
 
-    /** BM25 ?? k1?????????? */
+    /** BM25 词频饱和参数。 */
     private static final double K1 = 1.2;
 
-    /** BM25 ?? b????????????? */
+    /** BM25 文档长度归一化参数。 */
     private static final double B = 0.75;
 
-    /** ??????? */
+    /** 待检索的文档片段。 */
     private final List<RetrievalChunk> documents;
 
-    /** ????? */
+    /** 文档数量。 */
     private final int docCount;
 
-    /** ??????????? IDF? */
+    /** 每个词项出现过的文档数量，用于计算 IDF。 */
     private final Map<String, Integer> df;
 
-    /** ??????? */
+    /** 平均文档长度。 */
     private final double avgDocLength;
 
-    /** ????????? */
+    /** 每个文档的词频表。 */
     private final List<Map<String, Integer>> termFrequencies;
 
     /**
-     * ?????????? BM25 ????
+     * 为文档集合构建 BM25 统计信息。
      *
-     * @param documents ??????
+     * @param documents 待建立索引的文档片段
      */
     public Bm25Search(List<RetrievalChunk> documents) {
         this.documents = documents;
@@ -56,7 +56,7 @@ public class Bm25Search {
             List<String> terms = tokenize(content);
             totalLength += terms.size();
 
-            // ?????
+            // 统计当前文档的词频。
             Map<String, Integer> tf = new HashMap<>();
             Set<String> uniqueTerms = new HashSet<>();
             for (String term : terms) {
@@ -65,7 +65,7 @@ public class Bm25Search {
             }
             termFrequencies.add(tf);
 
-            // ???????
+            // 每个词项在同一文档中只计一次文档频率。
             for (String term : uniqueTerms) {
                 df.merge(term, 1, Integer::sum);
             }
@@ -74,11 +74,11 @@ public class Bm25Search {
     }
 
     /**
-     * ?? BM25 ???
+     * 执行 BM25 检索。
      *
-     * @param query ????
-     * @param topK ???????
-     * @return ? BM25 ??????????
+     * @param query 查询文本
+     * @param topK 返回结果数量上限
+     * @return 按 BM25 分数降序排列的检索结果
      */
     public List<RetrievalChunk> search(String query, int topK) {
         if (documents.isEmpty()) {
@@ -90,7 +90,7 @@ public class Bm25Search {
             return List.of();
         }
 
-        // ??????? BM25 ???
+        // 计算每篇文档的 BM25 分数。
         List<ScoredDoc> scoredDocs = new ArrayList<>();
         for (int i = 0; i < docCount; i++) {
             double score = 0;
@@ -132,8 +132,7 @@ public class Bm25Search {
     }
 
     /**
-     * ??????????????????????????????
-     * ????????????????????????
+     * 对中英文混合文本进行轻量分词，避免引入额外分词依赖。
      */
     private List<String> tokenize(String text) {
         if (text == null || text.isEmpty()) {
@@ -168,6 +167,6 @@ public class Bm25Search {
         return tokens;
     }
 
-    /** ????????? */
+    /** 带分数的文档位置。 */
     private record ScoredDoc(int index, double score) {}
 }

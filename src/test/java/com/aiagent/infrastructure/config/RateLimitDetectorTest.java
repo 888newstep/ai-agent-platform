@@ -7,8 +7,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * RateLimitDetector ?????????? *
- * ??????????????????????????????????? */
+ * RateLimitDetector 的限流错误识别测试。
+ * 覆盖状态码、英文关键词、中文关键词和空值边界。
+ */
 class RateLimitDetectorTest {
 
     @Test
@@ -47,8 +48,8 @@ class RateLimitDetectorTest {
             "too many requests, slow down",
             "throttling applied",
             "rate_limit_exceeded",
-            "??????????????????",
-            "API ???"
+            "请求过于频繁",
+            "API 请求频率超限"
     })
     void shouldDetectAllRateLimitPatterns(String message) {
         Exception ex = new RuntimeException(message);

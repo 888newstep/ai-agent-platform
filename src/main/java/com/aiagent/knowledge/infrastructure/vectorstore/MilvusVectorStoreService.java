@@ -53,9 +53,9 @@ public class MilvusVectorStoreService implements VectorStoreService {
             log.info("Connected to Milvus at {}:{}, Collection: {}, Dimension: {}",
                     config.getHost(), config.getPort(), config.getCollectionName(), config.getDimension());
         } catch (TimeoutException e) {
-            log.warn("Milvus ????({}ms)??????????", config.getConnectionTimeoutMs());
+            log.warn("Milvus 连接超时（{}ms），将使用内存回退存储", config.getConnectionTimeoutMs());
         } catch (Exception e) {
-            log.warn("Milvus ??????????????: {}", extractMessage(e));
+            log.warn("Milvus 连接失败，将使用内存回退存储: {}", extractMessage(e));
         } finally {
             executor.shutdownNow();
         }

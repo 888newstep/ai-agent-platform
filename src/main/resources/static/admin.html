@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Agent Platform - ????</title>
+    <title>AI Agent Platform - 管理台</title>
     <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
     <style>
         * { box-sizing: border-box; }
@@ -230,43 +230,43 @@
     <header class="app-header">
         <div class="header-left">
             <h1>AI Agent Platform</h1>
-            <span class="subtitle">v1.0.0 ? ????</span>
+            <span class="subtitle">v1.0.0 · 管理控制台</span>
         </div>
         <div class="header-right">
             <span class="status-chip">
                 <span class="status-dot" :class="healthStatus === 'UP' ? '' : 'down'"></span>
-                <span>{{ healthStatus === 'UP' ? '????' : '????' }}</span>
+                <span>{{ healthStatus === 'UP' ? '在线' : '离线' }}</span>
             </span>
-            <el-button size="small" plain @click="refreshAll">??</el-button>
+            <el-button size="small" plain @click="refreshAll">刷新</el-button>
         </div>
     </header>
 
     <div class="layout">
         <aside class="sidebar">
             <div class="sidebar-card">
-                <div class="sidebar-card-title">????</div>
+                <div class="sidebar-card-title">访问凭证</div>
                 <el-input
                     v-model="adminApiKey"
                     type="password"
                     show-password
-                    placeholder="?? ADMIN_API_KEY"
+                    placeholder="输入 ADMIN_API_KEY"
                     @change="persistAdminApiKey"
                 />
-                <div class="muted" style="margin-top:8px;">?????????????????????????</div>
+                <div class="muted" style="margin-top:8px;">用于访问受保护的管理接口，密钥仅保存在当前浏览器。</div>
             </div>
 
             <el-menu :default-active="activeMenu" @select="handleMenuSelect">
                 <el-menu-item index="chat">
                     <el-icon><ChatDotRound /></el-icon>
-                    <span>AI ??</span>
+                    <span>AI 对话</span>
                 </el-menu-item>
                 <el-menu-item index="documents">
                     <el-icon><DocumentAdd /></el-icon>
-                    <span>?????</span>
+                    <span>文档管理</span>
                 </el-menu-item>
                 <el-menu-item index="metrics">
                     <el-icon><DataAnalysis /></el-icon>
-                    <span>????</span>
+                    <span>运行指标</span>
                 </el-menu-item>
             </el-menu>
         </aside>
@@ -274,10 +274,10 @@
         <main class="main">
             <section v-show="activeMenu === 'chat'" class="panel">
                 <div class="panel-title">
-                    <h2>AI ????</h2>
+                    <h2>AI 对话</h2>
                     <div class="toolbar">
                         <el-tag type="info">Session: {{ sessionId || '-' }}</el-tag>
-                        <el-button size="small" @click="createSession">????</el-button>
+                        <el-button size="small" @click="createSession">新建会话</el-button>
                     </div>
                 </div>
 
@@ -289,17 +289,17 @@
                                 <div class="bubble">{{ message.content }}</div>
                             </div>
                         </template>
-                        <el-empty v-else description="?????????"></el-empty>
+                        <el-empty v-else description="暂无消息"></el-empty>
                     </div>
 
                     <div>
                         <div class="toolbar" style="margin-bottom:12px;">
                             <el-select v-model="chatMode" style="width: 180px;">
-                                <el-option label="????" value="normal" />
-                                <el-option label="ReAct ??" value="react" />
+                                <el-option label="普通对话" value="normal" />
+                                <el-option label="ReAct 推理" value="react" />
                                 <el-option label="Multi-Agent" value="multi-agent" />
                             </el-select>
-                            <el-switch v-model="useRag" active-text="?? RAG" />
+                            <el-switch v-model="useRag" active-text="启用 RAG" />
                         </div>
                         <div class="chat-actions">
                             <el-input
@@ -307,10 +307,10 @@
                                 type="textarea"
                                 :rows="4"
                                 resize="none"
-                                placeholder="?????Enter ???Shift+Enter ??"
+                                placeholder="输入问题，Enter 发送，Shift+Enter 换行"
                                 @keydown.enter.prevent="handleChatEnter"
                             />
-                            <el-button type="primary" :loading="loading" @click="sendMessage">??</el-button>
+                            <el-button type="primary" :loading="loading" @click="sendMessage">发送</el-button>
                         </div>
                     </div>
                 </div>
@@ -318,10 +318,10 @@
 
             <section v-show="activeMenu === 'documents'" class="panel">
                 <div class="panel-title">
-                    <h2>????????</h2>
+                    <h2>文档管理</h2>
                     <div class="toolbar">
-                        <el-button size="small" @click="refreshDocumentStatuses">????</el-button>
-                        <el-button size="small" type="warning" :loading="cacheLoading" @click="clearCache">??????</el-button>
+                        <el-button size="small" @click="refreshDocumentStatuses">刷新状态</el-button>
+                        <el-button size="small" type="warning" :loading="cacheLoading" @click="clearCache">清空缓存</el-button>
                     </div>
                 </div>
 
@@ -329,7 +329,7 @@
                     <div>
                         <div class="panel" style="padding:16px; margin-top:0;">
                             <div class="panel-title">
-                                <h3>????</h3>
+                                <h3>上传文档</h3>
                             </div>
                             <el-upload
                                 drag
@@ -338,50 +338,50 @@
                                 accept=".pdf,.doc,.docx,.md,.txt"
                             >
                                 <el-icon style="font-size:32px;color:#409eff;"><UploadFilled /></el-icon>
-                                <div class="el-upload__text">????????? <em>????</em></div>
+                                <div class="el-upload__text">拖拽文件到此处，或 <em>点击上传</em></div>
                                 <template #tip>
-                                    <div class="el-upload__tip">??????????????????????</div>
+                                    <div class="el-upload__tip">支持 PDF、DOC、DOCX、MD、TXT 文件</div>
                                 </template>
                             </el-upload>
                         </div>
 
                         <div class="panel" style="padding:16px; margin-top:16px;">
                             <div class="panel-title">
-                                <h3>?????</h3>
+                                <h3>检索文档</h3>
                             </div>
                             <div class="toolbar" style="margin-bottom:12px;">
-                                <el-input v-model="searchQuery" placeholder="??????" @keyup.enter="searchDocuments" />
-                                <el-button type="primary" :loading="searchLoading" @click="searchDocuments">??</el-button>
+                                <el-input v-model="searchQuery" placeholder="输入检索问题" @keyup.enter="searchDocuments" />
+                                <el-button type="primary" :loading="searchLoading" @click="searchDocuments">检索</el-button>
                             </div>
                             <div v-if="searchResults.length">
                                 <div v-for="(item, index) in searchResults" :key="index" class="search-result">
-                                    <div><strong>#{{ index + 1 }}</strong> ? score: {{ formatScore(item.score) }}</div>
+                                    <div><strong>#{{ index + 1 }}</strong> · score: {{ formatScore(item.score) }}</div>
                                     <div style="margin-top:8px; line-height:1.7; white-space:pre-wrap;">{{ item.content }}</div>
                                 </div>
                             </div>
-                            <el-empty v-else description="??????"></el-empty>
+                            <el-empty v-else description="暂无检索结果"></el-empty>
                         </div>
                     </div>
 
                     <div>
                         <div class="panel" style="padding:16px; margin-top:0;">
                             <div class="panel-title">
-                                <h3>????</h3>
-                                <span class="muted">?????????</span>
+                                <h3>任务状态</h3>
+                                <span class="muted">最近 20 条任务</span>
                             </div>
-                            <el-table :data="uploadJobs" border stripe empty-text="??????">
-                                <el-table-column prop="documentId" label="?? ID" width="92" />
-                                <el-table-column prop="fileName" label="???" min-width="180" show-overflow-tooltip />
-                                <el-table-column label="??" width="120">
+                            <el-table :data="uploadJobs" border stripe empty-text="暂无任务">
+                                <el-table-column prop="documentId" label="文档 ID" width="92" />
+                                <el-table-column prop="fileName" label="文件名" min-width="180" show-overflow-tooltip />
+                                <el-table-column label="状态" width="120">
                                     <template #default="scope">
                                         <el-tag :type="statusTagType(scope.row.status)">{{ scope.row.status || '-' }}</el-tag>
                                     </template>
                                 </el-table-column>
                                 <el-table-column prop="chunkCount" label="Chunks" width="90" />
-                                <el-table-column label="????" min-width="168">
+                                <el-table-column label="更新时间" min-width="168">
                                     <template #default="scope">{{ formatDateTime(scope.row.updatedAt || scope.row.processingCompletedAt || scope.row.processingStartedAt) }}</template>
                                 </el-table-column>
-                                <el-table-column label="????" min-width="180" show-overflow-tooltip>
+                                <el-table-column label="错误信息" min-width="180" show-overflow-tooltip>
                                     <template #default="scope">{{ scope.row.errorMessage || '-' }}</template>
                                 </el-table-column>
                             </el-table>
@@ -491,27 +491,27 @@
                 return [
                     {
                         key: 'chat',
-                        label: '??????',
+                        label: '对话请求',
                         value: map['ai.chat.requests.total']?.value ?? '-',
-                        subtext: '?????ReAct?????'
+                        subtext: '普通/ReAct/Multi-Agent'
                     },
                     {
                         key: 'rag',
-                        label: 'RAG ????',
+                        label: 'RAG 检索',
                         value: map['ai.rag.search.total']?.value ?? '-',
-                        subtext: '????????????'
+                        subtext: '向量与混合召回次数'
                     },
                     {
                         key: 'doc',
-                        label: '??????',
+                        label: '文档处理',
                         value: map['ai.document.ingestion.total']?.value ?? '-',
-                        subtext: 'completed/failed ??????'
+                        subtext: '成功/失败任务数'
                     },
                     {
                         key: 'chunks',
-                        label: '?? Chunk ??',
+                        label: '文档 Chunk 数',
                         value: map['ai.document.chunk.count']?.value ?? '-',
-                        subtext: '?????????????'
+                        subtext: '已切分的知识片段数量'
                     }
                 ];
             });
@@ -558,7 +558,7 @@
             };
 
             const appendMessage = (role, content) => {
-                const labelMap = { user: '??', assistant: '??', system: '??' };
+                const labelMap = { user: '用户', assistant: '助手', system: '系统' };
                 messages.value.push({ role, content, label: labelMap[role] || role });
             };
 
@@ -575,10 +575,10 @@
                     const data = await res.json();
                     sessionId.value = data.sessionId || '';
                     messages.value = [];
-                    appendMessage('system', `????? ${sessionId.value}`);
+                    appendMessage('system', `已创建会话：${sessionId.value}`);
                     scrollToBottom();
                 } catch (error) {
-                    ElementPlus.ElMessage.error('??????: ' + error.message);
+                    ElementPlus.ElMessage.error('创建会话失败：' + error.message);
                 }
             };
 
@@ -608,9 +608,9 @@
 
                     const res = await fetch(url, { method, headers: getAuthHeaders() });
                     const data = await res.json();
-                    appendMessage('assistant', data.answer || data.message || '?????');
+                    appendMessage('assistant', data.answer || data.message || '暂无回答');
                 } catch (error) {
-                    appendMessage('system', '????: ' + error.message);
+                    appendMessage('system', '请求失败：' + error.message);
                 } finally {
                     loading.value = false;
                     scrollToBottom();
@@ -629,15 +629,15 @@
                     });
                     const data = await res.json();
                     if (!res.ok) {
-                        throw new Error(data.message || data.error || '????');
+                        throw new Error(data.message || data.error || '上传失败');
                     }
-                    ElementPlus.ElMessage.success(data.message || '?????????');
+                    ElementPlus.ElMessage.success(data.message || '上传成功');
                     if (data.documentId) {
                         rememberDocumentId(data.documentId);
                         await fetchDocumentStatus(data.documentId);
                     }
                 } catch (error) {
-                    ElementPlus.ElMessage.error('????: ' + error.message);
+                    ElementPlus.ElMessage.error('上传失败：' + error.message);
                 } finally {
                     if (typeof options.onSuccess === 'function') {
                         options.onSuccess({}, options.file);
@@ -651,7 +651,7 @@
                 });
                 const data = await res.json();
                 if (!res.ok) {
-                    throw new Error(data.message || data.error || '??????');
+                    throw new Error(data.message || data.error || '获取文档状态失败');
                 }
 
                 const existingIndex = uploadJobs.value.findIndex(item => item.documentId === data.documentId);
@@ -691,7 +691,7 @@
                     const data = await res.json();
                     searchResults.value = data.results || [];
                 } catch (error) {
-                    ElementPlus.ElMessage.error('????: ' + error.message);
+                    ElementPlus.ElMessage.error('检索失败：' + error.message);
                 } finally {
                     searchLoading.value = false;
                 }
@@ -706,11 +706,11 @@
                     });
                     const data = await res.json();
                     if (!res.ok) {
-                        throw new Error(data.message || data.error || '????');
+                        throw new Error(data.message || data.error || '清空缓存失败');
                     }
-                    ElementPlus.ElMessage.success(data.message || '?????');
+                    ElementPlus.ElMessage.success(data.message || '缓存已清空');
                 } catch (error) {
-                    ElementPlus.ElMessage.error('????: ' + error.message);
+                    ElementPlus.ElMessage.error('清空缓存失败：' + error.message);
                 } finally {
                     cacheLoading.value = false;
                 }

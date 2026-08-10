@@ -13,8 +13,8 @@ public final class RateLimitDetector {
             "too many requests",
             "throttling",
             "rate_limit_exceeded",
-            "???",
-            "?????????"
+            "请求过于频繁",
+            "请求频率超限"
     );
 
     public static boolean isRateLimit(Throwable throwable) {

@@ -26,10 +26,10 @@ public class AdaptiveRagContext {
     private boolean verified;
     private boolean usedAdaptive;
 
-    /** ?????? trace? */
+    /** 每轮自适应检索的结构化 trace。 */
     private List<AdaptiveRagRoundTrace> roundTraces;
 
-    /** ??????? */
+    /** 本次决策的结束原因。 */
     private String endReason;
 
     public static AdaptiveRagContext empty(String question) {

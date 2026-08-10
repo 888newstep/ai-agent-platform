@@ -29,16 +29,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * RAG ?????
+ * RAG 检索评测服务。
  *
- * <p>?????????
- * <ul>
- *   <li><b>?????</b>???????????????????????</li>
- *   <li><b>??????</b>?????????????????</li>
- * </ul>
+ * <p>支持内置 smoke 数据集、外部 JSON/CSV 数据集、多个 Top-K 和多个检索配置对比，
+ * 输出整体及 category 分组的召回、精确率、F1 和延迟指标。
  *
- * <p>???`chunkSize` ? `chunkOverlap` ????????????
- * ??????????????????????????????????????
+ * <p>`chunkSize` 与 `chunkOverlap` 仅作为配置快照记录；切片参数对比需要重新导入文档。
  */
 @Slf4j
 
@@ -349,11 +345,11 @@ private EvaluationDataset buildSampleDataset() {
     return EvaluationDataset.builder()
             .source("built-in-sample")
             .cases(List.of(
-                    EvaluationCase.builder().question("????????").relevantDocIds(List.of("doc_refund_01", "doc_refund_02")).category("process").build(),
-                    EvaluationCase.builder().question("????????").relevantDocIds(List.of("doc_address_01", "doc_address_02")).category("process").build(),
-                    EvaluationCase.builder().question("??????????").relevantDocIds(List.of("doc_quality_01", "doc_quality_02")).category("after_sale").build(),
-                    EvaluationCase.builder().question("??????").relevantDocIds(List.of("doc_shipping_01", "doc_shipping_02")).category("fact").build(),
-                    EvaluationCase.builder().question("????????").relevantDocIds(List.of("doc_vip_01", "doc_vip_02")).category("fact").build()
+                    EvaluationCase.builder().question("退款流程是什么").relevantDocIds(List.of("doc_refund_01", "doc_refund_02")).category("process").build(),
+                    EvaluationCase.builder().question("如何修改收货地址").relevantDocIds(List.of("doc_address_01", "doc_address_02")).category("process").build(),
+                    EvaluationCase.builder().question("商品质量问题怎么处理").relevantDocIds(List.of("doc_quality_01", "doc_quality_02")).category("after_sale").build(),
+                    EvaluationCase.builder().question("订单发货时间").relevantDocIds(List.of("doc_shipping_01", "doc_shipping_02")).category("fact").build(),
+                    EvaluationCase.builder().question("会员权益有哪些").relevantDocIds(List.of("doc_vip_01", "doc_vip_02")).category("fact").build()
             ))
             .build();
 }

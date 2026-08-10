@@ -8,9 +8,9 @@ import lombok.NoArgsConstructor;
 import java.util.Map;
 
 /**
- * ?? API ????
- * 
- * @param <T> ????
+ * 统一 API 响应结构。
+ *
+ * @param <T> 响应数据类型
  */
 @Data
 @Builder
