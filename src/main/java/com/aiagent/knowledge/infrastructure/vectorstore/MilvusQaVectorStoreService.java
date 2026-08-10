@@ -1,6 +1,7 @@
 package com.aiagent.knowledge.infrastructure.vectorstore;
 
 import com.aiagent.infrastructure.config.AiProperties;
+import com.aiagent.knowledge.domain.RetrievalChunk;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.langchain4j.data.document.Metadata;
@@ -13,8 +14,10 @@ import io.milvus.v2.service.collection.request.HasCollectionReq;
 import io.milvus.v2.service.collection.request.LoadCollectionReq;
 import io.milvus.v2.service.vector.request.DeleteReq;
 import io.milvus.v2.service.vector.request.InsertReq;
+import io.milvus.v2.service.vector.request.QueryReq;
 import io.milvus.v2.service.vector.request.SearchReq;
 import io.milvus.v2.service.vector.request.data.FloatVec;
+import io.milvus.v2.service.vector.response.QueryResp;
 import io.milvus.v2.service.vector.response.SearchResp;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +43,7 @@ import java.util.Map;
 public class MilvusQaVectorStoreService implements VectorStoreService {
 
     private static final String EMBEDDING_FIELD = "embedding";
+    private static final long CORPUS_FETCH_LIMIT = 1000;
     private static final List<String> OUTPUT_FIELDS = List.of(
             "id", "question", "answer", "qa_text", "qa_pair_id", "category", "ts");
 
@@ -170,6 +174,39 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
                     TextSegment.from(text, toMetadata(entity))));
         }
         return matches;
+    }
+
+    @Override
+    public List<RetrievalChunk> fetchAllChunks(int maxDocs) {
+        if (!available) {
+            return fallbackStore.fetchAllChunks(maxDocs);
+        }
+        QueryResp response = milvusClient.query(QueryReq.builder()
+                .collectionName(collectionName())
+                .outputFields(OUTPUT_FIELDS)
+                .offset(0)
+                .limit(maxDocs > 0 ? maxDocs : CORPUS_FETCH_LIMIT)
+                .build());
+        List<RetrievalChunk> chunks = new ArrayList<>();
+        if (response == null || response.getQueryResults() == null) {
+            return chunks;
+        }
+        for (QueryResp.QueryResult result : response.getQueryResults()) {
+            Map<String, Object> entity = result.getEntity() == null ? Map.of() : result.getEntity();
+            String id = firstText(entity, "qa_pair_id", "id");
+            String text = firstText(entity, "qa_text", "answer", "question");
+            if (!StringUtils.hasText(id) || !StringUtils.hasText(text)) {
+                continue;
+            }
+            chunks.add(RetrievalChunk.builder()
+                .id(id)
+                .content(text)
+                .score(0.0)
+                .metadata(toMetadata(entity).toMap())
+                .build());
+        }
+        log.info("Fetched {} chunks from QA collection [{}]", chunks.size(), collectionName());
+        return chunks;
     }
 
     @Override

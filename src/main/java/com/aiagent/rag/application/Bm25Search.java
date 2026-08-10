@@ -145,26 +145,49 @@ public class Bm25Search {
                 .split("\\s+");
 
         for (String part : parts) {
-            if (part.length() >= 1) {
-                StringBuilder current = new StringBuilder();
-                for (char c : part.toCharArray()) {
-                    if (Character.isIdeographic(c)) {
-                        if (current.length() > 0) {
-                            tokens.add(current.toString());
-                            current = new StringBuilder();
-                        }
-                        tokens.add(String.valueOf(c));
-                    } else if (Character.isLetterOrDigit(c)) {
-                        current.append(c);
+            if (part.isEmpty()) {
+                continue;
+            }
+            StringBuilder word = new StringBuilder();
+            StringBuilder ideographic = new StringBuilder();
+            for (char c : part.toCharArray()) {
+                if (Character.isIdeographic(c)) {
+                    if (word.length() > 0) {
+                        tokens.add(word.toString());
+                        word = new StringBuilder();
                     }
+                    ideographic.append(c);
+                } else if (Character.isLetterOrDigit(c)) {
+                    if (ideographic.length() > 0) {
+                        addIdeographicTokens(tokens, ideographic.toString());
+                        ideographic = new StringBuilder();
+                    }
+                    word.append(c);
                 }
-                if (current.length() > 0) {
-                    tokens.add(current.toString());
-                }
+            }
+            if (word.length() > 0) {
+                tokens.add(word.toString());
+            }
+            if (ideographic.length() > 0) {
+                addIdeographicTokens(tokens, ideographic.toString());
             }
         }
 
         return tokens;
+    }
+
+    /**
+     * 中文连续字串按叠加 bigram 产出词元：单字保留，多字生成滑窗二元组。
+     * 相比单字切分，bigram 能更精确地对齐查询与文档中的词，减少单字过匹配。
+     */
+    private void addIdeographicTokens(List<String> tokens, String run) {
+        if (run.length() == 1) {
+            tokens.add(run);
+            return;
+        }
+        for (int i = 0; i < run.length() - 1; i++) {
+            tokens.add(run.substring(i, i + 2));
+        }
     }
 
     /** 带分数的文档位置。 */

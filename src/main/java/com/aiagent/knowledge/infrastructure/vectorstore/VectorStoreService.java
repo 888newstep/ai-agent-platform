@@ -1,5 +1,6 @@
 package com.aiagent.knowledge.infrastructure.vectorstore;
 
+import com.aiagent.knowledge.domain.RetrievalChunk;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
@@ -10,6 +11,7 @@ public interface VectorStoreService {
     void add(String id, Embedding embedding);
     List<String> addAll(List<Embedding> embeddings, List<TextSegment> segments);
     List<EmbeddingMatch<TextSegment>> search(Embedding queryEmbedding, int topK, double minScore);
+    List<RetrievalChunk> fetchAllChunks(int maxDocs);
     void remove(String id);
     void removeAll();
 }

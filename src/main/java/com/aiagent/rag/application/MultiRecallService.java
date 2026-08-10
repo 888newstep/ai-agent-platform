@@ -5,6 +5,7 @@ import com.aiagent.infrastructure.config.AiProperties;
 import com.aiagent.infrastructure.metrics.PlatformMetricsService;
 import com.aiagent.knowledge.application.DocumentService;
 import com.aiagent.knowledge.domain.RetrievalChunk;
+import com.aiagent.knowledge.infrastructure.vectorstore.VectorStoreService;
 import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
@@ -30,16 +31,21 @@ public class MultiRecallService {
     private static final int RRF_K = 60;
     private static final int PER_ROUTE_TOP_K = 20;
     private static final int BM25_CANDIDATE_POOL = 50;
+    private static final int BM25_CORPUS_MAX_DOCS = 5000;
+    private static final long CORPUS_INDEX_TTL_MS = 5 * 60 * 1000L;
 
     private final DocumentService documentService;
     private final AiProperties aiProperties;
     private final RagCacheService ragCacheService;
     private final PlatformMetricsService metricsService;
+    private final VectorStoreService vectorStoreService;
+    private final Object indexLock = new Object();
+    private volatile Bm25IndexHolder corpusBm25;
 
     @PostConstruct
     public void init() {
-        log.info("Multi-recall service initialized (RRF k={}, perRouteTopK={}, bm25Pool={})",
-                RRF_K, PER_ROUTE_TOP_K, BM25_CANDIDATE_POOL);
+        log.info("Multi-recall service initialized (RRF k={}, perRouteTopK={}, bm25Pool={}, corpusMaxDocs={})",
+                RRF_K, PER_ROUTE_TOP_K, BM25_CANDIDATE_POOL, BM25_CORPUS_MAX_DOCS);
     }
 
     public List<RetrievalChunk> search(String query, int topK) {
@@ -73,18 +79,17 @@ public class MultiRecallService {
 
             List<RetrievalChunk> finalResults;
             if (options.isHybridSearch()) {
-                List<RetrievalChunk> vectorCandidates = vectorSearch(query, BM25_CANDIDATE_POOL, options.getSimilarityThreshold());
-                log.debug("Vector candidate size={}", vectorCandidates.size());
+                List<RetrievalChunk> vectorResults = vectorSearch(query, PER_ROUTE_TOP_K, options.getSimilarityThreshold());
+                log.debug("Vector result size={}", vectorResults.size());
 
-                List<RetrievalChunk> vectorResults = vectorCandidates.size() > PER_ROUTE_TOP_K
-                        ? vectorCandidates.subList(0, PER_ROUTE_TOP_K)
-                        : vectorCandidates;
-
-                List<RetrievalChunk> bm25Results = bm25SearchOnCandidates(
-                        query,
-                        vectorCandidates,
-                        PER_ROUTE_TOP_K,
-                        options.getSimilarityThreshold());
+                List<RetrievalChunk> bm25Results = bm25SearchCorpus(query, PER_ROUTE_TOP_K);
+                if (bm25Results.isEmpty()) {
+                    log.debug("Corpus BM25 unavailable, falling back to candidate-pool BM25");
+                    List<RetrievalChunk> pool = vectorResults.size() >= BM25_CANDIDATE_POOL
+                            ? vectorResults
+                            : vectorSearch(query, BM25_CANDIDATE_POOL, options.getSimilarityThreshold());
+                    bm25Results = bm25SearchOnCandidates(query, pool, PER_ROUTE_TOP_K, options.getSimilarityThreshold());
+                }
                 log.debug("BM25 result size={}", bm25Results.size());
 
                 finalResults = rrfFuse(List.of(vectorResults, bm25Results), options.getTopK());
@@ -159,6 +164,47 @@ public class MultiRecallService {
         } catch (Exception e) {
             log.warn("BM25 search failed: {}", e.getMessage());
             return List.of();
+        }
+    }
+
+    private List<RetrievalChunk> bm25SearchCorpus(String query, int topK) {
+        Bm25Search index = corpusBm25Index();
+        if (index == null) {
+            return List.of();
+        }
+        try {
+            return index.search(query, topK);
+        } catch (Exception e) {
+            log.warn("Corpus BM25 search failed: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    private Bm25Search corpusBm25Index() {
+        Bm25IndexHolder holder = corpusBm25;
+        if (holder != null && !holder.isStale()) {
+            return holder.index;
+        }
+        synchronized (indexLock) {
+            holder = corpusBm25;
+            if (holder != null && !holder.isStale()) {
+                return holder.index;
+            }
+            List<RetrievalChunk> corpus;
+            try {
+                corpus = vectorStoreService.fetchAllChunks(BM25_CORPUS_MAX_DOCS);
+            } catch (Exception e) {
+                log.warn("Failed to load corpus for BM25 index: {}", e.getMessage());
+                return null;
+            }
+            if (corpus == null || corpus.isEmpty()) {
+                log.warn("Corpus is empty; corpus BM25 unavailable");
+                return null;
+            }
+            Bm25Search built = new Bm25Search(corpus);
+            corpusBm25 = new Bm25IndexHolder(built, System.currentTimeMillis());
+            log.info("Rebuilt corpus BM25 index over {} chunks", corpus.size());
+            return built;
         }
     }
 
@@ -248,6 +294,20 @@ public class MultiRecallService {
             return "bm25_only";
         }
         return "unknown";
+    }
+
+    private static final class Bm25IndexHolder {
+        private final Bm25Search index;
+        private final long builtAtMillis;
+
+        private Bm25IndexHolder(Bm25Search index, long builtAtMillis) {
+            this.index = index;
+            this.builtAtMillis = builtAtMillis;
+        }
+
+        private boolean isStale() {
+            return System.currentTimeMillis() - builtAtMillis > CORPUS_INDEX_TTL_MS;
+        }
     }
 
     @Data

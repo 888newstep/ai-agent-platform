@@ -1,6 +1,7 @@
 package com.aiagent.knowledge.infrastructure.vectorstore;
 
 import com.aiagent.infrastructure.config.AiProperties;
+import com.aiagent.knowledge.domain.RetrievalChunk;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
@@ -89,6 +90,15 @@ public class MilvusVectorStoreService implements VectorStoreService {
             return embeddingStore.search(request).matches();
         }
         return fallbackStore.search(queryEmbedding, topK, minScore);
+    }
+
+    @Override
+    public List<RetrievalChunk> fetchAllChunks(int maxDocs) {
+        if (embeddingStore == null) {
+            return fallbackStore.fetchAllChunks(maxDocs);
+        }
+        log.warn("Full-corpus fetch is not supported for the LangChain4j Milvus store; hybrid falls back to candidate-pool BM25");
+        return List.of();
     }
 
     @Override
