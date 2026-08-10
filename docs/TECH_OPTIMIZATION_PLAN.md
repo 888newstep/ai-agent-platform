@@ -46,7 +46,7 @@
 
 ## 配置约束
 
-- `AI_EVALUATION_DATASET_DIRECTORY`：评测数据集目录，默认 `./evaluation-datasets`。
+- `AI_EVALUATION_DATASET_DIRECTORY`：评测数据集目录，默认 `./examples/evaluation-datasets`；真实数据建议配置为本地私有目录。
 - `AI_EVALUATION_REPORT_DIRECTORY`：评测报告目录，默认 `./evaluation-reports`。
 - `JWT_SECRET` 和 `ADMIN_API_KEY` 必须通过环境变量配置。
 - `GRAFANA_ADMIN_PASSWORD` 必须通过环境变量配置，Compose 不再提供弱默认密码。
@@ -65,4 +65,4 @@
 - 评测报告历史对比已完成；可视化页面暂不引入，先通过 JSON 接口和 Grafana 面板复用数据。
 - Grafana 面板已补充 Adaptive RAG、ReAct、Multi-Agent、缓存和故障率视图，并加入 Prometheus 告警规则。
 - Redis 固定窗口限流和估算 Token 预算已完成，配额按认证主体或远端 IP 隔离；完整的 `tenant_id` 数据级隔离暂缓，避免伪造租户模型。
-- 将评测数据集与报告纳入独立的示例目录，避免混入运行时数据。
+- 已将最小评测数据集纳入 `examples/evaluation-datasets/`，运行时报告仍写入独立目录；真实数据通过环境变量指向本地私有目录。

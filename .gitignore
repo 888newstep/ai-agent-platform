@@ -94,4 +94,8 @@ datachain.md
 tech-deepening-checklist.md
 evaluation-datasets/
 evaluation-reports/
+!examples/
+!examples/evaluation-datasets/
+!examples/evaluation-datasets/*.json
+!examples/evaluation-datasets/*.csv
 .serena/

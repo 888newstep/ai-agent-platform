@@ -136,7 +136,7 @@ ai:
       min-keyword-count: 2
 
   evaluation:
-    dataset-directory: ${AI_EVALUATION_DATASET_DIRECTORY:./evaluation-datasets}
+    dataset-directory: ${AI_EVALUATION_DATASET_DIRECTORY:./examples/evaluation-datasets}
     report-directory: ${AI_EVALUATION_REPORT_DIRECTORY:./evaluation-reports}
   protection:
     rate-limit:

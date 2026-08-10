@@ -1,0 +1,27 @@
+[
+  {
+    "question": "如何申请退款？",
+    "relevantDocIds": ["doc_refund_01", "doc_refund_02"],
+    "category": "process"
+  },
+  {
+    "question": "提交订单后还能修改收货地址吗？",
+    "relevantDocIds": ["doc_address_01", "doc_address_02"],
+    "category": "process"
+  },
+  {
+    "question": "收到有质量问题的商品应该怎么处理？",
+    "relevantDocIds": ["doc_quality_01", "doc_quality_02"],
+    "category": "after_sale"
+  },
+  {
+    "question": "一般下单后多久可以送达？",
+    "relevantDocIds": ["doc_shipping_01", "doc_shipping_02"],
+    "category": "fact"
+  },
+  {
+    "question": "会员可以享受哪些权益？",
+    "relevantDocIds": ["doc_vip_01", "doc_vip_02"],
+    "category": "fact"
+  }
+]
