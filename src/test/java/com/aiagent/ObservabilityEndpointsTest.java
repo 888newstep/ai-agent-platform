@@ -41,7 +41,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "ai.embedding.local.model-name=dummy",
         "ai.embedding.local.dimension=1024",
         "ai.embedding.siliconflow.api-key=dummy",
-        "jwt.secret=test-jwt-secret-for-ci-only-must-be-long-enough-32-chars"
+        "jwt.secret=test-jwt-secret-for-ci-only-must-be-long-enough-32-chars",
+        "ai.observability.public-metrics=true"
 })
 class ObservabilityEndpointsTest {
 

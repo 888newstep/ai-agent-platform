@@ -19,6 +19,7 @@ public class AiProperties {
     private Tool tool = new Tool();
     private Session session = new Session();
     private Security security = new Security();
+    private Observability observability = new Observability();
     private Performance performance = new Performance();
     private Protection protection = new Protection();
 
@@ -227,6 +228,21 @@ public class AiProperties {
         private String adminApiKey;
         private String adminHeaderName = "X-Admin-Api-Key";
         private Jwt jwt = new Jwt();
+        private Cors cors = new Cors();
+    }
+
+    @Data
+    public static class Cors {
+        private List<String> allowedOrigins = List.of("http://localhost:8081");
+        private List<String> allowedMethods = List.of("GET", "POST", "PUT", "DELETE", "OPTIONS");
+        private List<String> allowedHeaders = List.of("Authorization", "Content-Type", "Accept", "X-Admin-Api-Key", "X-Requested-With");
+        private boolean allowCredentials = false;
+        private long maxAge = 3600;
+    }
+
+    @Data
+    public static class Observability {
+        private boolean publicMetrics = false;
     }
 
     @Data

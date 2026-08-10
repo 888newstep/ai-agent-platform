@@ -1,5 +1,6 @@
 package com.aiagent.infrastructure.config;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -8,7 +9,7 @@ class AiPropertiesTest {
         AiProperties p = new AiProperties();
         assertNotNull(p.getModel()); assertNotNull(p.getEmbedding()); assertNotNull(p.getVectorStore());
         assertNotNull(p.getDocument()); assertNotNull(p.getRag()); assertNotNull(p.getTool());
-        assertNotNull(p.getSession()); assertNotNull(p.getSecurity()); assertNotNull(p.getPerformance());
+        assertNotNull(p.getSession()); assertNotNull(p.getSecurity()); assertNotNull(p.getObservability()); assertNotNull(p.getPerformance());
         assertNotNull(p.getProtection());
     }
     @Test void shouldHaveModelDefaults() {
@@ -26,6 +27,13 @@ class AiPropertiesTest {
         assertEquals(30, p.getProtection().getRateLimit().getRequestsPerMinute());
         assertEquals(12000, p.getProtection().getCostBudget().getEstimatedTokensPerMinute());
     }
+    @Test void shouldHaveObservabilityDefaults() {
+        AiProperties p = new AiProperties();
+        assertFalse(p.getObservability().isPublicMetrics());
+        assertEquals(List.of("http://localhost:8081"), p.getSecurity().getCors().getAllowedOrigins());
+        assertFalse(p.getSecurity().getCors().isAllowCredentials());
+    }
+
     @Test void shouldHavePerformanceDefaults() {
         AiProperties p = new AiProperties();
         assertEquals(20, p.getPerformance().getAsyncThreadPool().getCoreSize());

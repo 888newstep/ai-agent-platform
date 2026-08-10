@@ -176,7 +176,15 @@ ai:
     jwt:
       secret: ${JWT_SECRET:}
       expiration: 86400000
+    cors:
+      allowed-origins: ${AI_CORS_ALLOWED_ORIGINS:http://localhost:8081}
+      allowed-methods: ${AI_CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
+      allowed-headers: ${AI_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept,X-Admin-Api-Key,X-Requested-With}
+      allow-credentials: ${AI_CORS_ALLOW_CREDENTIALS:false}
+      max-age: ${AI_CORS_MAX_AGE:3600}
 
+  observability:
+    public-metrics: ${AI_ACTUATOR_PUBLIC_METRICS:false}
   performance:
     async-thread-pool:
       core-size: 20
@@ -227,10 +235,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: ${AI_ACTUATOR_EXPOSED_ENDPOINTS:health,info,metrics,prometheus}
   endpoint:
     health:
-      show-details: always
+      show-details: ${AI_ACTUATOR_HEALTH_DETAILS:never}
   metrics:
     tags:
       application: ai-agent-platform

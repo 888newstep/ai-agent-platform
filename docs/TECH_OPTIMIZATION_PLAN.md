@@ -51,7 +51,7 @@
 - `JWT_SECRET` 和 `ADMIN_API_KEY` 必须通过环境变量配置。
 - `GRAFANA_ADMIN_PASSWORD` 必须通过环境变量配置，Compose 不再提供弱默认密码。
 - `AI_RATE_LIMIT_*` 和 `AI_COST_BUDGET_*` 控制 Redis 分布式限流与估算 Token 预算；`fail-open` 仅用于 Redis 故障时的可用性取舍。
-- 生产环境应关闭公开 Actuator 指标，并配置明确的 CORS 白名单。
+- `AI_ACTUATOR_PUBLIC_METRICS` 默认关闭指标匿名访问；生产环境应保持关闭，并可将 `AI_ACTUATOR_EXPOSED_ENDPOINTS` 收窄为 `health,info`。`AI_CORS_ALLOWED_ORIGINS` 控制明确的 CORS 白名单。
 
 ## 验证标准
 
@@ -66,3 +66,4 @@
 - Grafana 面板已补充 Adaptive RAG、ReAct、Multi-Agent、缓存和故障率视图，并加入 Prometheus 告警规则。
 - Redis 固定窗口限流和估算 Token 预算已完成，配额按认证主体或远端 IP 隔离；完整的 `tenant_id` 数据级隔离暂缓，避免伪造租户模型。
 - 已将最小评测数据集纳入 `examples/evaluation-datasets/`，运行时报告仍写入独立目录；真实数据通过环境变量指向本地私有目录。
+- 已完成 Actuator 指标默认鉴权、健康详情默认隐藏和 CORS 白名单化；本地 Compose 通过环境变量显式开启指标抓取。

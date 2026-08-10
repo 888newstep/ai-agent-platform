@@ -11,7 +11,7 @@
 
 - Test lifecycle: `mvn test` / `mvn verify`
 - Coverage report: `target/site/jacoco/index.html`
-- Metrics endpoints: `/actuator/health`, `/actuator/metrics`, `/actuator/prometheus`
+- Metrics endpoints: `/actuator/health`, `/actuator/metrics`, `/actuator/prometheus`; metrics require authentication by default, while the local `.env.example` enables public scraping for Compose.
 - Monitoring stack: `docker compose up -d app prometheus grafana`
 - Details: `docs/observability.md`
 

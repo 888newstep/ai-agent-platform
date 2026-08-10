@@ -25,9 +25,10 @@ After `mvn verify`, coverage outputs are generated in:
 
 - `GET /actuator/health`
 - `GET /actuator/info`
-- `GET /actuator/metrics`
-- `GET /actuator/prometheus`
+- `GET /actuator/metrics` (requires authentication unless `AI_ACTUATOR_PUBLIC_METRICS=true`)
+- `GET /actuator/prometheus` (requires authentication unless `AI_ACTUATOR_PUBLIC_METRICS=true`)
 
+`AI_ACTUATOR_PUBLIC_METRICS` defaults to `false`; the repository `.env.example` sets it to `true` only for the local Compose monitoring stack. Set it to `false` in production and, if metrics should not be exposed at all, set `AI_ACTUATOR_EXPOSED_ENDPOINTS=health,info`.
 ## Custom business metrics
 
 ### Chat and RAG

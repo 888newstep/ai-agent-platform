@@ -27,6 +27,8 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AiAgentController.class)
@@ -69,6 +71,7 @@ class SecurityConfigTest {
         security.setAdminApiKey("test-admin-key");
         security.setAdminHeaderName("X-Admin-Api-Key");
         when(aiProperties.getSecurity()).thenReturn(security);
+        when(aiProperties.getObservability()).thenReturn(new AiProperties.Observability());
         doAnswer(invocation -> {
             FilterChain chain = invocation.getArgument(2);
             try {
@@ -78,6 +81,21 @@ class SecurityConfigTest {
             }
             return null;
         }).when(apiProtectionFilter).doFilter(any(), any(), any());
+    }
+
+    @Test
+    void shouldAllowConfiguredCorsOrigin() throws Exception {
+        mockMvc.perform(options("/api/v1/agent/chat")
+                        .header("Origin", "http://localhost:8081")
+                        .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:8081"));
+    }
+
+    @Test
+    void shouldProtectMetricsByDefault() throws Exception {
+        mockMvc.perform(get("/actuator/prometheus"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
