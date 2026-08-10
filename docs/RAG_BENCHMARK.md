@@ -53,6 +53,8 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ## 如何记录结果
 
+The benchmark script records the current Git commit, dataset file name, dataset SHA-256, file size, and non-secret vector-store settings in the local run artifact. It deliberately omits the dataset absolute path and all API keys so the artifact can be reviewed before sharing.
+
 每次基准至少记录以下信息：
 
 - Git commit SHA、运行时间和数据集版本。

@@ -11,6 +11,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$repositoryRoot = Split-Path -Parent $PSScriptRoot
 
 if (-not [string]::IsNullOrWhiteSpace($env:AI_AGENT_BASE_URL) -and $BaseUrl -eq "http://localhost:8081") {
     $BaseUrl = $env:AI_AGENT_BASE_URL
@@ -80,9 +81,54 @@ function Write-JsonFile {
     [System.IO.File]::WriteAllText($Path, $json, (New-Object System.Text.UTF8Encoding($false)))
 }
 
+function Get-GitCommit {
+    try {
+        $commit = (& git -C $repositoryRoot rev-parse HEAD 2>$null | Select-Object -First 1)
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($commit)) {
+            return $commit.Trim()
+        }
+    } catch {
+        Write-Warning "Unable to resolve the current Git commit: $($_.Exception.Message)"
+    }
+    return "unknown"
+}
+
+function Get-DatasetProvenance {
+    param(
+        [string]$Path
+    )
+
+    $provenance = [ordered]@{
+        fileName = [System.IO.Path]::GetFileName($Path)
+        sha256 = $null
+        sizeBytes = $null
+    }
+
+    try {
+        $localPath = [System.IO.Path]::GetFullPath($Path)
+        if (Test-Path -LiteralPath $localPath -PathType Leaf) {
+            $file = Get-Item -LiteralPath $localPath
+            $provenance.sha256 = (Get-FileHash -LiteralPath $localPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            $provenance.sizeBytes = $file.Length
+        } else {
+            Write-Warning "Dataset file is not available locally; provenance hash will be omitted: $Path"
+        }
+    } catch {
+        Write-Warning "Unable to calculate dataset provenance: $($_.Exception.Message)"
+    }
+
+    return $provenance
+}
+
 $outputPath = [System.IO.Path]::GetFullPath($OutputDirectory)
 [System.IO.Directory]::CreateDirectory($outputPath) | Out-Null
 $runId = Get-Date -Format "yyyyMMdd-HHmmss"
+$datasetProvenance = Get-DatasetProvenance -Path $DatasetPath
+$runtimeProvenance = [ordered]@{
+    vectorStoreMode = if ([string]::IsNullOrWhiteSpace($env:AI_VECTOR_STORE_MODE)) { "unknown" } else { $env:AI_VECTOR_STORE_MODE }
+    milvusCollection = if ([string]::IsNullOrWhiteSpace($env:MILVUS_COLLECTION_NAME)) { "unknown" } else { $env:MILVUS_COLLECTION_NAME }
+    milvusReadOnly = if ([string]::IsNullOrWhiteSpace($env:MILVUS_READ_ONLY)) { "unknown" } else { $env:MILVUS_READ_ONLY }
+}
 
 $health = Invoke-JsonApi -Method GET -Uri "$BaseUrl/api/v1/agent/health"
 if ($health.status -ne "UP") {
@@ -124,8 +170,10 @@ $comparison = Invoke-JsonApi -Method GET -Uri $comparisonUri
 $run = [ordered]@{
     runId = $runId
     generatedAt = [DateTime]::UtcNow.ToString("o")
+    gitCommit = Get-GitCommit
     baseUrl = $BaseUrl
-    datasetPath = $DatasetPath
+    dataset = $datasetProvenance
+    runtime = $runtimeProvenance
     topKs = $TopKs
     similarityThreshold = $SimilarityThreshold
     baselineHybridSearch = $BaselineHybridSearch
