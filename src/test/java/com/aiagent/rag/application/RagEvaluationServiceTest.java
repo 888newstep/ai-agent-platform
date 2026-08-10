@@ -79,6 +79,8 @@ class RagEvaluationServiceTest {
 
         Map<String, Object> k1 = report.getMetrics().get("1");
         Map<String, Object> k2 = report.getMetrics().get("2");
+        assertThat(k1).containsKeys("sampleCount", "p95Latency");
+        assertThat(k1.get("sampleCount")).isEqualTo(2);
         assertThat(((Number) k1.get("recall")).doubleValue()).isCloseTo(0.25, within(0.001));
         assertThat(((Number) k1.get("precision")).doubleValue()).isCloseTo(0.5, within(0.001));
         assertThat(((Number) k1.get("f1")).doubleValue()).isCloseTo(0.3333, within(0.01));
@@ -120,6 +122,9 @@ class RagEvaluationServiceTest {
                 .containsEntry("similarityThreshold", 0.61)
                 .containsEntry("hybridSearch", false);
         assertThat(report.getCategoryMetrics()).containsKeys("faq", "policy");
+        assertThat(report.getCategoryMetrics().get("faq").get("3"))
+                .containsEntry("sampleCount", 1)
+                .containsKey("p95Latency");
 
         ArgumentCaptor<MultiRecallService.SearchOptions> optionsCaptor = ArgumentCaptor.forClass(MultiRecallService.SearchOptions.class);
         verify(multiRecallService, times(2)).search(anyString(), optionsCaptor.capture());
@@ -194,7 +199,8 @@ class RagEvaluationServiceTest {
         assertThat(report.getDatasetSize()).isEqualTo(5);
         assertThat(report.getTopKs()).containsExactly(5);
         assertThat(report.getMetrics()).containsKey("5");
-        assertThat(report.getMetrics().get("5")).containsKeys("recall", "precision", "f1", "avgLatency", "p99Latency", "p50Latency");
+        assertThat(report.getMetrics().get("5")).containsKeys(
+                "sampleCount", "recall", "precision", "f1", "avgLatency", "p50Latency", "p95Latency", "p99Latency");
     }
 
     private static RetrievalChunk chunk(String id) {

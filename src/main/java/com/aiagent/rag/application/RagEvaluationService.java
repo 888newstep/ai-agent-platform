@@ -162,10 +162,12 @@ public class RagEvaluationService {
     }
 
     private void writeMetrics(EvaluationReport report, String k, MetricAccumulator accumulator) {
+        report.addMetric(k, "sampleCount", accumulator.latencies.size());
         report.addMetric(k, "recall", average(accumulator.recalls));
         report.addMetric(k, "precision", average(accumulator.precisions));
         report.addMetric(k, "f1", calculateF1(average(accumulator.recalls), average(accumulator.precisions)));
         report.addMetric(k, "avgLatency", averageLong(accumulator.latencies));
+        report.addMetric(k, "p95Latency", percentileLong(accumulator.latencies, 95));
         report.addMetric(k, "p99Latency", percentileLong(accumulator.latencies, 99));
         report.addMetric(k, "p50Latency", percentileLong(accumulator.latencies, 50));
     }
@@ -174,10 +176,12 @@ public class RagEvaluationService {
                                       String category,
                                       String k,
                                       MetricAccumulator accumulator) {
+        report.addCategoryMetric(category, k, "sampleCount", accumulator.latencies.size());
         report.addCategoryMetric(category, k, "recall", average(accumulator.recalls));
         report.addCategoryMetric(category, k, "precision", average(accumulator.precisions));
         report.addCategoryMetric(category, k, "f1", calculateF1(average(accumulator.recalls), average(accumulator.precisions)));
         report.addCategoryMetric(category, k, "avgLatency", averageLong(accumulator.latencies));
+        report.addCategoryMetric(category, k, "p95Latency", percentileLong(accumulator.latencies, 95));
         report.addCategoryMetric(category, k, "p99Latency", percentileLong(accumulator.latencies, 99));
         report.addCategoryMetric(category, k, "p50Latency", percentileLong(accumulator.latencies, 50));
     }
@@ -536,12 +540,15 @@ private List<EvaluationCase> normalizeCases(List<EvaluationCase> cases) {
             for (String k : metrics.keySet()) {
                 Map<String, Object> metric = metrics.get(k);
                 sb.append(String.format(Locale.ROOT,
-                        "k=%s recall=%.2f%% precision=%.2f%% f1=%.2f%% avg=%.0fms p99=%dms\n",
+                        "k=%s samples=%d recall=%.2f%% precision=%.2f%% f1=%.2f%% avg=%.0fms p50=%dms p95=%dms p99=%dms\n",
                         k,
+                        (long) getDouble(metric, "sampleCount"),
                         getDouble(metric, "recall") * 100,
                         getDouble(metric, "precision") * 100,
                         getDouble(metric, "f1") * 100,
                         getDouble(metric, "avgLatency"),
+                        (long) getDouble(metric, "p50Latency"),
+                        (long) getDouble(metric, "p95Latency"),
                         (long) getDouble(metric, "p99Latency")));
             }
             sb.append("note=chunkSize/chunkOverlap are snapshot-only and require re-ingestion for fair comparison");

@@ -65,7 +65,7 @@
 
 ## 后续方向
 
-- 评测报告历史对比已完成；可视化页面暂不引入，先通过 JSON 接口和 Grafana 面板复用数据。
+- 评测报告历史对比已完成；报告同时输出整体与 category 分组的 sampleCount、P50、P95、P99 等指标。可视化页面暂不引入，先通过 JSON 接口和 Grafana 面板复用数据。
 - Grafana 面板已补充 Adaptive RAG、ReAct、Multi-Agent、缓存和故障率视图，并加入 Prometheus 告警规则。
 - Redis 固定窗口限流和估算 Token 预算已完成，配额按认证主体或远端 IP 隔离；完整的 `tenant_id` 数据级隔离暂缓，避免伪造租户模型。
 - 已将最小评测数据集纳入 `examples/evaluation-datasets/`，运行时报告仍写入独立目录；真实数据通过环境变量指向本地私有目录。

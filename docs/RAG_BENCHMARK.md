@@ -2,7 +2,9 @@
 
 ## 目标
 
-本项目的评测接口已经可以输出 `recall`、`precision`、`f1`、平均延迟、P50 和 P99。`scripts/run-rag-evaluation.ps1` 将同一数据集分别以“向量检索”和“混合检索”运行，导出两份真实报告，并调用历史对比接口生成差值。
+Each report includes `sampleCount`, `recall`, `precision`, `f1`, `avgLatency`, `p50Latency`, `p95Latency`, and `p99Latency`. Category-level metrics are available under `categoryMetrics` for diagnosing differences between query types.
+
+本项目的评测接口已经可以输出 `sampleCount`、`recall`、`precision`、`f1`、平均延迟、P50、P95 和 P99，并按 `category` 输出分组指标。`scripts/run-rag-evaluation.ps1` 将同一数据集分别以“向量检索”和“混合检索”运行，导出两份真实报告，并调用历史对比接口生成差值。
 
 脚本只保存服务端返回的指标，不生成或填充虚假结果。没有可用的 Milvus、Embedding 模型或已导入文档时，脚本应失败或得到低召回结果，不能把测试桩数据当成线上结论。
 
@@ -57,7 +59,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 - 数据集样本数、类别分布和 `relevantDocIds` 生成规则。
 - 模型提供商、Embedding 模型、Milvus 索引参数和 `novel_id`/业务过滤条件。
 - Top-K、相似度阈值、是否启用混合检索、RRF 参数。
-- 每个 Top-K 的 recall、precision、F1、平均延迟、P50、P99。
+- 每个 Top-K 的样本数、recall、precision、F1、平均延迟、P50、P95、P99，以及各 category 的分组指标。
 - 向量-only 与 hybrid 的指标差值，以及失败样本归因。
 
 `evaluation-reports/` 默认被 Git 忽略。提交 GitHub 前只提交脱敏后的汇总表或 Markdown 摘要，不提交用户问题、文档原文、绝对路径和 API 响应中的敏感信息。
