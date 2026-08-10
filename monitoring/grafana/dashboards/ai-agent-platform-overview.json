@@ -3,7 +3,7 @@
   "uid": "ai-agent-platform-overview",
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "refresh": "30s",
   "panels": [
     {
@@ -170,6 +170,34 @@
           "refId": "A",
           "expr": "sum(rate(ai_agent_multi_worker_failures_sum[5m])) / clamp_min(sum(rate(ai_agent_multi_total[5m])), 0.001)",
           "legendFormat": "worker failures / request"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Tool Calls by Status",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ai_agent_tool_total[5m])) by (tool, status, outcome)",
+          "legendFormat": "{{tool}} / {{status}} / {{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Tool P95 Latency",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(ai_agent_tool_latency_seconds_bucket[5m])) by (le, tool, status))",
+          "legendFormat": "{{tool}} / {{status}}"
         }
       ]
     }

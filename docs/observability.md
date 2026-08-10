@@ -173,6 +173,7 @@ Recommended dashboard grouping:
 - Adaptive RAG routing and end reasons
 - ReAct stop reasons and step counts
 - Multi-Agent subtask counts and worker failure counts
+- Tool call status distribution and P95 latency
 - Chat latency and cache hit distribution
 
 ## CI artifacts
