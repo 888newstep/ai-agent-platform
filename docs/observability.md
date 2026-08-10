@@ -82,9 +82,12 @@ Key tags for Multi-Agent trace metrics:
 - `ai.cache.rag.total` (tags: `result=hit|miss`)
 - `ai.cache.operations.total` (tags: `cache`, `operation`, `result`)
 
-### Evaluation export
+### Evaluation reports
 
-- `POST /api/v1/agent/evaluate/export` saves the evaluation report as JSON to the configured report directory and returns the file path. The default is `evaluation-reports/`. Dataset files must be under the configured `AI_EVALUATION_DATASET_DIRECTORY`.
+- `POST /api/v1/agent/evaluate/export` saves a JSON report under the configured report directory and returns its file name and local path. The default is `evaluation-reports/`. Dataset files must be under the configured `AI_EVALUATION_DATASET_DIRECTORY`.
+- `GET /api/v1/agent/evaluate/history?limit=20` lists the newest report summaries. The service caps the limit at 100 and ignores unrelated files.
+- `GET /api/v1/agent/evaluate/history/compare?baseline={fileName}&candidate={fileName}` returns `candidate - baseline` deltas for every common numeric metric. It marks reports as non-comparable when dataset source, size, or top-K values differ.
+- History endpoints accept generated report file names only; path traversal and arbitrary local file reads are rejected.
 
 ### Document ingestion
 

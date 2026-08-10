@@ -10,11 +10,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.aiagent.infrastructure.cache.SemanticCacheService;
 import com.aiagent.knowledge.application.DocumentService;
+import com.aiagent.rag.application.EvaluationReportHistoryService;
 import com.aiagent.rag.application.RagEvaluationService;
-import org.springframework.beans.factory.annotation.Value;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -47,14 +44,12 @@ public class AiAgentController {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String EVALUATION_NOTE = "chunkSize/chunkOverlap are snapshot-only and require re-ingestion for fair comparison";
 
-    @Value("${ai.evaluation.report-directory:evaluation-reports}")
-    private String evaluationReportDirectory = "evaluation-reports";
-
     private final AiAgentService aiAgentService;
     private final DocumentService documentService;
     private final SemanticCacheService semanticCacheService;
     private final MultiAgentService multiAgentService;
     private final RagEvaluationService ragEvaluationService;
+    private final EvaluationReportHistoryService evaluationReportHistoryService;
 
     @PostMapping("/session")
     public ResponseEntity<Map<String, String>> createSession() {
@@ -208,17 +203,11 @@ public class AiAgentController {
         Map<String, Object> reportPayload = buildEvaluationResponse(report);
         reportPayload.put("generatedAt", generatedAt);
         try {
-            Path reportDirectory = Path.of(evaluationReportDirectory).toAbsolutePath().normalize();
-            Files.createDirectories(reportDirectory);
-            Path reportPath = reportDirectory.resolve("rag-evaluation-" + Instant.now().toEpochMilli() + ".json");
-            Files.writeString(
-                    reportPath,
-                    OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(reportPayload),
-                    StandardCharsets.UTF_8
-            );
+            EvaluationReportHistoryService.SavedReport savedReport = evaluationReportHistoryService.save(reportPayload);
             return ResponseEntity.ok(objectResponse(
                     "exported", true,
-                    "filePath", reportPath.toString(),
+                    "fileName", savedReport.fileName(),
+                    "filePath", savedReport.absolutePath(),
                     "generatedAt", generatedAt,
                     "report", reportPayload
             ));
@@ -227,6 +216,39 @@ public class AiAgentController {
                     "Failed to export evaluation report", ex);
         }
     }
+
+    @GetMapping("/evaluate/history")
+    public ResponseEntity<Map<String, Object>> evaluationHistory(
+            @RequestParam(defaultValue = "20") int limit) {
+        if (limit <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "limit must be greater than zero");
+        }
+        try {
+            List<Map<String, Object>> reports = evaluationReportHistoryService.list(limit);
+            return ResponseEntity.ok(objectResponse(
+                    "count", reports.size(),
+                    "reports", reports
+            ));
+        } catch (IOException ex) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to read evaluation report history", ex);
+        }
+    }
+
+    @GetMapping("/evaluate/history/compare")
+    public ResponseEntity<Map<String, Object>> compareEvaluationHistory(
+            @RequestParam String baseline,
+            @RequestParam String candidate) {
+        try {
+            return ResponseEntity.ok(evaluationReportHistoryService.compare(baseline, candidate));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IOException ex) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to compare evaluation reports", ex);
+        }
+    }
+
     private List<Integer> parseTopKs(String topKs) {
         if (!StringUtils.hasText(topKs)) {
             return List.of();

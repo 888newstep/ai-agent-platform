@@ -30,6 +30,7 @@
 
 - 记录语义缓存和 RAG 缓存命中率、相似度与延迟。
 - 支持评测报告 JSON 导出。
+- 增加评测报告历史列表与两份报告的指标差值对比。
 - 数据集读取限制在配置目录，报告写入独立目录。
 
 ## 当前接口
@@ -40,6 +41,8 @@
 - `POST /api/v1/agent/evaluate`
 - `POST /api/v1/agent/evaluate/compare`
 - `POST /api/v1/agent/evaluate/export`
+- `GET /api/v1/agent/evaluate/history?limit=20`
+- `GET /api/v1/agent/evaluate/history/compare?baseline={fileName}&candidate={fileName}`
 
 ## 配置约束
 
@@ -57,7 +60,7 @@
 
 ## 后续方向
 
-- 增加评测报告历史对比和可视化页面。
+- 评测报告历史对比已完成；可视化页面暂不引入，先通过 JSON 接口和 Grafana 面板复用数据。
 - 为关键指标补充 Grafana 面板和告警规则。
 - 增加公开 API 的请求限流、成本预算和租户隔离。
 - 将评测数据集与报告纳入独立的示例目录，避免混入运行时数据。

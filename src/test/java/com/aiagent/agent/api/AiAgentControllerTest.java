@@ -12,6 +12,7 @@ import com.aiagent.knowledge.domain.DocumentProcessingStatus;
 import com.aiagent.knowledge.domain.RetrievalChunk;
 import com.aiagent.rag.application.AdaptiveRagContext;
 import com.aiagent.rag.application.AdaptiveRagRoundTrace;
+import com.aiagent.rag.application.EvaluationReportHistoryService;
 import com.aiagent.rag.application.RagEvaluationService;
 import com.aiagent.rag.application.RagVerificationLevel;
 import com.aiagent.rag.application.RagRouteType;
@@ -24,7 +25,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
 
 import java.nio.file.Files;
@@ -56,16 +56,19 @@ class AiAgentControllerTest {
     @Mock
     private RagEvaluationService ragEvaluationService;
 
+    private EvaluationReportHistoryService evaluationReportHistoryService;
     private AiAgentController controller;
 
     @BeforeEach
     void setUp() {
+        evaluationReportHistoryService = new EvaluationReportHistoryService("evaluation-reports");
         controller = new AiAgentController(
                 aiAgentService,
                 documentService,
                 semanticCacheService,
                 multiAgentService,
-                ragEvaluationService
+                ragEvaluationService,
+                evaluationReportHistoryService
         );
     }
 
@@ -148,7 +151,15 @@ class AiAgentControllerTest {
         when(ragEvaluationService.quickEvaluate(anyList(), eq(null), eq(null))).thenReturn(report);
 
         Path reportDirectory = Files.createTempDirectory("evaluation-report-test");
-        ReflectionTestUtils.setField(controller, "evaluationReportDirectory", reportDirectory.toString());
+        evaluationReportHistoryService = new EvaluationReportHistoryService(reportDirectory.toString());
+        controller = new AiAgentController(
+                aiAgentService,
+                documentService,
+                semanticCacheService,
+                multiAgentService,
+                ragEvaluationService,
+                evaluationReportHistoryService
+        );
         ResponseEntity<Map<String, Object>> response = controller.exportEvaluation("1", null, null, null);
 
         assertThat(response.getBody()).containsEntry("exported", true);
@@ -156,6 +167,48 @@ class AiAgentControllerTest {
         assertThat(Files.exists(Path.of(filePath))).isTrue();
         Files.deleteIfExists(Path.of(filePath));
         Files.deleteIfExists(reportDirectory);
+    }
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldListAndCompareEvaluationHistory() throws Exception {
+        Path reportDirectory = Files.createTempDirectory("evaluation-history-test");
+        EvaluationReportHistoryService historyService = new EvaluationReportHistoryService(reportDirectory.toString());
+        Map<String, Object> baseline = Map.of(
+                "generatedAt", "2026-08-10T10:00:00Z",
+                "datasetSource", "sample.json",
+                "datasetSize", 1,
+                "topKs", List.of(1),
+                "metrics", Map.of("1", Map.of("recall", 0.5, "avgLatency", 100.0)),
+                "config", Map.of("profile", "baseline")
+        );
+        Map<String, Object> candidate = Map.of(
+                "generatedAt", "2026-08-10T11:00:00Z",
+                "datasetSource", "sample.json",
+                "datasetSize", 1,
+                "topKs", List.of(1),
+                "metrics", Map.of("1", Map.of("recall", 0.75, "avgLatency", 90.0)),
+                "config", Map.of("profile", "candidate")
+        );
+        String baselineFile = historyService.save(baseline).fileName();
+        String candidateFile = historyService.save(candidate).fileName();
+        controller = new AiAgentController(
+                aiAgentService,
+                documentService,
+                semanticCacheService,
+                multiAgentService,
+                ragEvaluationService,
+                historyService
+        );
+
+        ResponseEntity<Map<String, Object>> history = controller.evaluationHistory(10);
+        ResponseEntity<Map<String, Object>> comparison = controller.compareEvaluationHistory(baselineFile, candidateFile);
+
+        assertThat(history.getBody()).containsEntry("count", 2);
+        assertThat(comparison.getBody()).containsEntry("comparable", true);
+        Map<String, Object> deltas = (Map<String, Object>) comparison.getBody().get("metricDeltas");
+        Map<String, Object> topKMetrics = (Map<String, Object>) deltas.get("1");
+        assertThat((Double) topKMetrics.get("recall")).isEqualTo(0.25);
+        assertThat((Double) topKMetrics.get("avgLatency")).isEqualTo(-10.0);
     }
     @Test
     void shouldHandleDocumentAndCacheOperations() {

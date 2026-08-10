@@ -119,6 +119,19 @@ curl -N "http://localhost:8081/api/v1/agent/chat/stream?sessionId={sessionId}&qu
 curl -X POST -F "file=@文档.pdf" http://localhost:8081/api/v1/agent/document/upload
 ```
 
+### 评测报告历史
+
+评测接口需要管理员凭证。导出报告后，可以列出最近报告并比较两次评测的指标变化：
+
+```bash
+curl -H "X-Admin-Api-Key: ${ADMIN_API_KEY}" \
+  "http://localhost:8081/api/v1/agent/evaluate/history?limit=20"
+
+curl -H "X-Admin-Api-Key: ${ADMIN_API_KEY}" \
+  "http://localhost:8081/api/v1/agent/evaluate/history/compare?baseline={fileName}&candidate={fileName}"
+```
+
+比较结果中的 `metricDeltas` 使用 `candidate - baseline`，并在数据集来源、样本数或 `topKs` 不一致时标记为不可直接比较。
 ---
 
 ## 架构设计
@@ -235,7 +248,8 @@ src/main/java/com/aiagent/
 │   ├── DocumentService.java     # 文档上传与检索
 │   └── parser/                  # 多格式文档解析器
 ├── evaluation/
-│   └── RagEvaluationService.java # RAG 效果评估（召回率/准确率/延迟）
+│   ├── RagEvaluationService.java # RAG 效果评估（召回率/准确率/延迟）
+│   └── EvaluationReportHistoryService.java # 评测报告历史与指标对比
 ├── memory/
 │   └── LongContextManager.java  # 长上下文管理（滑动窗口 + 摘要压缩 + 历史检索）
 ├── retrieval/

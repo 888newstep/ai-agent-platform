@@ -6,6 +6,7 @@ import com.aiagent.infrastructure.cache.SemanticCacheService;
 import com.aiagent.infrastructure.security.JwtAuthenticationFilter;
 import com.aiagent.knowledge.application.DocumentService;
 import com.aiagent.rag.application.AdaptiveRagContext;
+import com.aiagent.rag.application.EvaluationReportHistoryService;
 import com.aiagent.rag.application.RagEvaluationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private RagEvaluationService ragEvaluationService;
+
+    @MockitoBean
+    private EvaluationReportHistoryService evaluationReportHistoryService;
 
     @MockitoBean
     private AiProperties aiProperties;
