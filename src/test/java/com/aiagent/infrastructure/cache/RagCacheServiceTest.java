@@ -44,6 +44,7 @@ class RagCacheServiceTest {
         List<RetrievalChunk> result = ragCacheService.getCachedResults("test query");
 
         assertNull(result);
+        verify(metricsService).recordCacheOperation("rag", "get", false);
     }
 
     @Test
@@ -59,6 +60,7 @@ class RagCacheServiceTest {
 
         assertNotNull(result);
         assertEquals(2, result.size());
+        verify(metricsService).recordCacheOperation("rag", "get", true);
     }
 
     @Test

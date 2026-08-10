@@ -99,6 +99,7 @@ public class SemanticCacheService {
             return null;
         } finally {
             metricsService.recordSemanticCache(hit, bestScore, sample);
+            metricsService.recordCacheOperation("semantic", "get", hit);
         }
     }
     public void put(String question, String answer) {

@@ -35,6 +35,7 @@ public class RagCacheService {
             return cached instanceof List ? (List<RetrievalChunk>) cached : null;
         });
         metricsService.recordRagCache(result != null);
+        metricsService.recordCacheOperation("rag", "get", result != null);
         return result;
     }
     public void cacheResults(String query, List<RetrievalChunk> results) {

@@ -65,6 +65,7 @@ class SemanticCacheServiceTest {
 
         SemanticCacheService cacheService = new SemanticCacheService(embeddingModel, redisTemplate, embeddingCacheService, metricsService);
         assertNull(cacheService.getIfCached("test question"));
+        verify(metricsService).recordCacheOperation("semantic", "get", false);
     }
 
     @Test
@@ -127,6 +128,7 @@ class SemanticCacheServiceTest {
         String result = cacheService.getIfCached("test question");
 
         assertEquals("cached answer", result);
+        verify(metricsService).recordCacheOperation("semantic", "get", true);
     }
 
     @Test

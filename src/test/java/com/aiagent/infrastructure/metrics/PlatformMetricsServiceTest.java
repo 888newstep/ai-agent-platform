@@ -58,6 +58,17 @@ class PlatformMetricsServiceTest {
     }
 
     @Test
+    void shouldRecordDetailedCacheOperation() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        PlatformMetricsService service = new PlatformMetricsService(registry);
+
+        service.recordCacheOperation("rag", "get", false);
+
+        assertThat(registry.get("ai.cache.operations.total")
+                .tags("cache", "rag", "operation", "get", "result", "miss")
+                .counter().count()).isEqualTo(1.0);
+    }
+    @Test
     void shouldRecordDocumentMetrics() {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         PlatformMetricsService service = new PlatformMetricsService(registry);
