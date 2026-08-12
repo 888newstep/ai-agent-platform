@@ -56,6 +56,7 @@ class LongContextManagerTest {
     void shouldSaveMessageWithoutSummaryWhenBelowThreshold() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get("ai:history:session-1")).thenReturn(new ArrayList<>());
+        when(valueOperations.increment("ai:turns:session-1")).thenReturn(1L);
 
         manager.saveMessageAndMaybeSummarize("session-1", "user", "你好");
 
@@ -76,6 +77,7 @@ class LongContextManagerTest {
         }
         when(valueOperations.get("ai:history:session-1")).thenReturn(messages);
         when(valueOperations.get("ai:summary:session-1")).thenReturn(null);
+        when(valueOperations.increment("ai:turns:session-1")).thenReturn(10L);
         when(chatLanguageModel.generate(anyString())).thenReturn("生成的摘要");
         when(embeddingModel.embed("生成的摘要")).thenReturn(new Response<>(new Embedding(new float[]{1.0f, 0.2f})));
 
@@ -139,6 +141,7 @@ class LongContextManagerTest {
 
         verify(redisTemplate).delete("ai:history:session-1");
         verify(redisTemplate).delete("ai:summary:session-1");
+        verify(redisTemplate).delete("ai:turns:session-1");
     }
 
     private static Map<String, Object> summary(String text, float[] embedding) {
