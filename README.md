@@ -7,7 +7,17 @@
 [![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.5-green.svg)](https://spring.io/projects/spring-boot)
 [![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](LICENSE)
 
-An enterprise-grade **AI Agent Platform** built on **Spring Boot 3 + LangChain4j**, featuring a ReAct reasoning loop, adaptive multi-recall RAG (vector + BM25 + RRF fusion), semantic caching to cut LLM API costs, and a pluggable tool-calling framework — production-grade observability (Prometheus/Grafana) and reproducible RAG evaluation included.
+## Introduction
+
+An enterprise-grade **AI Agent Platform** built on **Spring Boot 3.5** and **LangChain4j 0.34**, designed as a production-ready foundation for building intelligent conversational systems. The platform provides a self-implemented **ReAct reasoning loop** with built-in safety guards (max-step limit, timeout control, and repeated-observation circuit breaker), an **adaptive multi-recall RAG pipeline** that combines Milvus vector search, BM25 keyword retrieval, and RRF (Reciprocal Rank Fusion) ranking, **semantic caching** that reduces redundant LLM API calls via embedding cosine similarity (threshold 0.92, 24h TTL), and a **pluggable tool-calling framework** supporting database queries and external API invocation through a unified registry.
+
+The platform supports **dynamic multi-model routing** across DeepSeek, Qianwen (通义千问), Doubao (豆包), Qwen3-Flash, and local Ollama models via `@ConditionalOnProperty`-driven strategy switching, with automatic degradation to the local model when the primary provider fails. On the resilience front, **Resilience4j** wraps all LLM calls with a CircuitBreaker (50% failure-rate threshold, 30s open-state wait) and a Retry policy (3 attempts, 2s interval) to ensure graceful degradation under LLM service instability.
+
+Production observability is first-class: **Prometheus** metrics, **Grafana** dashboards, **Micrometer** custom timers/counters for chat latency, RAG search latency, and document ingestion throughput — all exposed through Spring Boot Actuator. The security layer includes **JWT stateless authentication**, **Admin API Key** for privileged endpoints, **Redis-based fixed-window rate limiting** (30 req/min), and a **token cost budget** system that estimates and caps per-request and per-minute token consumption.
+
+The project ships with **193 unit & integration tests** enforced by a **JaCoCo 45% line-coverage gate**, a full **GitHub Actions CI/CD pipeline** (build → test → coverage check → Docker image), and a **Docker Compose** stack that orchestrates MySQL 8.0, Redis 7, Milvus 2.4, the application, Prometheus, and Grafana in a single `docker compose up -d` command.
+
+---
 
 ## 为什么选择 AI Agent Platform？
 
@@ -455,6 +465,58 @@ Thanks to the people who have contributed to this project:
 </a>
 
 > Want to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md). All contributions are welcome!
+
+---
+
+## Release Notes
+
+### [v1.0.0] — 2026-08-17
+
+> Initial public release
+
+#### Core Capabilities
+
+- **ReAct Agent Loop** — Thought → Action → Observation → Final Answer reasoning cycle with triple safety guards: max 10 iterations, 3-minute timeout, and automatic termination after 3 consecutive identical observations.
+- **Adaptive RAG** — Query Router with configurable thresholds (`verification: 0.18`, `multi-hop: 0.28`, `direct: 0.45`), query rewriting, multi-round retrieval, and self-verification of retrieval results.
+- **Multi-Recall RAG** — Milvus vector search + BM25 keyword search + RRF (Reciprocal Rank Fusion, k=60) score merging, with per-route top-20 candidate retrieval and BM25 candidate pool of 50.
+- **Multi-Agent Orchestration** — Supervisor + Worker collaboration pattern with `WorkStealingPool`, per-Worker `orTimeout` degradation, and index-ordered result assembly for deterministic output.
+- **Semantic Cache** — Cosine-similarity-based caching (threshold 0.92, 24h TTL) that automatically caches answers for similar questions, significantly reducing LLM API costs.
+- **Tool Calling Framework** — Unified `ToolService` registry with automatic discovery, supporting `query_database` (whitelisted tables only) and `call_external_api` (host allowlist + private IP rejection).
+
+#### Model & Resilience
+
+- **Dynamic Model Routing** — 5 providers via `@ConditionalOnProperty`: DeepSeek, Qianwen, Doubao, Qwen3-Flash, and local Ollama; automatic degradation to the local model on primary provider failure.
+- **Resilience4j Protection** — CircuitBreaker (50% failure-rate threshold, 30s wait in open state, 3 calls in half-open) + Retry (3 attempts, 2s interval) wrapping all LLM calls; unified `LlmServiceUnavailableException`.
+- **Long Context Management** — Sliding window (size 10) with periodic summary compression (every 5 messages) to keep conversation history within model context limits.
+
+#### Security & Protection
+
+- **JWT Authentication** — Stateless token-based auth with configurable expiration (default 24h), BCrypt password storage.
+- **Admin API Key** — Privileged header (`X-Admin-Api-Key`) for evaluation endpoints, cache management, and knowledge import.
+- **Rate Limiting** — Redis-based fixed-window rate limiting (configurable, default 30 req/min) with IP-level isolation.
+- **Token Cost Budget** — Per-request token estimation (max 4,000 tokens) and per-minute budget (max 12,000 tokens) with fail-open fallback.
+- **CORS** — Fully configurable via environment variables (`AI_CORS_ALLOWED_ORIGINS`, `AI_CORS_ALLOWED_METHODS`, etc.).
+- **Public Metrics Toggle** — Actuator metrics exposure controlled via `AI_ACTUATOR_PUBLIC_METRICS` (default: private).
+
+#### Observability & Testing
+
+- **Prometheus + Grafana** — Pre-configured dashboards for AI Agent Platform overview; Micrometer custom metrics (`ai.chat.latency`, `ai.rag.search.latency`, `ai.document.ingestion.latency`) with histogram distribution.
+- **RAG Evaluation** — Built-in evaluation service producing recall, precision, F1, avg latency, and P99 latency per category; supports multiple topK values, profile comparison, and historical report export.
+- **CI/CD** — GitHub Actions pipeline: build → 193 tests → JaCoCo 45% line-coverage gate → Docker image build.
+- **Testing** — 193 unit and integration tests (JUnit 5 + Mockito + MockMvc), H2 in-memory database for test isolation, Flyway schema migration validation.
+
+#### Infrastructure & Deployment
+
+- **Docker Compose** — Single-command orchestration of 6 services: MySQL 8.0, Redis 7, Milvus 2.4, Spring Boot app, Prometheus, Grafana.
+- **Hybrid Deployment** — Supports local app + cloud Milvus topology via environment variables (`MILVUS_HOST`, `MILVUS_DATABASE_NAME`, `MILVUS_READ_ONLY`).
+- **Flyway Migrations** — Versioned database schema management with baseline-on-migrate support.
+- **SSE Streaming** — Real-time response push with 5-minute timeout protection and 15-second heartbeat to prevent Nginx proxy timeout.
+
+#### Domain Modules
+
+- **E-Commerce Knowledge Import** — JSONL batch processing pipeline (batch=18, tuned for 8192 token embedding limit) with Milvus vector storage + MySQL source-of-truth persistence, batch embedding via Ollama bge-m3 with per-item fallback.
+- **Customer Support Data Import** — Training data ingestion with checkpoint-based resume, QA pair embedding pipeline.
+- **Document Management** — PDF / Word / Markdown / TXT multi-format parsing, chunk-based splitting (500 chars, 50 overlap), vector store ingestion.
 
 ---
 
