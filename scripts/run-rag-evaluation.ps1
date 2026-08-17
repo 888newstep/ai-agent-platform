@@ -3,11 +3,16 @@ param(
     [string]$BaseUrl = "http://localhost:8081",
     [string]$AdminApiKey,
     [string]$DatasetPath = "examples/evaluation-datasets/rag-sample.json",
+    [ValidateSet("unknown", "sample", "smoke", "independent-human-labeled")]
+    [string]$DatasetKind = "unknown",
     [string]$TopKs = "1,3,5",
     [double]$SimilarityThreshold = 0.60,
     [string]$OutputDirectory = "evaluation-reports",
     [bool]$BaselineHybridSearch = $false,
-    [bool]$CandidateHybridSearch = $true
+    [bool]$CandidateHybridSearch = $true,
+    [string]$VectorStoreMode,
+    [string]$MilvusCollection,
+    [string]$MilvusReadOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -180,10 +185,13 @@ $outputPath = [System.IO.Path]::GetFullPath($OutputDirectory)
 [System.IO.Directory]::CreateDirectory($outputPath) | Out-Null
 $runId = Get-Date -Format "yyyyMMdd-HHmmss"
 $datasetProvenance = Get-DatasetProvenance -Path $DatasetPath
+$runtimeVectorStoreMode = if ([string]::IsNullOrWhiteSpace($VectorStoreMode)) { $env:AI_VECTOR_STORE_MODE } else { $VectorStoreMode }
+$runtimeMilvusCollection = if ([string]::IsNullOrWhiteSpace($MilvusCollection)) { $env:MILVUS_COLLECTION_NAME } else { $MilvusCollection }
+$runtimeMilvusReadOnly = if ([string]::IsNullOrWhiteSpace($MilvusReadOnly)) { $env:MILVUS_READ_ONLY } else { $MilvusReadOnly }
 $runtimeProvenance = [ordered]@{
-    vectorStoreMode = if ([string]::IsNullOrWhiteSpace($env:AI_VECTOR_STORE_MODE)) { "unknown" } else { $env:AI_VECTOR_STORE_MODE }
-    milvusCollection = if ([string]::IsNullOrWhiteSpace($env:MILVUS_COLLECTION_NAME)) { "unknown" } else { $env:MILVUS_COLLECTION_NAME }
-    milvusReadOnly = if ([string]::IsNullOrWhiteSpace($env:MILVUS_READ_ONLY)) { "unknown" } else { $env:MILVUS_READ_ONLY }
+    vectorStoreMode = if ([string]::IsNullOrWhiteSpace($runtimeVectorStoreMode)) { "unknown" } else { $runtimeVectorStoreMode.Trim() }
+    milvusCollection = if ([string]::IsNullOrWhiteSpace($runtimeMilvusCollection)) { "unknown" } else { $runtimeMilvusCollection.Trim() }
+    milvusReadOnly = if ([string]::IsNullOrWhiteSpace($runtimeMilvusReadOnly)) { "unknown" } else { $runtimeMilvusReadOnly.Trim() }
 }
 
 $health = Invoke-JsonApi -Method GET -Uri "$BaseUrl/api/v1/agent/health"
@@ -228,6 +236,7 @@ $run = [ordered]@{
     generatedAt = [DateTime]::UtcNow.ToString("o")
     gitCommit = Get-GitCommit
     dataset = $datasetProvenance
+    datasetKind = $DatasetKind
     runtime = $runtimeProvenance
     topKs = $TopKs
     similarityThreshold = $SimilarityThreshold

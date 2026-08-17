@@ -99,6 +99,7 @@ Key tags for Multi-Agent trace metrics:
 - `GET /api/v1/agent/evaluate/history?limit=20` lists the newest report summaries. The service caps the limit at 100 and ignores unrelated files.
 - `GET /api/v1/agent/evaluate/history/compare?baseline={fileName}&candidate={fileName}` returns `candidate - baseline` deltas for every common numeric metric. It marks reports as non-comparable when dataset source, size, or top-K values differ.
 - History endpoints accept generated report file names only; path traversal and arbitrary local file reads are rejected.
+- Evaluation dataset loading resolves the real path and rejects files escaping the configured dataset directory through symbolic links.
 
 ### API protection
 
@@ -122,6 +123,19 @@ Recommended debug flow for open-source demos and interview walkthroughs:
 2. Call `POST /api/v1/agent/react/chat?...&explain=true` to inspect step-by-step ReAct execution.
 3. Call `POST /api/v1/agent/multi-agent/execute?...&explain=true` to inspect subtasks, worker results, nested ReAct traces, and synthesis stop reason.
 4. Open `/actuator/prometheus` and correlate trace output with `ai.rag.adaptive.*`, `ai.agent.react.*`, `ai.agent.multi.*`, and `ai.agent.tool.*` metrics. Normal ReAct and Multi-Agent API requests also record trace metrics; `explain=true` only controls response detail.
+
+## Adaptive RAG 批量回放
+
+`scripts/replay-adaptive-rag.ps1` 读取 JSON query 文件，逐条调用 `POST /api/v1/agent/rag/debug`，汇总路由、验证等级、结束原因、检索轮次和客户端延迟，并输出 `evidenceStatus`、`evidenceReadyCount` 与 `benchmarkReady`。`benchmarkReady=false` 表示没有可用于 RAG 结论的检索证据。默认报告只保留 query hash、证据元数据和统计结果，不写入 `context` 原文；本地排查私有 query 时可显式增加 `-IncludeQuestions`。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/replay-adaptive-rag.ps1 `
+  -AdminApiKey $env:ADMIN_API_KEY `
+  -QueryPath examples/evaluation-datasets/rag-sample.json `
+  -DelayMilliseconds 200
+```
+
+脚本报告只用于决策链回放，不等同于 RAG 召回率评测，也不提供服务端吞吐容量结论。
 
 ## Prometheus queries
 

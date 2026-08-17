@@ -35,6 +35,13 @@
 - 增加评测报告历史列表与两份报告的指标差值对比。
 - 数据集读取限制在配置目录，报告写入独立目录。
 
+### P3：压测与部署验证
+
+- 提供参数化 JMeter 非 GUI 测试计划，默认压测健康接口，并提供只读文档搜索场景。
+- PowerShell 脚本支持目标地址、并发线程、Ramp-up、持续时间、Top-K、阈值和失败门禁配置。
+- 输出 JTL、HTML Dashboard、响应码分布、错误率、平均延迟、P50/P95/P99 和客户端观测吞吐量；样本不足时不生成误导性的吞吐量数字。
+- 明确本地 Win11 JMeter → 本地应用 → 本地 MySQL/Redis + 云端 Milvus 的边界；RabbitMQ 仍只做可选连通性预检，未宣称已接入运行链路。
+
 ## 当前接口
 
 - `POST /api/v1/agent/chat?explain=true`
@@ -50,7 +57,8 @@
 
 - `AI_EVALUATION_DATASET_DIRECTORY`：评测数据集目录，默认 `./examples/evaluation-datasets`；真实数据建议配置为本地私有目录。
 - `AI_EVALUATION_REPORT_DIRECTORY`：评测报告目录，默认 `./evaluation-reports`。
-- `AI_VECTOR_STORE_MODE=qa` + `MILVUS_COLLECTION_NAME`：复用已有 QA schema collection 时启用 V2 适配器；只读评测建议设置 `MILVUS_READ_ONLY=true`。
+- `AI_VECTOR_STORE_MODE=qa` + `MILVUS_COLLECTION_NAME`：复用已有 QA schema collection 时启用 V2 适配器；当前云端 `cs_agent.ai_agent_documents` 已确认属于 QA schema，不能按默认 LangChain4j 通用文档 schema 读取；只读评测建议设置 `MILVUS_READ_ONLY=true`。
+- 混合部署预检使用 `scripts/check-infrastructure.ps1`：检查本地 MySQL/Redis、云端 Milvus 的 TCP 可达性和 Milvus 目标名称；RabbitMQ 仅作为可选外部端口检查，不代表应用已接入。
 - `JWT_SECRET` 和 `ADMIN_API_KEY` 必须通过环境变量配置。
 - `GRAFANA_ADMIN_PASSWORD` 必须通过环境变量配置，Compose 不再提供弱默认密码。
 - `AI_RATE_LIMIT_*` 和 `AI_COST_BUDGET_*` 控制 Redis 分布式限流与估算 Token 预算；`fail-open` 仅用于 Redis 故障时的可用性取舍。
@@ -65,11 +73,13 @@
 
 ## 后续方向
 
-- 评测报告历史对比已完成；报告同时输出整体与 category 分组的 sampleCount、P50、P95、P99 等指标。可视化页面暂不引入，先通过 JSON 接口和 Grafana 面板复用数据。
+- 评测报告历史对比已完成；报告同时输出整体与 category 分组的 sampleCount、P50、P95、P99、emptyResultRate 和 retrievalHitRate 等指标。可视化页面暂不引入，先通过 JSON 接口和 Grafana 面板复用数据。
 - Grafana 面板已补充 Adaptive RAG、ReAct、Multi-Agent、缓存和故障率视图，并加入 Prometheus 告警规则。
 - Redis 固定窗口限流和估算 Token 预算已完成，配额按认证主体或远端 IP 隔离；完整的 `tenant_id` 数据级隔离暂缓，避免伪造租户模型。
 - 已将最小评测数据集纳入 `examples/evaluation-datasets/`，运行时报告仍写入独立目录；真实数据通过环境变量指向本地私有目录。
+- 已补充 `scripts/validate-rag-dataset.ps1`，在正式评测前检查问题、相关 ID、类别和重复项，并通过 `datasetKind` 区分 sample、smoke 与独立人工标注集；该脚本不替代人工标注、Milvus ID 存在性检查或标注一致性复核。
 - 已完成 Actuator 指标默认鉴权、健康详情默认隐藏和 CORS 白名单化；本地 Compose 通过环境变量显式开启指标抓取。
-- 已补充可复现 RAG 基准脚本和运行手册，并使用云端 `ecommerce_qa` collection 完成一次脱敏 smoke benchmark；该数据集由向量结果自动生成，存在基线偏置，正式效果仍需独立标注数据集验证。
+- 已修复 Milvus QA 模式的条件装配：按 `ai.vector-store.type` 与 `ai.vector-store.mode` 只注册一个向量适配器，并增加模式选择回归测试，避免 QA 配置启动时缺少 `VectorStoreService`。
+- 已补充可复现 RAG 基准脚本、Adaptive RAG 批量回放脚本、基础设施预检脚本和运行手册；截至 2026-08-12，混合部署预检显示本地 Win11 的 MySQL/Redis 与云端 Milvus/RabbitMQ 均已通过连通性检查。只读探查确认默认 `cs_agent.ai_agent_documents` 为 `row_count=0`，但 QA collection `ecommerce_qa` 有 `225034` 条记录，可用于只读 smoke 检索；正式效果仍需独立标注数据集验证。RabbitMQ 暂未接入本项目运行链路。
 - 已修复混合检索回归：BM25 由向量候选池内重排改为对全量语料建立 TTL 缓存的独立词法召回路（与向量 Top-20 经 RRF 融合），中文分词升级为 bigram；语料不可用时自动退化为候选池重排。
 - 基准脚本会记录 Git SHA、数据集 SHA-256、文件大小和非敏感向量库配置，且不写入数据集绝对路径或 API 密钥。

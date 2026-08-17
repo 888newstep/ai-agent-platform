@@ -3,13 +3,16 @@ package com.aiagent.rag.application;
 import com.aiagent.infrastructure.config.AiProperties;
 import com.aiagent.knowledge.domain.RetrievalChunk;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -52,7 +56,7 @@ class RagEvaluationServiceTest {
     void shouldEvaluateRecallPrecisionAndSnapshot() {
         Map<String, List<String>> dataset = new LinkedHashMap<>();
         dataset.put("q1", List.of("doc-1", "doc-2"));
-        dataset.put("q2", List.of());
+        dataset.put("q2", List.of("doc-3"));
 
         when(multiRecallService.search(eq("q1"), any(MultiRecallService.SearchOptions.class)))
                 .thenAnswer(invocation -> ((MultiRecallService.SearchOptions) invocation.getArgument(1)).getTopK() == 1
@@ -79,7 +83,10 @@ class RagEvaluationServiceTest {
 
         Map<String, Object> k1 = report.getMetrics().get("1");
         Map<String, Object> k2 = report.getMetrics().get("2");
-        assertThat(k1).containsKeys("sampleCount", "p95Latency");
+        assertThat(k1).containsKeys("sampleCount", "p95Latency", "emptyResultCount", "emptyResultRate", "retrievalHitRate");
+        assertThat(k1.get("emptyResultCount")).isEqualTo(1);
+        assertThat(((Number) k1.get("emptyResultRate")).doubleValue()).isCloseTo(0.5, within(0.001));
+        assertThat(((Number) k1.get("retrievalHitRate")).doubleValue()).isCloseTo(0.5, within(0.001));
         assertThat(k1.get("sampleCount")).isEqualTo(2);
         assertThat(((Number) k1.get("recall")).doubleValue()).isCloseTo(0.25, within(0.001));
         assertThat(((Number) k1.get("precision")).doubleValue()).isCloseTo(0.5, within(0.001));
@@ -140,6 +147,36 @@ class RagEvaluationServiceTest {
     }
 
     @Test
+    void shouldRejectDatasetOutsideConfiguredDirectory() throws Exception {
+        Path allowedDirectory = Files.createDirectory(tempDir.resolve("allowed"));
+        Path dataset = tempDir.resolve("outside.json");
+        Files.writeString(dataset, "[]", StandardCharsets.UTF_8);
+        ReflectionTestUtils.setField(ragEvaluationService, "datasetDirectory", allowedDirectory.toString());
+
+        assertThatThrownBy(() -> ragEvaluationService.evaluateFromFile(dataset.toString(), List.of(1), null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Dataset path is outside the configured directory");
+    }
+
+    @Test
+    void shouldRejectDatasetSymlinkOutsideConfiguredDirectory() throws Exception {
+        Path allowedDirectory = Files.createDirectory(tempDir.resolve("allowed"));
+        Path outsideDataset = tempDir.resolve("outside.json");
+        Files.writeString(outsideDataset, "[]", StandardCharsets.UTF_8);
+        Path linkedDataset = allowedDirectory.resolve("linked.json");
+        try {
+            Files.createSymbolicLink(linkedDataset, outsideDataset);
+        } catch (IOException | UnsupportedOperationException | SecurityException exception) {
+            Assumptions.assumeTrue(false, "Symbolic links are unavailable in this test environment");
+        }
+        ReflectionTestUtils.setField(ragEvaluationService, "datasetDirectory", allowedDirectory.toString());
+
+        assertThatThrownBy(() -> ragEvaluationService.evaluateFromFile(linkedDataset.toString(), List.of(1), null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Dataset path is outside the configured directory");
+    }
+
+    @Test
     void shouldCompareProfilesFromCsvFile() throws Exception {
         Path dataset = tempDir.resolve("dataset.csv");
         Files.writeString(
@@ -195,6 +232,15 @@ class RagEvaluationServiceTest {
     }
 
     @Test
+    void shouldRejectEvaluationCaseWithoutGroundTruth() {
+        Map<String, List<String>> dataset = Map.of("question", List.of());
+
+        assertThatThrownBy(() -> ragEvaluationService.evaluate(dataset, List.of(1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Every evaluation case must contain at least one relevantDocId");
+    }
+
+    @Test
     void shouldQuickEvaluateUsingBuiltInDatasetAndFallbackToDefaultTopK() {
         when(multiRecallService.search(anyString(), any(MultiRecallService.SearchOptions.class))).thenReturn(List.of());
 
@@ -204,7 +250,8 @@ class RagEvaluationServiceTest {
         assertThat(report.getTopKs()).containsExactly(5);
         assertThat(report.getMetrics()).containsKey("5");
         assertThat(report.getMetrics().get("5")).containsKeys(
-                "sampleCount", "recall", "precision", "f1", "avgLatency", "p50Latency", "p95Latency", "p99Latency");
+                "sampleCount", "recall", "precision", "f1", "avgLatency", "p50Latency", "p95Latency", "p99Latency",
+                "emptyResultCount", "emptyResultRate", "retrievalHitRate");
     }
 
     private static RetrievalChunk chunk(String id) {

@@ -122,7 +122,7 @@ public class RagEvaluationService {
 
             for (EvaluationCase evaluationCase : dataset.getCases()) {
                 long startTime = System.currentTimeMillis();
-                List<RetrievalChunk> results = multiRecallService.search(
+                List<RetrievalChunk> searchResults = multiRecallService.search(
                         evaluationCase.getQuestion(),
                         MultiRecallService.SearchOptions.builder()
                                 .topK(k)
@@ -131,6 +131,7 @@ public class RagEvaluationService {
                                 .cacheEnabled(false)
                                 .build());
                 long latency = System.currentTimeMillis() - startTime;
+                List<RetrievalChunk> results = searchResults == null ? List.of() : searchResults;
 
                 Set<String> resultIds = results.stream()
                         .map(RetrievalChunk::getId)
@@ -144,10 +145,10 @@ public class RagEvaluationService {
                         : (double) relevantInResults / evaluationCase.getRelevantDocIds().size();
                 double precision = (double) relevantInResults / Math.max(k, 1);
 
-                overall.add(recall, precision, latency);
+                overall.add(recall, precision, latency, results.size());
                 categoryAccumulators
                         .computeIfAbsent(evaluationCase.getCategory(), ignored -> new MetricAccumulator())
-                        .add(recall, precision, latency);
+                        .add(recall, precision, latency, results.size());
             }
 
             writeMetrics(report, String.valueOf(k), overall);
@@ -162,7 +163,8 @@ public class RagEvaluationService {
     }
 
     private void writeMetrics(EvaluationReport report, String k, MetricAccumulator accumulator) {
-        report.addMetric(k, "sampleCount", accumulator.latencies.size());
+        int sampleCount = accumulator.latencies.size();
+        report.addMetric(k, "sampleCount", sampleCount);
         report.addMetric(k, "recall", average(accumulator.recalls));
         report.addMetric(k, "precision", average(accumulator.precisions));
         report.addMetric(k, "f1", calculateF1(average(accumulator.recalls), average(accumulator.precisions)));
@@ -170,13 +172,17 @@ public class RagEvaluationService {
         report.addMetric(k, "p95Latency", percentileLong(accumulator.latencies, 95));
         report.addMetric(k, "p99Latency", percentileLong(accumulator.latencies, 99));
         report.addMetric(k, "p50Latency", percentileLong(accumulator.latencies, 50));
+        report.addMetric(k, "emptyResultCount", accumulator.emptyResultCount);
+        report.addMetric(k, "emptyResultRate", ratio(accumulator.emptyResultCount, sampleCount));
+        report.addMetric(k, "retrievalHitRate", ratio(sampleCount - accumulator.emptyResultCount, sampleCount));
     }
 
     private void writeCategoryMetrics(EvaluationReport report,
                                       String category,
                                       String k,
                                       MetricAccumulator accumulator) {
-        report.addCategoryMetric(category, k, "sampleCount", accumulator.latencies.size());
+        int sampleCount = accumulator.latencies.size();
+        report.addCategoryMetric(category, k, "sampleCount", sampleCount);
         report.addCategoryMetric(category, k, "recall", average(accumulator.recalls));
         report.addCategoryMetric(category, k, "precision", average(accumulator.precisions));
         report.addCategoryMetric(category, k, "f1", calculateF1(average(accumulator.recalls), average(accumulator.precisions)));
@@ -184,6 +190,9 @@ public class RagEvaluationService {
         report.addCategoryMetric(category, k, "p95Latency", percentileLong(accumulator.latencies, 95));
         report.addCategoryMetric(category, k, "p99Latency", percentileLong(accumulator.latencies, 99));
         report.addCategoryMetric(category, k, "p50Latency", percentileLong(accumulator.latencies, 50));
+        report.addCategoryMetric(category, k, "emptyResultCount", accumulator.emptyResultCount);
+        report.addCategoryMetric(category, k, "emptyResultRate", ratio(accumulator.emptyResultCount, sampleCount));
+        report.addCategoryMetric(category, k, "retrievalHitRate", ratio(sampleCount - accumulator.emptyResultCount, sampleCount));
     }
 
     private EvaluationDataset loadDataset(String datasetPath) {
@@ -192,17 +201,19 @@ public class RagEvaluationService {
         }
 
         Path path = Path.of(datasetPath.trim()).toAbsolutePath().normalize();
-        if (StringUtils.hasText(datasetDirectory)) {
-            Path allowedDirectory = Path.of(datasetDirectory).toAbsolutePath().normalize();
-            if (!path.startsWith(allowedDirectory)) {
-                throw new IllegalArgumentException("Dataset path must be inside: " + allowedDirectory);
-            }
-        }
         if (!Files.exists(path) || !Files.isRegularFile(path)) {
             throw new IllegalArgumentException("Dataset file not found: " + datasetPath);
         }
 
         try {
+            Path realPath = path.toRealPath();
+            if (StringUtils.hasText(datasetDirectory)) {
+                Path allowedDirectory = Path.of(datasetDirectory).toAbsolutePath().normalize().toRealPath();
+                if (!realPath.startsWith(allowedDirectory)) {
+                    throw new IllegalArgumentException("Dataset path is outside the configured directory");
+                }
+            }
+            path = realPath;
             String fileName = path.getFileName().toString().toLowerCase(Locale.ROOT);
             if (fileName.endsWith(".json")) {
                 return loadJsonDataset(path);
@@ -389,14 +400,18 @@ private List<EvaluationCase> normalizeCases(List<EvaluationCase> cases) {
             if (evaluationCase == null || !StringUtils.hasText(evaluationCase.getQuestion())) {
                 continue;
             }
-            normalized.add(EvaluationCase.builder()
-                    .question(evaluationCase.getQuestion().trim())
-                    .relevantDocIds(evaluationCase.getRelevantDocIds() == null ? List.of() : evaluationCase.getRelevantDocIds().stream()
+            List<String> relevantDocIds = evaluationCase.getRelevantDocIds() == null ? List.of() : evaluationCase.getRelevantDocIds().stream()
                             .filter(StringUtils::hasText)
                             .map(String::trim)
                             .collect(Collectors.toCollection(LinkedHashSet::new))
                             .stream()
-                            .toList())
+                            .toList();
+            if (relevantDocIds.isEmpty()) {
+                throw new IllegalArgumentException("Every evaluation case must contain at least one relevantDocId");
+            }
+            normalized.add(EvaluationCase.builder()
+                    .question(evaluationCase.getQuestion().trim())
+                    .relevantDocIds(relevantDocIds)
                     .category(StringUtils.hasText(evaluationCase.getCategory()) ? evaluationCase.getCategory().trim() : DEFAULT_CATEGORY)
                     .build());
         }
@@ -456,6 +471,10 @@ private List<EvaluationCase> normalizeCases(List<EvaluationCase> cases) {
         return values.stream().mapToDouble(Double::doubleValue).average().orElse(0);
     }
 
+    private double ratio(int numerator, int denominator) {
+        return denominator <= 0 ? 0 : (double) numerator / denominator;
+    }
+
     private double averageLong(List<Long> values) {
         return values.stream().mapToLong(Long::longValue).average().orElse(0);
     }
@@ -494,11 +513,15 @@ private List<EvaluationCase> normalizeCases(List<EvaluationCase> cases) {
         private final List<Double> recalls = new ArrayList<>();
         private final List<Double> precisions = new ArrayList<>();
         private final List<Long> latencies = new ArrayList<>();
+        private int emptyResultCount;
 
-        private void add(double recall, double precision, long latency) {
+        private void add(double recall, double precision, long latency, int resultCount) {
             recalls.add(recall);
             precisions.add(precision);
             latencies.add(latency);
+            if (resultCount == 0) {
+                emptyResultCount++;
+            }
         }
     }
 
@@ -562,12 +585,14 @@ private List<EvaluationCase> normalizeCases(List<EvaluationCase> cases) {
             for (String k : metrics.keySet()) {
                 Map<String, Object> metric = metrics.get(k);
                 sb.append(String.format(Locale.ROOT,
-                        "k=%s samples=%d recall=%.2f%% precision=%.2f%% f1=%.2f%% avg=%.0fms p50=%dms p95=%dms p99=%dms\n",
+                        "k=%s samples=%d recall=%.2f%% precision=%.2f%% f1=%.2f%% hit=%.2f%% empty=%.2f%% avg=%.0fms p50=%dms p95=%dms p99=%dms\n",
                         k,
                         (long) getDouble(metric, "sampleCount"),
                         getDouble(metric, "recall") * 100,
                         getDouble(metric, "precision") * 100,
                         getDouble(metric, "f1") * 100,
+                        getDouble(metric, "retrievalHitRate") * 100,
+                        getDouble(metric, "emptyResultRate") * 100,
                         getDouble(metric, "avgLatency"),
                         (long) getDouble(metric, "p50Latency"),
                         (long) getDouble(metric, "p95Latency"),
