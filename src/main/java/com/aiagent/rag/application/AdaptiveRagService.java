@@ -12,6 +12,7 @@ package com.aiagent.rag.application;
     import java.util.ArrayList;
     import java.util.List;
     import java.util.Map;
+    import java.util.Objects;
 
     /**
      * Orchestrates the adaptive RAG pipeline:
@@ -77,6 +78,8 @@ package com.aiagent.rag.application;
                         break;
                     }
                 }
+                // resolveMaxRounds guarantees >= 1 iteration, so verificationResult is always assigned
+                verificationResult = Objects.requireNonNull(verificationResult);
 
                 String endReason = determineEndReason(verificationResult);
                 context = buildContext(question, decision, rewriteResult, verificationResult, chunks, actualRounds, roundTraces, endReason);

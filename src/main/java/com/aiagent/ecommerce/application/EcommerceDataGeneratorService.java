@@ -812,6 +812,7 @@ public class EcommerceDataGeneratorService {
             try {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> root = objectMapper.readValue(jsonLine, Map.class);
+                @SuppressWarnings("unchecked")
                 List<Map<String, String>> messages = (List<Map<String, String>>) root.get("messages");
                 if (messages == null || messages.size() < 3) continue;
 

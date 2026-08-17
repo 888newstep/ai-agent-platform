@@ -77,6 +77,7 @@ class DocumentIngestionServiceTest {
         );
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
     @Test
     void shouldProcessContentAndPersistChunks() {
         List<TextSegment> segments = List.of(TextSegment.from("first chunk"), TextSegment.from("second chunk"));
