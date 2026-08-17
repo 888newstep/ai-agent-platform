@@ -28,6 +28,7 @@ public class LongContextManager {
 
     private static final String HISTORY_PREFIX = "ai:history:";
     private static final String SUMMARY_PREFIX = "ai:summary:";
+    private static final String TURN_COUNT_PREFIX = "ai:turns:";
     private static final int DEFAULT_SUMMARY_INTERVAL = 5;
     private static final int DEFAULT_SLIDING_WINDOW_SIZE = 10;
     private static final int SUMMARY_RETRIEVE_TOP_K = 3;
@@ -84,11 +85,16 @@ public class LongContextManager {
 
         redisTemplate.opsForValue().set(historyKey, messages, aiProperties.getSession().getTtl(), TimeUnit.SECONDS);
 
+        // Counted separately from the history list, whose size is capped by the sliding window.
+        String turnCountKey = TURN_COUNT_PREFIX + sessionId;
+        Long totalTurns = redisTemplate.opsForValue().increment(turnCountKey);
+        redisTemplate.expire(turnCountKey, aiProperties.getSession().getTtl(), TimeUnit.SECONDS);
+
         int summaryInterval = aiProperties.getSession().getSummaryInterval() > 0
                 ? aiProperties.getSession().getSummaryInterval()
                 : DEFAULT_SUMMARY_INTERVAL;
-        if (messages.size() % summaryInterval == 0 && messages.size() >= summaryInterval) {
-            generateAndStoreSummary(sessionId, messages, summaryInterval);
+        if (totalTurns != null && totalTurns % summaryInterval == 0 && totalTurns >= summaryInterval) {
+            generateAndStoreSummary(sessionId, messages, summaryInterval, totalTurns);
         }
     }
 
@@ -112,7 +118,7 @@ public class LongContextManager {
     }
 
     @SuppressWarnings("unchecked")
-    private void generateAndStoreSummary(String sessionId, List<Map<String, String>> messages, int summaryInterval) {
+    private void generateAndStoreSummary(String sessionId, List<Map<String, String>> messages, int summaryInterval, long totalTurns) {
         try {
             int start = Math.max(0, messages.size() - summaryInterval);
             List<Map<String, String>> recentMessages = messages.subList(start, messages.size());
@@ -133,7 +139,7 @@ public class LongContextManager {
             Map<String, Object> summaryEntry = new HashMap<>();
             summaryEntry.put("summary", summary);
             summaryEntry.put("timestamp", System.currentTimeMillis());
-            summaryEntry.put("round", messages.size());
+            summaryEntry.put("round", totalTurns);
 
             float[] embedding = embedText(summary);
             if (embedding != null) {
@@ -146,7 +152,7 @@ public class LongContextManager {
             }
 
             redisTemplate.opsForValue().set(summaryKey, summaries, aiProperties.getSession().getTtl(), TimeUnit.SECONDS);
-            log.info("Generated session summary: sessionId={}, round={}, length={}", sessionId, messages.size(), summary.length());
+            log.info("Generated session summary: sessionId={}, round={}, length={}", sessionId, totalTurns, summary.length());
         } catch (Exception e) {
             log.warn("Summary generation failed: {}", e.getMessage());
         }
@@ -259,5 +265,6 @@ public class LongContextManager {
     public void clearSession(String sessionId) {
         redisTemplate.delete(HISTORY_PREFIX + sessionId);
         redisTemplate.delete(SUMMARY_PREFIX + sessionId);
+        redisTemplate.delete(TURN_COUNT_PREFIX + sessionId);
     }
 }
