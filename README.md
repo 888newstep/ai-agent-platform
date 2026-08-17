@@ -7,6 +7,8 @@
 [![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.5-green.svg)](https://spring.io/projects/spring-boot)
 [![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](LICENSE)
 
+An enterprise-grade **AI Agent Platform** built on **Spring Boot 3 + LangChain4j**, featuring a ReAct reasoning loop, adaptive multi-recall RAG (vector + BM25 + RRF fusion), semantic caching to cut LLM API costs, and a pluggable tool-calling framework — production-grade observability (Prometheus/Grafana) and reproducible RAG evaluation included.
+
 ## 为什么选择 AI Agent Platform？
 
 与 Spring AI、低代码平台、普通 CRUD Demo 相比，这个项目的独特组合是 **面试导向 + 企业级可观测 + 语义缓存降本**：
@@ -22,6 +24,55 @@
 > - 需要快速搭建 AI 客服系统的中小企业或独立开发者
 > - 想学习 RAG + Agent 完整落地实践的技术爱好者
 > - 需要可扩展 AI Agent 框架的产品开发者
+
+---
+
+## 架构总览
+
+> 完整架构设计请参阅 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                          AI Agent Platform                      │
+│  ┌──────────────┐ ┌───────────────────┐ ┌─────────────────────┐ │
+│  │   Chat API   │ │    ReAct API      │ │   Document API      │ │
+│  └──────┬───────┘ └─────────┬─────────┘ └──────────┬──────────┘ │
+│  ┌──────┴───────┐ ┌─────────┴─────────┐ ┌──────────┴──────────┐ │
+│  │ AiAgentSrv    │ │   ReActAgent      │ │   DocumentService   │ │
+│  └──────┬───────┘ └─────────┬─────────┘ └──────────┬──────────┘ │
+│  ┌──────┴──────────────────────────────────────────┴──────────┐ │
+│  │               SemanticCacheService (余弦相似度缓存)         │ │
+│  └──────┬──────────────────────────────────────────┬──────────┘ │
+│  ┌──────┴──────┐ MultiRecallService  ┌─────────────┴──────────┐ │
+│  │ Vector(ML)  │  + BM25  + RRF 融合  │  Adaptive RAG Router  │ │
+│  └──────┬──────┘                     └─────────────┬──────────┘ │
+│  ┌──────┴──────────────────────┐  ┌───────────────┴──────────┐  │
+│  │ ToolService(注册表自动发现)  │  │ LongContextManager(摘要)  │  │
+│  └──────┬──────────────────────┘  └───────────────┬──────────┘  │
+│  ┌──────┴─────┐ ┌────────┐ ┌────────┐ ┌───────────┴────────┐    │
+│  │   MySQL    │ │ Redis  │ │ Milvus │ │  AI Models(策略切换)│    │
+│  └────────────┘ └────────┘ └────────┘ └────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**核心链路**：请求进入 → 语义缓存命中直接返回（降本）→ 未命中走 ReAct / Adaptive RAG（向量 + BM25 + RRF，工具调用）→ 长会话由 LongContextManager 滑动窗口 + 摘要压缩 → 结果回写缓存并流式（SSE）返回。
+
+### 架构图（Mermaid）
+
+```mermaid
+flowchart LR
+    Client[客户端] -->|SSE 流式| API[Chat/ReAct/Document API]
+    API --> Cache{SemanticCache<br/>余弦相似度命中?}
+    Cache -- 命中 --> Client
+    Cache -- 未命中 --> Agent[ReAct Agent 循环]
+    Agent --> RAG[MultiRecall<br/>Vector+BM25+RRF]
+    Agent --> Tools[ToolService<br/>查库/外部API]
+    RAG --> Session[(Redis<br/>会话+摘要)]
+    Agent --> Session
+    Session --> Models[AI Models<br/>DeepSeek/千问/豆包/Ollama]
+    RAG --> Milvus[(Milvus<br/>向量库)]
+    Agent -.指标.-> Observe[Prometheus/Grafana]
+```
 
 ---
 
