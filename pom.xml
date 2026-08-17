@@ -44,7 +44,8 @@
         <protobuf-java.version>3.25.5</protobuf-java.version>
         <dnsjava.version>3.6.0</dnsjava.version>
         <azure-identity.version>1.12.2</azure-identity.version>
-        <commons-compress.version>1.26.0</commons-compress.version>
+        <commons-compress.version>1.26.2</commons-compress.version>
+        <log4j2.version>2.25.5</log4j2.version>
         <snappy-java.version>1.1.10.8</snappy-java.version>
         <mysql-connector-j.version>8.2.0</mysql-connector-j.version>
     </properties>
@@ -139,6 +140,14 @@
             <groupId>io.milvus</groupId>
             <artifactId>milvus-sdk-java</artifactId>
             <version>${milvus-sdk.version}</version>
+            <exclusions>
+                <!-- 排除 hadoop-client 传递的 bcprov-jdk15on 1.70（无修复版本，多条 moderate 漏洞），
+                     项目已直接依赖 bcprov-jdk18on 1.84（同一 provider 类的新 artifact 名） -->
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcprov-jdk15on</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Gson for Milvus SDK JsonObject -->
