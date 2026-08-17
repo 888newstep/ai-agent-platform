@@ -253,7 +253,7 @@ public class AiAgentController {
 
         try {
             return java.util.Arrays.stream(topKs.split(","))
-                    .map(String::trim)
+                    .map(s -> s.trim())
                     .filter(StringUtils::hasText)
                     .map(Integer::parseInt)
                     .toList();

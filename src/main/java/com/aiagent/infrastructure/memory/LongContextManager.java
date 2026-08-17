@@ -49,7 +49,6 @@ public class LongContextManager {
     private final RedisTemplate<String, Object> redisTemplate;
     private final AiProperties aiProperties;
 
-    @SuppressWarnings("unchecked")
     public String getOptimizedContext(String sessionId, String question) {
         StringBuilder context = new StringBuilder();
 

@@ -7,16 +7,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class EcommerceImportControllerTest {
     @Mock private EcommerceKnowledgeImportService importService;
-    private Executor testExecutor = Runnable::run;
+    private Executor testExecutor = r -> r.run();
     private EcommerceImportController controller;
 
     @BeforeEach void setUp() { controller = new EcommerceImportController(importService, testExecutor); }

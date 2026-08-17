@@ -229,7 +229,7 @@ public class EcommerceKnowledgeImportService {
                 if (emb == null) {
                     results.add(null);
                 } else {
-                    results.add(emb.stream().map(Double::floatValue).collect(Collectors.toList()));
+                    results.add(emb.stream().map(d -> d.floatValue()).collect(Collectors.toList()));
                 }
             }
             return results;
@@ -286,7 +286,7 @@ public class EcommerceKnowledgeImportService {
         }
 
         return embedding.stream()
-                .map(Double::floatValue)
+                .map(d -> d.floatValue())
                 .collect(Collectors.toList());
     }
 
@@ -336,7 +336,7 @@ public class EcommerceKnowledgeImportService {
             try {
                 // 2a. 提取 embedding 文本
                 List<String> texts = batch.stream()
-                        .map(QaRecord::getQaText)
+                        .map(r -> r.getQaText())
                         .toList();
 
                 // 2b. 批量生成向量

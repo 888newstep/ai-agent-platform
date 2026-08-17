@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(MockitoExtension.class)
 class EcommerceDataGeneratorControllerTest {
     @Mock private EcommerceDataGeneratorService generatorService;
-    private Executor testExecutor = Runnable::run;
+    private Executor testExecutor = r -> r.run();
     private EcommerceDataGeneratorController controller;
 
     @BeforeEach void setUp() { controller = new EcommerceDataGeneratorController(generatorService, testExecutor); }

@@ -244,7 +244,7 @@ public class MultiRecallService {
                 RetrievalChunk doc = list.get(rank);
                 String docId = doc.getId();
                 docMap.putIfAbsent(docId, doc);
-                rrfScores.merge(docId, 1.0 / (RRF_K + rank + 1), Double::sum);
+                rrfScores.merge(docId, 1.0 / (RRF_K + rank + 1), (a, b) -> a + b);
                 if (listIndex == 0) {
                     vectorRanks.putIfAbsent(docId, rank + 1);
                 } else if (listIndex == 1) {

@@ -134,7 +134,7 @@ public class RagEvaluationService {
                 List<RetrievalChunk> results = searchResults == null ? List.of() : searchResults;
 
                 Set<String> resultIds = results.stream()
-                        .map(RetrievalChunk::getId)
+                        .map(c -> c.getId())
                         .collect(Collectors.toSet());
                 long relevantInResults = resultIds.stream()
                         .filter(evaluationCase.getRelevantDocIds()::contains)
@@ -242,7 +242,7 @@ public class RagEvaluationService {
         }
 
         List<String> headers = splitCsvLine(lines.get(0)).stream()
-                .map(String::trim)
+                .map(s -> s.trim())
                 .map(header -> header.toLowerCase(Locale.ROOT))
                 .toList();
         int questionIndex = headerIndex(headers, "question");
@@ -350,13 +350,13 @@ public class RagEvaluationService {
         if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
             try {
                 List<String> ids = OBJECT_MAPPER.readValue(trimmed, new TypeReference<>() {});
-                return ids.stream().filter(StringUtils::hasText).map(String::trim).distinct().toList();
+                return ids.stream().filter(StringUtils::hasText).map(s -> s.trim()).distinct().toList();
             } catch (Exception ignored) {
                 // Fall through to simple delimiter parsing.
             }
         }
         return Arrays.stream(trimmed.split("[|;]"))
-                .map(String::trim)
+                .map(s -> s.trim())
                 .filter(StringUtils::hasText)
                 .distinct()
                 .toList();
@@ -402,7 +402,7 @@ private List<EvaluationCase> normalizeCases(List<EvaluationCase> cases) {
             }
             List<String> relevantDocIds = evaluationCase.getRelevantDocIds() == null ? List.of() : evaluationCase.getRelevantDocIds().stream()
                             .filter(StringUtils::hasText)
-                            .map(String::trim)
+                            .map(s -> s.trim())
                             .collect(Collectors.toCollection(LinkedHashSet::new))
                             .stream()
                             .toList();
@@ -468,7 +468,7 @@ private List<EvaluationCase> normalizeCases(List<EvaluationCase> cases) {
     }
 
     private double average(List<Double> values) {
-        return values.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+        return values.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0);
     }
 
     private double ratio(int numerator, int denominator) {
@@ -476,7 +476,7 @@ private List<EvaluationCase> normalizeCases(List<EvaluationCase> cases) {
     }
 
     private double averageLong(List<Long> values) {
-        return values.stream().mapToLong(Long::longValue).average().orElse(0);
+        return values.stream().mapToLong(l -> l.longValue()).average().orElse(0);
     }
 
     private long percentileLong(List<Long> values, int percentile) {

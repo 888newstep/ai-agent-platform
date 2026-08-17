@@ -66,7 +66,7 @@ class MultiRecallServiceTest {
 
         List<RetrievalChunk> results = multiRecallService.search("apple", 2);
 
-        assertThat(results).extracting(RetrievalChunk::getId).containsExactly("1", "2");
+        assertThat(results).extracting(c -> c.getId()).containsExactly("1", "2");
         verify(documentService, never()).searchSimilar(any(), any(Integer.class), any(Double.class));
         verify(metricsService).recordRagSearch(true, 2, sample);
     }
@@ -126,7 +126,7 @@ class MultiRecallServiceTest {
         List<RetrievalChunk> results = multiRecallService.search("banana smoothie", 2);
 
         assertThat(results).hasSize(2);
-        assertThat(results).extracting(RetrievalChunk::getId).contains("2", "3");
+        assertThat(results).extracting(c -> c.getId()).contains("2", "3");
         assertThat(results).allSatisfy(result ->
                 assertThat(result.getMetadata()).containsEntry("retrievalSource", "bm25_only"));
         verify(vectorStoreService).fetchAllChunks(anyInt());
@@ -172,7 +172,7 @@ class MultiRecallServiceTest {
 
         List<RetrievalChunk> results = multiRecallService.search("fresh query", options);
 
-        assertThat(results).extracting(RetrievalChunk::getId).containsExactly("1");
+        assertThat(results).extracting(c -> c.getId()).containsExactly("1");
         verifyNoInteractions(ragCacheService);
         verify(metricsService).recordRagSearch(false, 1, sample);
     }

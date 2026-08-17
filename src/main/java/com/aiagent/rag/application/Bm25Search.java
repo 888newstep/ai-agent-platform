@@ -60,14 +60,14 @@ public class Bm25Search {
             Map<String, Integer> tf = new HashMap<>();
             Set<String> uniqueTerms = new HashSet<>();
             for (String term : terms) {
-                tf.merge(term, 1, Integer::sum);
+                tf.merge(term, 1, (a, b) -> a + b);
                 uniqueTerms.add(term);
             }
             termFrequencies.add(tf);
 
             // 每个词项在同一文档中只计一次文档频率。
             for (String term : uniqueTerms) {
-                df.merge(term, 1, Integer::sum);
+                df.merge(term, 1, (a, b) -> a + b);
             }
         }
         this.avgDocLength = docCount == 0 ? 0 : totalLength / docCount;
@@ -95,7 +95,7 @@ public class Bm25Search {
         for (int i = 0; i < docCount; i++) {
             double score = 0;
             Map<String, Integer> tf = termFrequencies.get(i);
-            double docLength = tf.values().stream().mapToInt(Integer::intValue).sum();
+            double docLength = tf.values().stream().mapToInt(v -> v.intValue()).sum();
 
             for (String term : queryTerms) {
                 Integer termFreq = tf.getOrDefault(term, 0);

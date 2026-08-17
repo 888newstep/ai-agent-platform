@@ -1,7 +1,6 @@
 package com.aiagent.customer_support.api;
 
 import com.aiagent.customer_support.application.CsDataImportService;
-import com.aiagent.ecommerce.application.EcommerceKnowledgeImportService;
 import com.aiagent.knowledge.infrastructure.vectorstore.MilvusAdminService;
 import com.aiagent.customer_support.config.CsProperties;
 import lombok.extern.slf4j.Slf4j;

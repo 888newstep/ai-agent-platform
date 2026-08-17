@@ -96,8 +96,8 @@ public class MultiAgentService {
 
             List<MultiAgentExecutionTrace.WorkerTrace> workers = executeInParallelDetailed(task, subtasks);
             List<String> results = workers.stream()
-                    .sorted(Comparator.comparingInt(MultiAgentExecutionTrace.WorkerTrace::getIndex))
-                    .map(MultiAgentExecutionTrace.WorkerTrace::getResult)
+                    .sorted(Comparator.comparingInt(w -> w.getIndex()))
+                    .map(w -> w.getResult())
                     .toList();
             SynthesisResult synthesisResult = synthesizeDetailed(task, subtasks, results);
             MultiAgentExecutionResult result = buildDetailedResult(
@@ -236,7 +236,7 @@ public class MultiAgentService {
                         .reactTrace(null)
                         .build());
             }
-            workers.sort(Comparator.comparingInt(MultiAgentExecutionTrace.WorkerTrace::getIndex));
+            workers.sort(Comparator.comparingInt(w -> w.getIndex()));
             return workers;
         } finally {
             executor.shutdown();
