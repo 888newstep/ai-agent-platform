@@ -7,13 +7,15 @@
 [![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.5-green.svg)](https://spring.io/projects/spring-boot)
 [![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](LICENSE)
 
-## Open Source Quality Baseline
+## 为什么选择 AI Agent Platform？
 
-- Test lifecycle: `mvn test` / `mvn verify`
-- Coverage report: `target/site/jacoco/index.html`
-- Metrics endpoints: `/actuator/health`, `/actuator/metrics`, `/actuator/prometheus`; metrics require authentication by default, while the local `.env.example` enables public scraping for Compose.
-- Monitoring stack: `docker compose up -d app prometheus grafana`
-- Details: `docs/observability.md`
+与 Spring AI、低代码平台、普通 CRUD Demo 相比，这个项目的独特组合是 **面试导向 + 企业级可观测 + 语义缓存降本**：
+
+| 对比对象 | 差异化优势 |
+|---------|-----------|
+| Spring AI / Spring AI Alibaba | 自研 ReAct 推理循环、Adaptive RAG、多路召回 RRF 融合、会话摘要压缩；源码即可当作面试题解 |
+| Dify / 扣子等低代码平台 | 面向开发者而非业务人员：可扩展的工具注册表、可观测（Prometheus/Grafana）、可复现 RAG 评测 |
+| 普通 CRUD / Demo 项目 | 语义缓存降低 API 成本、JMeter 压测、质量基线度量，是一套可量化的工程实践 |
 
 > **🎯 适用人群**
 > - 正在准备大厂 Java / AI 岗位面试的求职者（覆盖高频面试考点）
@@ -48,6 +50,7 @@
 | AI 模型 | DeepSeek, 通义千问, 豆包, Qwen3-Flash, Ollama |
 | 嵌入模型 | BGE-M3 (SiliconFlow API) |
 | 部署 | Docker, Docker Compose |
+| 压测与观测 | JMeter 5.6, Prometheus, Grafana |
 | CI/CD | GitHub Actions |
 
 ---
@@ -74,11 +77,31 @@ cp .env.example .env
 # 编辑 .env 填入你的 API 密钥
 ```
 
-### 3. 启动（Docker 一键部署）
+### 当前混合部署拓扑
+
+本项目支持本地应用 + 云端向量库的开发方式：本地 Win11 运行 MySQL `localhost:3306` 和 Redis `localhost:6379`，云服务器运行 Milvus `19530`；通过 `MILVUS_HOST`、`MILVUS_DATABASE_NAME` 和 `MILVUS_COLLECTION_NAME` 指定目标。复用已有云端 collection 做评测时，建议设置 `MILVUS_READ_ONLY=true`，避免启动或导入流程修改线上数据。RabbitMQ 当前未进入 `newagent` 的代码依赖和运行链路，端口可达不代表项目已经接入该组件。
+
+启动应用或运行评测前，可先执行混合部署预检：
+
+```powershell
+$env:MILVUS_HOST = "your-cloud-milvus-host"
+$env:RABBITMQ_HOST = "your-cloud-rabbitmq-host"
+.\scripts\check-infrastructure.ps1
+```
+
+脚本默认检查本机 `MYSQL_HOST/MYSQL_PORT`、`REDIS_HOST/REDIS_PORT` 和 Milvus `MILVUS_*` 配置；RabbitMQ 仅在设置 `RABBITMQ_HOST` 或传入 `-RabbitHost` 时检查。脚本不读取 `.env` 文件、不输出密码、不查询或修改 collection 数据，只验证 TCP 可达性以及 Milvus database/collection 名称是否配置。
+
+### 3. 启动方式
+
+混合部署时，应用可以在本机 IDE 或 Maven 中启动；确保启动配置中已经注入 `.env` 中的环境变量，并将 `MILVUS_HOST` 指向云端地址。复用已有云端 collection 做只读评测时，再设置 `MILVUS_READ_ONLY=true`。不要同时依赖 Docker Compose 启动的本地 Milvus。
+
+如果希望使用全本地依赖，再使用下面的 Docker Compose 方式：
 
 ```bash
 docker compose up -d
 ```
+
+该命令会启动本地 MySQL、Redis、Milvus 和应用容器，属于独立的全本地拓扑；它不会验证或使用云端 Milvus/RabbitMQ。
 
 ### 4. 验证
 
@@ -121,6 +144,14 @@ curl -N "http://localhost:8081/api/v1/agent/chat/stream?sessionId={sessionId}&qu
 curl -X POST -F "file=@文档.pdf" http://localhost:8081/api/v1/agent/document/upload
 ```
 
+### 缓存管理
+
+[`DELETE /api/v1/agent/cache`](src/main/java/com/aiagent/agent/api/AiAgentController.java:161) 清除全部语义缓存。
+
+### 文档搜索
+
+[`POST /api/v1/agent/document/search`](src/main/java/com/aiagent/agent/api/AiAgentController.java:148) 按向量检索上传的文档切片，支持自定义 topK 和阈值参数。
+
 ### 评测报告历史
 
 评测接口需要管理员凭证。导出报告后，可以列出最近报告并比较两次评测的指标变化：
@@ -137,7 +168,7 @@ curl -H "X-Admin-Api-Key: ${ADMIN_API_KEY}" \
 
 ### 可复现 RAG 评测
 
-仓库提供最小示例数据集 `examples/evaluation-datasets/rag-sample.json`，默认配置已指向该目录。详细的双配置真实评测流程见 `docs/RAG_BENCHMARK.md`，运行脚本为 `scripts/run-rag-evaluation.ps1`。数据集中的 `relevantDocIds` 是评测基准的 chunk ID；只有先导入包含这些 ID 的文档，召回率和准确率才具有业务意义。若复用已有 `ecommerce_qa` collection，请先设置 `AI_VECTOR_STORE_MODE=qa`、`MILVUS_COLLECTION_NAME=ecommerce_qa` 和 `MILVUS_READ_ONLY=true`；真实数据请通过 `AI_EVALUATION_DATASET_DIRECTORY` 指向本地私有目录，避免提交到 GitHub。
+仓库提供最小示例数据集 `examples/evaluation-datasets/rag-sample.json`，默认配置已指向该目录。详细的双配置真实评测流程见 `docs/RAG_BENCHMARK.md`，运行脚本为 `scripts/run-rag-evaluation.ps1`。数据集中的 `relevantDocIds` 必须对应目标 vector store 的 ID：通用文档模式使用 chunk ID，QA 模式使用 `qa_pair_id`；只有先确认这些 ID 已存在，召回率和准确率才具有业务意义。若复用已有 QA collection（包括当前云端的 `cs_agent.ai_agent_documents` 或 `ecommerce_qa`），必须设置 `AI_VECTOR_STORE_MODE=qa`、对应的 `MILVUS_COLLECTION_NAME` 和 `MILVUS_READ_ONLY=true`；这些 collection 不能使用默认的 LangChain4j 通用文档 schema。真实数据请通过 `AI_EVALUATION_DATASET_DIRECTORY` 指向本地私有目录，避免提交到 GitHub。
 
 ```bash
 curl -X POST \
@@ -146,6 +177,51 @@ curl -X POST \
 ```
 ---
 
+正式评测不要直接复用公开样例或由向量 Top-K 自动生成的 smoke 数据。先在本地私有目录完成结构校验，再将数据集类型标记为 `independent-human-labeled`：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/validate-rag-dataset.ps1 `
+  -DatasetPath 'C:\private\rag-datasets\customer-faq.json' `
+  -DatasetKind independent-human-labeled `
+  -MinCases 30 `
+  -MinCategories 3 `
+  -RequireCategory
+
+powershell -ExecutionPolicy Bypass -File scripts/run-rag-evaluation.ps1 `
+  -DatasetPath 'C:\private\rag-datasets\customer-faq.json' `
+  -DatasetKind independent-human-labeled `
+  -VectorStoreMode qa `
+  -MilvusCollection ecommerce_qa `
+  -MilvusReadOnly true
+```
+
+`validate-rag-dataset.ps1` 只检查文件结构、重复问题、类别和 `relevantDocIds` 是否非空，不会验证 ID 是否存在于 Milvus，也不能替代人工复核。`datasetKind` 会写入本地评测汇总报告，避免把 sample/smoke 结果误当成正式业务基准。
+
+### Adaptive RAG 批量回放
+
+使用公开样例或本地私有 query 文件批量调用 `/api/v1/agent/rag/debug`，输出 routeType、verificationLevel、endReason、检索轮次和客户端延迟分布，并标记 `evidenceStatus` 与 `benchmarkReady`。当 `benchmarkReady=false` 或证据状态为 `empty` 时，只能用于诊断数据链路，不能当作有效 RAG 基线。脚本默认不保存原始问题和答案上下文；需要本地诊断时再显式传入 `-IncludeQuestions`。报告写入 `evaluation-reports/`，不会提交到 GitHub。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/replay-adaptive-rag.ps1 `
+  -AdminApiKey $env:ADMIN_API_KEY
+```
+
+输入文件可以是现有评测 JSON 数组，也可以是包含 `queries` 数组的 JSON 对象；每项至少包含 `question` 字段，可选 `category` 字段。该回放脚本用于分析 Agent 决策链，不等价于带 `relevantDocIds` 的检索质量评测。
+
+### JMeter 并发压测
+
+仓库提供参数化的 JMeter 非 GUI 测试计划，详细边界、参数和结果解释见 [`docs/JMETER_LOAD_TEST.md`](docs/JMETER_LOAD_TEST.md)。默认只压测公开健康接口；只读文档搜索场景会真实访问 Embedding/Milvus，但不会上传或修改文档。
+
+```powershell
+.\scripts\run-jmeter-smoke.ps1 `
+  -Scenario health `
+  -Threads 5 `
+  -RampUpSeconds 5 `
+  -DurationSeconds 30 `
+  -FailOnErrors
+```
+
+当前混合拓扑中，JMeter 在本地 Win11 运行并访问本地应用；应用再连接本地 MySQL/Redis 和云端 Milvus。RabbitMQ 当前仅做可选连通性预检，不能把其端口可达写成项目已接入。
 ## 架构设计
 
 ```
@@ -316,6 +392,18 @@ ai:
 | 向量数据库 | Milvus 集合创建、索引构建 |
 | 多智能体 (Q147) | Supervisor + Worker 协作模式 |
 | SSE 流式输出 (Q151-153) | 心跳机制 + 虚拟线程管理 |
+
+---
+
+## Contributors
+
+Thanks to the people who have contributed to this project:
+
+<a href="https://github.com/codeAnqiang-ma">
+  <img src="https://github.com/codeAnqiang-ma.png" width="40px" alt="codeAnqiang-ma" />
+</a>
+
+> Want to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md). All contributions are welcome!
 
 ---
 
