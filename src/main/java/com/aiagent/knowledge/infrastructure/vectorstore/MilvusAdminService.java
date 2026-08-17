@@ -1,5 +1,6 @@
 package com.aiagent.knowledge.infrastructure.vectorstore;
 
+import com.aiagent.infrastructure.config.AiProperties;
 import io.milvus.v2.client.MilvusClientV2;
 import io.milvus.v2.common.IndexBuildState;
 import io.milvus.v2.common.IndexParam;
@@ -25,14 +26,17 @@ import java.util.concurrent.CompletableFuture;
 public class MilvusAdminService {
 
     private final MilvusClientV2 milvusClient;
+    private final AiProperties aiProperties;
 
     /** 业务集合名称 */
     private static final List<String> COLLECTION_NAMES = List.of(
             "ecommerce_qa"
     );
 
-    public MilvusAdminService(@Autowired(required = false) MilvusClientV2 milvusClient) {
+    public MilvusAdminService(@Autowired(required = false) MilvusClientV2 milvusClient,
+                              AiProperties aiProperties) {
         this.milvusClient = milvusClient;
+        this.aiProperties = aiProperties;
     }
 
     // =============================================
@@ -43,6 +47,7 @@ public class MilvusAdminService {
      * 为指定集合创建 HNSW 索引
      */
     public void createIndex(String collectionName) {
+        ensureWritable();
         if (milvusClient == null) {
             log.warn("Milvus 客户端不可用，跳过建索引");
             return;
@@ -66,6 +71,10 @@ public class MilvusAdminService {
      * 异步串行构建所有集合索引
      */
     public CompletableFuture<Void> buildAllIndexesAsync() {
+        if (readOnly()) {
+            log.warn("Milvus is read-only, skipping index build");
+            return CompletableFuture.completedFuture(null);
+        }
         if (milvusClient == null) {
             log.warn("Milvus 客户端不可用，跳过建索引");
             return CompletableFuture.completedFuture(null);
@@ -129,6 +138,10 @@ public class MilvusAdminService {
      * 刷新所有集合，落盘数据
      */
     public void flushAll() {
+        if (readOnly()) {
+            log.warn("Milvus is read-only, skipping flush");
+            return;
+        }
         if (milvusClient == null) {
             log.warn("Milvus 客户端不可用，跳过 flush");
             return;
@@ -180,6 +193,16 @@ public class MilvusAdminService {
             Thread.sleep(millis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private boolean readOnly() {
+        return aiProperties.getVectorStore().getMilvus().isReadOnly();
+    }
+
+    private void ensureWritable() {
+        if (readOnly()) {
+            throw new IllegalStateException("Milvus administration is read-only");
         }
     }
 }

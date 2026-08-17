@@ -48,7 +48,7 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
-      database: ${REDIS_DATABASE:0}
+      database: ${REDIS_DATABASE:1}
       lettuce:
         pool:
           max-active: 100
@@ -117,6 +117,7 @@ ai:
     milvus:
       host: ${MILVUS_HOST:localhost}
       port: ${MILVUS_PORT:19530}
+      database-name: ${MILVUS_DATABASE_NAME:cs_agent}
       collection-name: ${MILVUS_COLLECTION_NAME:ai_agent_documents}
       dimension: 1024
       connection-timeout-ms: ${MILVUS_CONNECTION_TIMEOUT_MS:2000}

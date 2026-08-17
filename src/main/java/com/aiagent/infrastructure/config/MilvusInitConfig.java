@@ -19,6 +19,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,7 @@ public class MilvusInitConfig {
 
     @Bean
     public MilvusClientV2 milvusClient() {
+        AiProperties.Milvus milvusConfig = aiProperties.getVectorStore().getMilvus();
         ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "milvus-client-init");
             thread.setDaemon(true);
@@ -47,36 +49,50 @@ public class MilvusInitConfig {
         try {
             Future<MilvusClientV2> future = executor.submit(() -> {
                 ConnectConfig config = ConnectConfig.builder()
-                        .uri("http://" + aiProperties.getVectorStore().getMilvus().getHost() + ":" + aiProperties.getVectorStore().getMilvus().getPort())
+                        .uri("http://" + milvusConfig.getHost() + ":" + milvusConfig.getPort())
                         .build();
                 MilvusClientV2 client = new MilvusClientV2(config);
 
-                try {
-                    client.useDatabase("cs_agent");
-                } catch (Exception ignored) {
-                    log.info("Database [cs_agent] does not exist, creating it now");
-                    client.createDatabase(CreateDatabaseReq.builder()
-                            .databaseName("cs_agent")
-                            .build());
-                    client.useDatabase("cs_agent");
-                    log.info("Database [cs_agent] created successfully");
+                String databaseName = milvusConfig.getDatabaseName();
+                if (StringUtils.hasText(databaseName)) {
+                    try {
+                        client.useDatabase(databaseName);
+                    } catch (Exception exception) {
+                        if (milvusConfig.isReadOnly()) {
+                            throw new IllegalStateException(
+                                    "Milvus database [" + databaseName + "] is unavailable in read-only mode",
+                                    exception);
+                        }
+                        log.info("Database [{}] does not exist, creating it now", databaseName);
+                        client.createDatabase(CreateDatabaseReq.builder()
+                                .databaseName(databaseName)
+                                .build());
+                        client.useDatabase(databaseName);
+                        log.info("Database [{}] created successfully", databaseName);
+                    }
                 }
 
                 return client;
             });
 
-            MilvusClientV2 client = future.get(aiProperties.getVectorStore().getMilvus().getConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
-            log.info("MilvusClientV2 connected: {}:{} (database: cs_agent)", 
-                    aiProperties.getVectorStore().getMilvus().getHost(), 
-                    aiProperties.getVectorStore().getMilvus().getPort());
+            MilvusClientV2 client = future.get(milvusConfig.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
+            if (client == null) {
+                log.warn("MilvusClientV2 unavailable after initialization");
+                return null;
+            }
+            log.info("MilvusClientV2 connected: {}:{} (database: {}, readOnly: {})",
+                    milvusConfig.getHost(),
+                    milvusConfig.getPort(),
+                    milvusConfig.getDatabaseName(),
+                    milvusConfig.isReadOnly());
             return client;
         } catch (TimeoutException e) {
             log.warn("MilvusClientV2 connection timed out after {}ms; starting without Milvus", 
-                    aiProperties.getVectorStore().getMilvus().getConnectionTimeoutMs());
+                    milvusConfig.getConnectionTimeoutMs());
         } catch (Exception e) {
             log.warn("MilvusClientV2 connection failed: {}:{} - {} (starting without Milvus)", 
-                    aiProperties.getVectorStore().getMilvus().getHost(), 
-                    aiProperties.getVectorStore().getMilvus().getPort(), 
+                    milvusConfig.getHost(),
+                    milvusConfig.getPort(),
                     extractMessage(e));
         } finally {
             executor.shutdownNow();
@@ -119,10 +135,15 @@ public class MilvusInitConfig {
             String collectionName = aiProperties.getVectorStore().getMilvus().getCollectionName();
             int dimension = aiProperties.getVectorStore().getMilvus().getDimension();
             
-            if (milvusClient.hasCollection(HasCollectionReq.builder()
+            boolean exists = milvusClient.hasCollection(HasCollectionReq.builder()
                     .collectionName(collectionName)
-                    .build())) {
+                    .build());
+            if (exists) {
                 log.info("Collection [{}] already exists, skipping creation", collectionName);
+                return;
+            }
+            if (readOnly()) {
+                log.warn("Collection [{}] does not exist; read-only mode forbids automatic creation", collectionName);
                 return;
             }
 
@@ -199,6 +220,10 @@ public class MilvusInitConfig {
                     .collectionName(collectionName)
                     .build());
             log.info("Collection [{}] loaded into memory", collectionName);
+        }
+
+        private boolean readOnly() {
+            return aiProperties.getVectorStore().getMilvus().isReadOnly();
         }
     }
 

@@ -1,5 +1,6 @@
 package com.aiagent.ecommerce.application;
 
+import com.aiagent.infrastructure.config.AiProperties;
 import com.aiagent.ecommerce.domain.EcommerceQaPair;
 import com.aiagent.ecommerce.infrastructure.repository.EcommerceQaPairRepository;
 import com.aiagent.ecommerce.config.EcommerceProperties;
@@ -50,6 +51,7 @@ public class EcommerceKnowledgeImportService {
     private final ObjectMapper objectMapper;
     private final EcommerceQaPairRepository qaPairRepository;
     private final EcommerceProperties ecommerceProperties;
+    private final AiProperties aiProperties;
     private RestTemplate restTemplate;
 
     private static final String COLLECTION_NAME = "ecommerce_qa";
@@ -61,11 +63,13 @@ public class EcommerceKnowledgeImportService {
 
     public EcommerceKnowledgeImportService(@Autowired(required = false) MilvusClientV2 milvusClient, ObjectMapper objectMapper,
                                            EcommerceQaPairRepository qaPairRepository,
-                                           EcommerceProperties ecommerceProperties) {
+                                           EcommerceProperties ecommerceProperties,
+                                           AiProperties aiProperties) {
         this.milvusClient = milvusClient;
         this.objectMapper = objectMapper;
         this.qaPairRepository = qaPairRepository;
         this.ecommerceProperties = ecommerceProperties;
+        this.aiProperties = aiProperties;
     }
 
     @PostConstruct
@@ -303,6 +307,7 @@ public class EcommerceKnowledgeImportService {
      */
     @Transactional
     public ImportResult importFromFile(String filePath) throws Exception {
+        ensureMilvusWritable();
         if (milvusClient == null) {
             throw new IllegalStateException("Milvus 客户端不可用，请检查连接配置");
         }
@@ -422,6 +427,12 @@ public class EcommerceKnowledgeImportService {
                 result.storedRecords, result.failedRecords, result.elapsedSeconds);
 
         return result;
+    }
+
+    private void ensureMilvusWritable() {
+        if (aiProperties.getVectorStore().getMilvus().isReadOnly()) {
+            throw new IllegalStateException("Milvus is read-only; data import is disabled");
+        }
     }
 
     /**

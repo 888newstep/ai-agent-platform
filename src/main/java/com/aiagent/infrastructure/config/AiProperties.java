@@ -118,6 +118,7 @@ public class AiProperties {
     public static class Milvus {
         private String host = "localhost";
         private int port = 19530;
+        private String databaseName = "cs_agent";
         private String collectionName = "ai_agent_documents";
         private int dimension = 1024;
         private int connectionTimeoutMs = 2000;

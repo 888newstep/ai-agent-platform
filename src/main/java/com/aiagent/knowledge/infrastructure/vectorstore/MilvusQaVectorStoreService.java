@@ -22,7 +22,7 @@ import io.milvus.v2.service.vector.response.SearchResp;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -39,7 +39,8 @@ import java.util.Map;
 @Slf4j
 @Service
 @Primary
-@ConditionalOnExpression("'${ai.vector-store.type:milvus}' == 'milvus' and '${ai.vector-store.mode:langchain}' == 'qa'")
+@ConditionalOnProperty(prefix = "ai.vector-store", name = "type", havingValue = "milvus", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "ai.vector-store", name = "mode", havingValue = "qa")
 public class MilvusQaVectorStoreService implements VectorStoreService {
 
     private static final String EMBEDDING_FIELD = "embedding";
@@ -62,7 +63,7 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
     @PostConstruct
     public void init() {
         if (milvusClient == null) {
-            log.warn("Milvus V2 client unavailable; QA vector search will use in-memory fallback");
+            log.warn("Milvus V2 client unavailable; QA vector search {}", fallbackMode());
             return;
         }
 
@@ -71,7 +72,7 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
             if (!milvusClient.hasCollection(HasCollectionReq.builder()
                     .collectionName(collectionName)
                     .build())) {
-                log.warn("QA collection [{}] does not exist; using in-memory fallback", collectionName);
+                log.warn("QA collection [{}] does not exist; {}", collectionName, fallbackMode());
                 return;
             }
             milvusClient.loadCollection(LoadCollectionReq.builder()
@@ -87,12 +88,12 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
 
     @Override
     public void add(String id, Embedding embedding) {
+        if (readOnly()) {
+            throw new IllegalStateException("Milvus QA collection is read-only");
+        }
         if (!available) {
             fallbackStore.add(id, embedding);
             return;
-        }
-        if (readOnly()) {
-            throw new IllegalStateException("Milvus QA collection is read-only");
         }
         if (!StringUtils.hasText(id) || embedding == null) {
             throw new IllegalArgumentException("QA vector id and embedding are required");
@@ -105,11 +106,11 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
         if (embeddings == null || segments == null || embeddings.size() != segments.size()) {
             throw new IllegalArgumentException("Embeddings and segments must have the same size");
         }
-        if (!available) {
-            return fallbackStore.addAll(embeddings, segments);
-        }
         if (readOnly()) {
             throw new IllegalStateException("Milvus QA collection is read-only");
+        }
+        if (!available) {
+            return fallbackStore.addAll(embeddings, segments);
         }
 
         List<JsonObject> rows = new ArrayList<>(segments.size());
@@ -138,7 +139,7 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
             return List.of();
         }
         if (!available) {
-            return fallbackStore.search(queryEmbedding, topK, minScore);
+            return readOnly() ? List.of() : fallbackStore.search(queryEmbedding, topK, minScore);
         }
 
         SearchReq request = SearchReq.builder()
@@ -179,7 +180,7 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
     @Override
     public List<RetrievalChunk> fetchAllChunks(int maxDocs) {
         if (!available) {
-            return fallbackStore.fetchAllChunks(maxDocs);
+            return readOnly() ? List.of() : fallbackStore.fetchAllChunks(maxDocs);
         }
         QueryResp response = milvusClient.query(QueryReq.builder()
                 .collectionName(collectionName())
@@ -211,12 +212,12 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
 
     @Override
     public void remove(String id) {
+        if (readOnly()) {
+            throw new IllegalStateException("Milvus QA collection is read-only");
+        }
         if (!available) {
             fallbackStore.remove(id);
             return;
-        }
-        if (readOnly()) {
-            throw new IllegalStateException("Milvus QA collection is read-only");
         }
         long qaPairId = parseLongId(id);
         milvusClient.delete(DeleteReq.builder()
@@ -227,6 +228,9 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
 
     @Override
     public void removeAll() {
+        if (readOnly()) {
+            throw new IllegalStateException("Milvus QA collection is read-only");
+        }
         if (!available) {
             fallbackStore.removeAll();
             return;
@@ -312,6 +316,10 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
 
     private String collectionName() {
         return aiProperties.getVectorStore().getMilvus().getCollectionName();
+    }
+
+    private String fallbackMode() {
+        return readOnly() ? "returning empty results in read-only mode" : "using in-memory fallback";
     }
 
     private boolean readOnly() {

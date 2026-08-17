@@ -1,5 +1,6 @@
 package com.aiagent.customer_support.application;
 
+import com.aiagent.infrastructure.config.AiProperties;
 import com.aiagent.ecommerce.domain.EcommerceQaPair;
 import com.aiagent.ecommerce.infrastructure.repository.EcommerceQaPairRepository;
 import com.aiagent.customer_support.config.CsProperties;
@@ -44,6 +45,7 @@ public class CsDataImportService {
     private final ObjectMapper objectMapper;
     private final EcommerceQaPairRepository qaPairRepository;
     private final CsProperties csProperties;
+    private final AiProperties aiProperties;
 
     private static final String COLLECTION_NAME = "ecommerce_qa";
     private static final String CHECKPOINT_SUFFIX = ".checkpoint";
@@ -64,12 +66,20 @@ public class CsDataImportService {
                                EmbeddingModel embeddingModel,
                                ObjectMapper objectMapper,
                                EcommerceQaPairRepository qaPairRepository,
-                               CsProperties csProperties) {
+                               CsProperties csProperties,
+                               AiProperties aiProperties) {
         this.milvusClient = milvusClient;
         this.embeddingModel = embeddingModel;
         this.objectMapper = objectMapper;
         this.qaPairRepository = qaPairRepository;
         this.csProperties = csProperties;
+        this.aiProperties = aiProperties;
+    }
+
+    private void ensureMilvusWritable() {
+        if (aiProperties.getVectorStore().getMilvus().isReadOnly()) {
+            throw new IllegalStateException("Milvus is read-only; data import is disabled");
+        }
     }
 
     /**
@@ -79,6 +89,7 @@ public class CsDataImportService {
      * @return 导入结果
      */
     public ImportResult importFromJsonl(String filePath) {
+        ensureMilvusWritable();
         Path jsonPath = Paths.get(filePath);
         if (!Files.exists(jsonPath)) {
             throw new IllegalArgumentException("文件不存在: " + filePath);
