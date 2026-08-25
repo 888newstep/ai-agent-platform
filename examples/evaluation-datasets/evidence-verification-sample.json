@@ -1,0 +1,56 @@
+[
+  {
+    "question": "退款多久到账？",
+    "keywords": ["退款", "到账"],
+    "evidence": "退款审核通过后原路返回，到账时间以支付渠道为准。",
+    "fixtureSemanticScore": 0.92,
+    "expectedSupported": true,
+    "category": "refund",
+    "note": "证据支持原则性到账说明，但没有编造具体时效"
+  },
+  {
+    "question": "退款多久到账？",
+    "keywords": ["退款", "到账"],
+    "evidence": "订单支持申请退款。",
+    "fixtureSemanticScore": 0.95,
+    "expectedSupported": false,
+    "category": "hard_negative",
+    "note": "仅共享退款关键词，不包含到账信息"
+  },
+  {
+    "question": "退款是否会在7天内到账？",
+    "keywords": ["退款", "到账"],
+    "evidence": "退款审核通过后会原路到账，具体时间以支付渠道为准。",
+    "fixtureSemanticScore": 0.94,
+    "expectedSupported": false,
+    "category": "numeric_fact",
+    "note": "证据没有支持问题中的7天时效"
+  },
+  {
+    "question": "该订单能否修改收货地址？",
+    "keywords": ["订单", "修改", "收货地址"],
+    "evidence": "订单发货前可以修改收货地址，发货后不可修改。",
+    "fixtureSemanticScore": 0.93,
+    "expectedSupported": true,
+    "category": "address",
+    "note": "证据完整覆盖条件和操作对象"
+  },
+  {
+    "question": "会员是否有专属折扣？",
+    "keywords": ["会员", "专属折扣"],
+    "evidence": "会员可享受专属折扣和积分加速。",
+    "fixtureSemanticScore": 0.91,
+    "expectedSupported": true,
+    "category": "membership",
+    "note": "语义和关键词均直接支持"
+  },
+  {
+    "question": "退款多久到账？",
+    "keywords": ["退款", "到账"],
+    "evidence": "退款、到账属于售后咨询标签。",
+    "fixtureSemanticScore": 0.42,
+    "expectedSupported": false,
+    "category": "hard_negative",
+    "note": "关键词完整但语义只描述标签，不支持业务回答"
+  }
+]

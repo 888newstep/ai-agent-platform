@@ -59,6 +59,18 @@ class Bm25SearchTest {
         });
     }
 
+    @Test
+    void shouldIgnoreLowInformationChineseTermsWhenEnabled() {
+        Bm25Search search = new Bm25Search(List.of(
+                chunk("1", "怎么可以退款 退款条件"),
+                chunk("2", "怎么可以发货 发货时间")
+        ), true);
+
+        List<RetrievalChunk> results = search.search("怎么可以退款", 1);
+
+        assertThat(results).singleElement().extracting(RetrievalChunk::getId).isEqualTo("1");
+    }
+
     private static RetrievalChunk chunk(String id, String content) {
         return RetrievalChunk.builder()
                 .id(id)

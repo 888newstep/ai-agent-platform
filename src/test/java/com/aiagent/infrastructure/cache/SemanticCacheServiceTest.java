@@ -132,6 +132,27 @@ class SemanticCacheServiceTest {
     }
 
     @Test
+    void shouldIgnoreEntriesFromAnotherNamespace() {
+        float[] vector = new float[4];
+        vector[0] = 1.0f;
+        when(embeddingCacheService.getCachedEmbedding(anyString())).thenReturn(vector);
+        when(redisTemplate.opsForSet()).thenReturn(setOps);
+        when(setOps.members(anyString())).thenReturn(Set.of("ai:semantic-cache:123"));
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.get("ai:semantic-cache:123")).thenReturn(java.util.Map.of(
+                "namespace", "react:rag",
+                "question", "question",
+                "answer", "react answer",
+                "embedding", vector
+        ));
+
+        SemanticCacheService cacheService = new SemanticCacheService(
+                embeddingModel, redisTemplate, embeddingCacheService, metricsService);
+
+        assertNull(cacheService.getIfCached("normal:rag", "question"));
+    }
+
+    @Test
     void shouldReturnNullWhenSimilarityBelowThreshold() {
         float[] queryVector = new float[4];
         queryVector[0] = 1.0f;

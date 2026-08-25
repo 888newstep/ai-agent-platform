@@ -25,19 +25,23 @@ public class QueryRewriter {
                                              AdaptiveRagDecision decision,
                                              AdaptiveRagVerificationResult previousVerification) {
         String normalized = AdaptiveRagTextSupport.normalize(question);
-        LinkedHashSet<String> keywords = new LinkedHashSet<>(AdaptiveRagTextSupport.extractKeywords(normalized, aiProperties.getRag().getAdaptive().getMinKeywordCount() + 6));
+        LinkedHashSet<String> verificationKeywords = new LinkedHashSet<>(
+                AdaptiveRagTextSupport.extractKeywords(
+                        normalized, aiProperties.getRag().getAdaptive().getMinKeywordCount() + 6));
 
         if (previousVerification != null && previousVerification.getMissingKeywords() != null) {
-            keywords.addAll(previousVerification.getMissingKeywords());
+            verificationKeywords.addAll(previousVerification.getMissingKeywords());
         }
+
+        LinkedHashSet<String> retrievalKeywords = new LinkedHashSet<>(verificationKeywords);
 
         if (decision != null && decision.getRouteType() == RagRouteType.MULTI_HOP) {
-            keywords.addAll(List.of("对比", "关系", "原因", "流程", "多跳"));
+            retrievalKeywords.addAll(List.of("对比", "关系", "原因", "流程", "多跳"));
         } else if (decision != null && decision.getRouteType() == RagRouteType.SINGLE_HOP) {
-            keywords.addAll(List.of("事实", "文档", "答案"));
+            retrievalKeywords.addAll(List.of("事实", "文档", "答案"));
         }
 
-        List<String> rewrittenKeywords = new ArrayList<>(keywords);
+        List<String> rewrittenKeywords = new ArrayList<>(retrievalKeywords);
         if (rewrittenKeywords.size() > 10) {
             rewrittenKeywords = rewrittenKeywords.subList(0, 10);
         }
@@ -56,7 +60,7 @@ public class QueryRewriter {
         return AdaptiveRagRewriteResult.builder()
                 .originalQuery(question)
                 .rewrittenQuery(rewrittenQuery)
-                .keywords(rewrittenKeywords)
+                .keywords(new ArrayList<>(verificationKeywords))
                 .changed(changed)
                 .reason(reason)
                 .build();

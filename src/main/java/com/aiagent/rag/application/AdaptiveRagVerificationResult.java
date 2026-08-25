@@ -14,6 +14,9 @@ import java.util.List;
 public class AdaptiveRagVerificationResult {
     private RagVerificationLevel level;
     private double score;
+    private double semanticScore;
+    private double keywordCoverage;
+    private boolean evidenceSufficient;
     private List<String> matchedKeywords;
     private List<String> missingKeywords;
     private int relevantChunkCount;

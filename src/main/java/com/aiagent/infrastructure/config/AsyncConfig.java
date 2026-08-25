@@ -8,6 +8,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @Slf4j
 @Configuration
@@ -37,7 +38,7 @@ public class AsyncConfig {
         executor.setThreadNamePrefix("ai-agent-async-");
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(60);
-        executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
         executor.setAllowCoreThreadTimeOut(true);
         executor.initialize();
 
@@ -56,11 +57,49 @@ public class AsyncConfig {
         executor.setThreadNamePrefix("ai-agent-io-");
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(30);
-        executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
         executor.initialize();
         
         log.info("IO密集型线程池初始化完成");
         
+        return executor;
+    }
+
+    @Bean(name = "knowledgeMaintenanceExecutor")
+    public Executor knowledgeMaintenanceExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(1);
+        executor.setQueueCapacity(0);
+        executor.setThreadNamePrefix("knowledge-maintenance-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(60);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.initialize();
+
+        log.info("知识库维护线程池初始化完成");
+        return executor;
+    }
+
+    @Bean(name = "documentIngestionExecutor")
+    public Executor documentIngestionExecutor() {
+        AiProperties.Document config = aiProperties.getDocument();
+        int coreSize = Math.max(1, config.getIngestionCoreSize());
+        int maxSize = Math.max(coreSize, config.getIngestionMaxSize());
+        int queueCapacity = Math.max(1, config.getIngestionQueueCapacity());
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(coreSize);
+        executor.setMaxPoolSize(maxSize);
+        executor.setQueueCapacity(queueCapacity);
+        executor.setThreadNamePrefix("document-ingestion-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(60);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.initialize();
+
+        log.info("文档摄取线程池初始化完成: coreSize={}, maxSize={}, queueCapacity={}",
+                coreSize, maxSize, queueCapacity);
         return executor;
     }
 }

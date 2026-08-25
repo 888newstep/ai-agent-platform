@@ -23,6 +23,9 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -40,6 +43,11 @@ public class MilvusInitConfig {
     @Bean
     public MilvusClientV2 milvusClient() {
         AiProperties.Milvus milvusConfig = aiProperties.getVectorStore().getMilvus();
+        if (!isTcpReachable(milvusConfig)) {
+            log.warn("Milvus TCP endpoint is unreachable: {}:{}; starting without Milvus",
+                    milvusConfig.getHost(), milvusConfig.getPort());
+            return null;
+        }
         ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "milvus-client-init");
             thread.setDaemon(true);
@@ -98,6 +106,17 @@ public class MilvusInitConfig {
             executor.shutdownNow();
         }
         return null;
+    }
+
+    private boolean isTcpReachable(AiProperties.Milvus config) {
+        try (Socket socket = new Socket()) {
+            socket.connect(
+                    new InetSocketAddress(config.getHost(), config.getPort()),
+                    config.getConnectionTimeoutMs());
+            return true;
+        } catch (IOException exception) {
+            return false;
+        }
     }
 
     @Slf4j

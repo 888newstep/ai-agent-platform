@@ -100,7 +100,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
   -MilvusReadOnly true
 ```
 
-校验脚本不会读取或上传数据内容，也不会查询 Milvus；它只能保证输入结构满足评测服务约定。`datasetKind=sample/smoke` 的报告只能用于链路诊断和回归观察，不能直接作为简历中的业务提升数据。
+结构校验脚本不会读取或上传数据内容，也不会查询 Milvus；它只能保证输入结构满足评测服务约定。使用 `scripts/validate-rag-milvus-ids.ps1` 对 QA 数据集中的 `relevantDocIds` 执行独立只读存在性检查。`datasetKind=sample/smoke` 的报告只能用于链路诊断和回归观察，不能直接作为简历中的业务提升数据。
 
 ## 如何记录结果
 

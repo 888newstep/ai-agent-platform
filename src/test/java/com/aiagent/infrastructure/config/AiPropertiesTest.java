@@ -47,12 +47,22 @@ class AiPropertiesTest {
     @Test void shouldHaveRagDefaults() {
         AiProperties p = new AiProperties();
         assertEquals(5, p.getRag().getTopK());
-        assertTrue(p.getRag().isEnableHybridSearch());
+        assertFalse(p.getRag().isEnableHybridSearch());
+        assertEquals(0.95, p.getRag().getHybridVectorWeight());
+        assertEquals(0.05, p.getRag().getHybridBm25Weight());
+        assertFalse(p.getRag().isHybridCorpusBm25Enabled());
+        assertTrue(p.getRag().isBm25StopwordEnabled());
+        assertEquals("embedding", p.getRag().getAdaptive().getRerankProvider());
+        assertEquals("BAAI/bge-reranker-v2-m3", p.getRag().getAdaptive().getCrossEncoder().getModelName());
+        assertEquals(0.55, p.getRag().getAdaptive().getCrossEncoder().getMinScore());
+        assertFalse(p.getRag().getAdaptive().getCrossEncoder().isFallbackToEmbedding());
     }
     @Test void shouldHaveToolDefaults() {
         AiProperties p = new AiProperties();
         assertEquals(100, p.getTool().getDatabaseQuery().getMaxRows());
+        assertEquals(5, p.getTool().getDatabaseQuery().getQueryTimeoutSeconds());
         assertTrue(p.getTool().getApiCall().getAllowedMethods().contains("GET"));
+        assertEquals(8000, p.getTool().getApiCall().getMaxRequestChars());
     }
     @Test void shouldSetAndGet() {
         AiProperties p = new AiProperties();

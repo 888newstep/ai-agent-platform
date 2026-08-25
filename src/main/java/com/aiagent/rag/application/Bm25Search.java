@@ -3,6 +3,7 @@ package com.aiagent.rag.application;
 import com.aiagent.knowledge.domain.RetrievalChunk;
 
 import java.util.ArrayList;
+import java.util.Set;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -24,6 +25,13 @@ public class Bm25Search {
     /** BM25 文档长度归一化参数。 */
     private static final double B = 0.75;
 
+    private static final Set<String> DEFAULT_STOPWORDS = Set.of(
+            "怎么", "如何", "可以", "能否", "能不能", "是否", "有没有", "有没",
+            "什么", "哪个", "哪里", "多少", "时候", "现在", "一下", "一个",
+            "这个", "那个", "请问", "亲", "呢", "吗", "啊", "吧", "的",
+            "了", "我", "你", "您", "我们", "你们", "它", "还", "都",
+            "是", "有", "能", "要", "会", "在", "和", "或", "及", "与");
+
     /** 待检索的文档片段。 */
     private final List<RetrievalChunk> documents;
 
@@ -36,6 +44,8 @@ public class Bm25Search {
     /** 平均文档长度。 */
     private final double avgDocLength;
 
+    private final boolean stopwordEnabled;
+
     /** 每个文档的词频表。 */
     private final List<Map<String, Integer>> termFrequencies;
 
@@ -45,7 +55,12 @@ public class Bm25Search {
      * @param documents 待建立索引的文档片段
      */
     public Bm25Search(List<RetrievalChunk> documents) {
+        this(documents, true);
+    }
+
+    public Bm25Search(List<RetrievalChunk> documents, boolean stopwordEnabled) {
         this.documents = documents;
+        this.stopwordEnabled = stopwordEnabled;
         this.docCount = documents.size();
         this.df = new HashMap<>();
         this.termFrequencies = new ArrayList<>();
@@ -53,7 +68,7 @@ public class Bm25Search {
         double totalLength = 0;
         for (int i = 0; i < documents.size(); i++) {
             String content = documents.get(i).getContent();
-            List<String> terms = tokenize(content);
+            List<String> terms = tokenize(content, this.stopwordEnabled);
             totalLength += terms.size();
 
             // 统计当前文档的词频。
@@ -85,7 +100,7 @@ public class Bm25Search {
             return List.of();
         }
 
-        List<String> queryTerms = tokenize(query);
+        List<String> queryTerms = tokenize(query, this.stopwordEnabled);
         if (queryTerms.isEmpty()) {
             return List.of();
         }
@@ -134,7 +149,7 @@ public class Bm25Search {
     /**
      * 对中英文混合文本进行轻量分词，避免引入额外分词依赖。
      */
-    private List<String> tokenize(String text) {
+    private List<String> tokenize(String text, boolean stopwordEnabled) {
         if (text == null || text.isEmpty()) {
             return List.of();
         }
@@ -173,7 +188,12 @@ public class Bm25Search {
             }
         }
 
-        return tokens;
+        if (!stopwordEnabled) {
+            return tokens;
+        }
+        return tokens.stream()
+                .filter(token -> !DEFAULT_STOPWORDS.contains(token))
+                .toList();
     }
 
     /**

@@ -29,6 +29,18 @@ public class Document {
     @Column(name = "file_size")
     private Long fileSize;
 
+    @Column(name = "content_hash", length = 64, unique = true)
+    private String contentHash;
+
+    @Column(name = "content_type", length = 255)
+    private String contentType;
+
+    @Column(name = "staging_path", length = 500)
+    private String stagingPath;
+
+    @Column(name = "parser_version", length = 50)
+    private String parserVersion;
+
     @Column(name = "vector_store_id", length = 100)
     private String vectorStoreId;
 

@@ -45,6 +45,9 @@ public class EcommerceQaPair {
     @Column(name = "source_file", length = 255)
     private String sourceFile;
 
+    @Column(name = "record_hash", length = 64, unique = true)
+    private String recordHash;
+
     @Column(name = "vector_id", length = 100)
     private String vectorId;
 

@@ -213,6 +213,27 @@ curl -X POST -F "file=@文档.pdf" http://localhost:8081/api/v1/agent/document/u
 
 [`POST /api/v1/agent/document/search`](src/main/java/com/aiagent/agent/api/AiAgentController.java:148) 按向量检索上传的文档切片，支持自定义 topK 和阈值参数。
 
+### 客服问答与反馈
+
+客服入口强制使用知识库证据。只有验证等级达到 `CS_MINIMUM_VERIFICATION_LEVEL`（默认 `HIGH`），且所有 `qa_pair_id` 在 MySQL 中仍为启用状态时才调用模型；证据不足时返回固定转人工结果，Milvus 或 Embedding 故障返回 `503`。
+
+客服 QA collection 使用 `AI_VECTOR_STORE_MODE=qa`，并包含 `qa_pair_id/question/answer/qa_text/category` 字段。文件知识库使用 `AI_VECTOR_STORE_MODE=langchain`；升级后需重新摄取旧文档，使向量元数据包含 `documentId`，否则客服入口会把无法追溯到 MySQL 的旧证据视为不可靠并转人工。
+
+```bash
+curl -X POST "http://localhost:8081/api/v1/customer-support/chat" \
+  -H "Authorization: Bearer ${JWT_TOKEN}" \
+  -H "Idempotency-Key: cs-chat-001" \
+  -H "Content-Type: application/json" \
+  -d '{"sessionId":"{sessionId}","question":"订单如何申请退款？"}'
+
+curl -X POST "http://localhost:8081/api/v1/customer-support/sessions/{sessionId}/messages/{messageId}/feedback" \
+  -H "Authorization: Bearer ${JWT_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"rating":5,"feedbackText":"回答准确"}'
+```
+
+聊天响应中的 `messageId` 用于提交反馈。相同反馈重复提交会返回原记录，不同内容重复提交返回 `409`。数据库迁移 `V8__add_customer_support_feedback_constraints.sql` 会为 `(session_id, message_id)` 建立唯一约束，并在消息删除时级联清理反馈。
+
 ### 评测报告历史
 
 评测接口需要管理员凭证。导出报告后，可以列出最近报告并比较两次评测的指标变化：
@@ -236,6 +257,30 @@ curl -X POST \
   -H "X-Admin-Api-Key: ${ADMIN_API_KEY}" \
   "http://localhost:8081/api/v1/agent/evaluate/export?datasetPath=examples/evaluation-datasets/rag-sample.json&topKs=1,3,5"
 ```
+
+### 证据重排与支持性评测
+
+默认使用现有 Embedding 模型完成二阶段语义重排。生产环境可切换到标准 `/v1/rerank` cross-encoder 服务：
+
+```powershell
+$env:AI_RAG_RERANK_PROVIDER = "cross-encoder"
+$env:AI_RAG_RERANK_API_KEY = "your-reranker-api-key"
+$env:AI_RAG_RERANK_MODEL = "BAAI/bge-reranker-v2-m3"
+$env:AI_RAG_RERANK_MIN_SCORE = "0.55"
+$env:AI_RAG_RERANK_FALLBACK_TO_EMBEDDING = "false"
+```
+
+启用 cross-encoder 后，超时、非 2xx、缺失分数、重复索引和非法分数默认都会关闭证据放行。只有显式设置 `AI_RAG_RERANK_FALLBACK_TO_EMBEDDING=true` 才允许退回 embedding 重排。
+
+管理员可运行人工标注证据集评测。`liveRerank=false` 用冻结分数做稳定回归；`liveRerank=true` 调用当前真实 reranker，用于阈值校准：
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Headers @{ "X-Admin-Api-Key" = $env:ADMIN_API_KEY } `
+  -Uri "http://localhost:8081/api/v1/agent/evaluate/evidence?datasetPath=examples/evaluation-datasets/evidence-verification-sample.json&liveRerank=false"
+```
+
+报告包含混淆矩阵、Accuracy、Precision、Recall、F1 和 `falsePositiveRate`。生产阈值调整应优先压低误放率，并使用至少 100 条独立人工标注的客服困难负样本；详细流程见 `docs/EVIDENCE_VERIFICATION.md`。
 ---
 
 正式评测不要直接复用公开样例或由向量 Top-K 自动生成的 smoke 数据。先在本地私有目录完成结构校验，再将数据集类型标记为 `independent-human-labeled`：

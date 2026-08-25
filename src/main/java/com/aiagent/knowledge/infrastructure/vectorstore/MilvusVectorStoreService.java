@@ -44,6 +44,10 @@ public class MilvusVectorStoreService implements VectorStoreService {
     @PostConstruct
     public void init() {
         AiProperties.Milvus config = aiProperties.getVectorStore().getMilvus();
+        if (milvusClient == null) {
+            log.warn("Milvus client is unavailable; {}", fallbackMode());
+            return;
+        }
         if (config.isReadOnly() && !collectionExists(config)) {
             log.warn("Milvus collection [{}] is unavailable in read-only mode; disabling vector search",
                     config.getCollectionName());
@@ -83,6 +87,7 @@ public class MilvusVectorStoreService implements VectorStoreService {
             embeddingStore.add(id, embedding);
             return;
         }
+        requireFallbackEnabled();
         fallbackStore.add(id, embedding);
     }
 
@@ -92,6 +97,7 @@ public class MilvusVectorStoreService implements VectorStoreService {
         if (embeddingStore != null) {
             return embeddingStore.addAll(embeddings, segments);
         }
+        requireFallbackEnabled();
         return fallbackStore.addAll(embeddings, segments);
     }
 
@@ -105,13 +111,15 @@ public class MilvusVectorStoreService implements VectorStoreService {
                     .build();
             return embeddingStore.search(request).matches();
         }
-        return readOnly() ? List.of() : fallbackStore.search(queryEmbedding, topK, minScore);
+        return fallbackEnabled() && !readOnly()
+                ? fallbackStore.search(queryEmbedding, topK, minScore)
+                : List.of();
     }
 
     @Override
     public List<RetrievalChunk> fetchAllChunks(int maxDocs) {
         if (embeddingStore == null) {
-            return readOnly() ? List.of() : fallbackStore.fetchAllChunks(maxDocs);
+            return fallbackEnabled() && !readOnly() ? fallbackStore.fetchAllChunks(maxDocs) : List.of();
         }
         log.warn("Full-corpus fetch is not supported for the LangChain4j Milvus store; hybrid falls back to candidate-pool BM25");
         return List.of();
@@ -124,6 +132,7 @@ public class MilvusVectorStoreService implements VectorStoreService {
             embeddingStore.remove(id);
             return;
         }
+        requireFallbackEnabled();
         fallbackStore.remove(id);
     }
 
@@ -134,6 +143,7 @@ public class MilvusVectorStoreService implements VectorStoreService {
             embeddingStore.removeAll();
             return;
         }
+        requireFallbackEnabled();
         fallbackStore.removeAll();
     }
 
@@ -148,16 +158,38 @@ public class MilvusVectorStoreService implements VectorStoreService {
     }
 
     private String fallbackMode() {
-        return readOnly() ? "read-only empty result" : "using in-memory fallback";
+        return fallbackEnabled() && !readOnly()
+                ? "using explicitly enabled in-memory fallback"
+                : "vector operations disabled";
     }
 
     private boolean readOnly() {
         return aiProperties.getVectorStore().getMilvus().isReadOnly();
     }
 
+    private boolean fallbackEnabled() {
+        return aiProperties.getVectorStore().getMilvus().isFallbackEnabled();
+    }
+
+    @Override
+    public boolean isAvailable() {
+        return embeddingStore != null;
+    }
+
+    @Override
+    public boolean isWriteAvailable() {
+        return !readOnly() && (embeddingStore != null || fallbackEnabled());
+    }
+
     private void ensureWritable() {
         if (readOnly()) {
             throw new IllegalStateException("Milvus vector store is read-only");
+        }
+    }
+
+    private void requireFallbackEnabled() {
+        if (!fallbackEnabled()) {
+            throw new IllegalStateException("Milvus vector store is unavailable and in-memory fallback is disabled");
         }
     }
 

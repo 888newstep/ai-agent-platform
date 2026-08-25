@@ -92,6 +92,7 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
             throw new IllegalStateException("Milvus QA collection is read-only");
         }
         if (!available) {
+            requireFallbackEnabled();
             fallbackStore.add(id, embedding);
             return;
         }
@@ -110,6 +111,7 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
             throw new IllegalStateException("Milvus QA collection is read-only");
         }
         if (!available) {
+            requireFallbackEnabled();
             return fallbackStore.addAll(embeddings, segments);
         }
 
@@ -139,7 +141,9 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
             return List.of();
         }
         if (!available) {
-            return readOnly() ? List.of() : fallbackStore.search(queryEmbedding, topK, minScore);
+            return fallbackEnabled() && !readOnly()
+                    ? fallbackStore.search(queryEmbedding, topK, minScore)
+                    : List.of();
         }
 
         SearchReq request = SearchReq.builder()
@@ -180,10 +184,11 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
     @Override
     public List<RetrievalChunk> fetchAllChunks(int maxDocs) {
         if (!available) {
-            return readOnly() ? List.of() : fallbackStore.fetchAllChunks(maxDocs);
+            return fallbackEnabled() && !readOnly() ? fallbackStore.fetchAllChunks(maxDocs) : List.of();
         }
         QueryResp response = milvusClient.query(QueryReq.builder()
                 .collectionName(collectionName())
+                .filter("qa_pair_id >= 0")
                 .outputFields(OUTPUT_FIELDS)
                 .offset(0)
                 .limit(maxDocs > 0 ? maxDocs : CORPUS_FETCH_LIMIT)
@@ -216,6 +221,7 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
             throw new IllegalStateException("Milvus QA collection is read-only");
         }
         if (!available) {
+            requireFallbackEnabled();
             fallbackStore.remove(id);
             return;
         }
@@ -232,6 +238,7 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
             throw new IllegalStateException("Milvus QA collection is read-only");
         }
         if (!available) {
+            requireFallbackEnabled();
             fallbackStore.removeAll();
             return;
         }
@@ -319,7 +326,29 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
     }
 
     private String fallbackMode() {
-        return readOnly() ? "returning empty results in read-only mode" : "using in-memory fallback";
+        return fallbackEnabled() && !readOnly()
+                ? "using explicitly enabled in-memory fallback"
+                : "vector operations disabled";
+    }
+
+    private boolean fallbackEnabled() {
+        return aiProperties.getVectorStore().getMilvus().isFallbackEnabled();
+    }
+
+    @Override
+    public boolean isAvailable() {
+        return available;
+    }
+
+    @Override
+    public boolean isWriteAvailable() {
+        return !readOnly() && (available || fallbackEnabled());
+    }
+
+    private void requireFallbackEnabled() {
+        if (!fallbackEnabled()) {
+            throw new IllegalStateException("Milvus QA collection is unavailable and in-memory fallback is disabled");
+        }
     }
 
     private boolean readOnly() {

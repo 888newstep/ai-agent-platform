@@ -99,3 +99,9 @@ evaluation-reports/
 !examples/evaluation-datasets/*.json
 !examples/evaluation-datasets/*.csv
 .serena/
+
+# Local browser session and helper artifacts
+cookies/
+__pycache__/
+*.pyc
+export_cookies.py

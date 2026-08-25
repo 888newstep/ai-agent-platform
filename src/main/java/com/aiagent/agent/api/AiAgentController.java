@@ -4,25 +4,32 @@ import com.aiagent.agent.application.AiAgentService;
 import com.aiagent.agent.application.ChatExecutionResult;
 import com.aiagent.agent.application.MultiAgentExecutionResult;
 import com.aiagent.agent.application.MultiAgentService;
+import com.aiagent.chat.application.ChatMessageView;
 import com.aiagent.rag.application.AdaptiveRagContext;
 import com.aiagent.rag.application.AdaptiveRagRoundTrace;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.aiagent.infrastructure.cache.SemanticCacheService;
+import com.aiagent.infrastructure.idempotency.IdempotencyService;
+import com.aiagent.infrastructure.idempotency.IdempotencyService.ClaimStatus;
+import com.aiagent.infrastructure.idempotency.PersistentIdempotencyContext;
 import com.aiagent.knowledge.application.DocumentService;
 import com.aiagent.rag.application.EvaluationReportHistoryService;
 import com.aiagent.rag.application.RagEvaluationService;
+import com.aiagent.shared.exception.AuthenticationRequiredException;
 import java.time.Instant;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,10 +40,10 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 @RestController
 @RequestMapping("/api/v1/agent")
-@RequiredArgsConstructor
 public class AiAgentController {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -45,23 +52,79 @@ public class AiAgentController {
     private final AiAgentService aiAgentService;
     private final DocumentService documentService;
     private final SemanticCacheService semanticCacheService;
+    private final IdempotencyService idempotencyService;
     private final MultiAgentService multiAgentService;
     private final RagEvaluationService ragEvaluationService;
     private final EvaluationReportHistoryService evaluationReportHistoryService;
 
+    @Autowired
+    public AiAgentController(AiAgentService aiAgentService,
+                             DocumentService documentService,
+                             SemanticCacheService semanticCacheService,
+                             IdempotencyService idempotencyService,
+                             MultiAgentService multiAgentService,
+                             RagEvaluationService ragEvaluationService,
+                             EvaluationReportHistoryService evaluationReportHistoryService) {
+        this.aiAgentService = aiAgentService;
+        this.documentService = documentService;
+        this.semanticCacheService = semanticCacheService;
+        this.idempotencyService = idempotencyService;
+        this.multiAgentService = multiAgentService;
+        this.ragEvaluationService = ragEvaluationService;
+        this.evaluationReportHistoryService = evaluationReportHistoryService;
+    }
+
+    public AiAgentController(AiAgentService aiAgentService,
+                             DocumentService documentService,
+                             SemanticCacheService semanticCacheService,
+                             MultiAgentService multiAgentService,
+                             RagEvaluationService ragEvaluationService,
+                             EvaluationReportHistoryService evaluationReportHistoryService) {
+        this(aiAgentService, documentService, semanticCacheService, null, multiAgentService,
+                ragEvaluationService, evaluationReportHistoryService);
+    }
+
     @PostMapping("/session")
-    public ResponseEntity<Map<String, String>> createSession() {
-        String sessionId = aiAgentService.createSession();
-        return ResponseEntity.ok(stringResponse(
-                "sessionId", sessionId,
-                "message", "Session created"
-        ));
+    public ResponseEntity<Map<String, String>> createSession(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            Authentication authentication) {
+        String username = requireUsername(authentication);
+        String requestHash = requestFingerprint(username, "session-create");
+        PersistentIdempotencyContext persistentContext = persistentContext(
+                "agent-session-create", idempotencyKey, requestHash);
+        Map<String, String> response = executeIdempotent(
+                userScopedOperation("agent-session-create", username),
+                idempotencyKey,
+                requestHash,
+                () -> {
+                    String sessionId = aiAgentService.createSession(username, persistentContext);
+                    return stringResponse(
+                            "sessionId", sessionId,
+                            "message", "Session created"
+                    );
+                });
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/session/{sessionId}")
-    public ResponseEntity<Void> clearSession(@PathVariable String sessionId) {
-        aiAgentService.clearSession(sessionId);
+    public ResponseEntity<Void> clearSession(@PathVariable String sessionId,
+                                             Authentication authentication) {
+        aiAgentService.clearSession(requireUsername(authentication), sessionId);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/session/{sessionId}/messages")
+    public ResponseEntity<Map<String, Object>> getSessionMessages(
+            @PathVariable String sessionId,
+            @RequestParam(defaultValue = "100") int limit,
+            Authentication authentication) {
+        List<ChatMessageView> messages = aiAgentService.getSessionMessages(
+                requireUsername(authentication), sessionId, limit);
+        return ResponseEntity.ok(objectResponse(
+                "sessionId", sessionId,
+                "count", messages.size(),
+                "messages", messages
+        ));
     }
 
     @PostMapping("/chat")
@@ -69,18 +132,34 @@ public class AiAgentController {
             @RequestParam String sessionId,
             @RequestParam String question,
             @RequestParam(defaultValue = "true") boolean useRag,
-            @RequestParam(defaultValue = "false") boolean explain) {
-        if (!explain) {
-            return ResponseEntity.ok(buildChatResponse(
-                    sessionId,
-                    question,
-                    aiAgentService.chat(sessionId, question, useRag),
-                    "normal"
-            ));
-        }
+            @RequestParam(defaultValue = "false") boolean explain,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            Authentication authentication) {
+        String username = requireUsername(authentication);
+        String requestHash = requestFingerprint(username, "normal", sessionId, question,
+                Boolean.toString(useRag), Boolean.toString(explain));
+        PersistentIdempotencyContext persistentContext = persistentContext(
+                "agent-chat", idempotencyKey, requestHash);
+        Map<String, Object> response = executeIdempotent(
+                userScopedOperation("agent-chat", username),
+                idempotencyKey,
+                requestHash,
+                () -> {
+                    if (!explain) {
+                        return buildChatResponse(
+                                sessionId,
+                                question,
+                                aiAgentService.chat(
+                                        username, sessionId, question, useRag, persistentContext),
+                                "normal"
+                        );
+                    }
 
-        ChatExecutionResult result = aiAgentService.chatDetailed(sessionId, question, useRag);
-        return ResponseEntity.ok(buildChatResponse(sessionId, question, result, "normal"));
+                    ChatExecutionResult result = aiAgentService.chatDetailed(
+                            username, sessionId, question, useRag, persistentContext);
+                    return buildChatResponse(sessionId, question, result, "normal");
+                });
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/react/chat")
@@ -88,12 +167,27 @@ public class AiAgentController {
             @RequestParam String sessionId,
             @RequestParam String question,
             @RequestParam(defaultValue = "true") boolean useRag,
-            @RequestParam(defaultValue = "false") boolean explain) {
-        ChatExecutionResult result = aiAgentService.reactChatDetailed(sessionId, question, useRag);
-        if (!explain) {
-            return ResponseEntity.ok(buildChatResponse(sessionId, question, result.getAnswer(), "react"));
-        }
-        return ResponseEntity.ok(buildChatResponse(sessionId, question, result, "react"));
+            @RequestParam(defaultValue = "false") boolean explain,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            Authentication authentication) {
+        String username = requireUsername(authentication);
+        String requestHash = requestFingerprint(username, "react", sessionId, question,
+                Boolean.toString(useRag), Boolean.toString(explain));
+        PersistentIdempotencyContext persistentContext = persistentContext(
+                "agent-react-chat", idempotencyKey, requestHash);
+        Map<String, Object> response = executeIdempotent(
+                userScopedOperation("agent-react-chat", username),
+                idempotencyKey,
+                requestHash,
+                () -> {
+                    ChatExecutionResult result = aiAgentService.reactChatDetailed(
+                            username, sessionId, question, useRag, persistentContext);
+                    if (!explain) {
+                        return buildChatResponse(sessionId, question, result.getAnswer(), "react");
+                    }
+                    return buildChatResponse(sessionId, question, result, "react");
+                });
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/multi-agent/execute")
@@ -117,8 +211,41 @@ public class AiAgentController {
     public Flux<String> streamChat(
             @RequestParam String sessionId,
             @RequestParam String question,
-            @RequestParam(defaultValue = "true") boolean useRag) {
-        return aiAgentService.streamChat(sessionId, question, useRag);
+            @RequestParam(defaultValue = "true") boolean useRag,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            Authentication authentication) {
+        String username = requireUsername(authentication);
+        if (!StringUtils.hasText(idempotencyKey)) {
+            return aiAgentService.streamChat(username, sessionId, question, useRag);
+        }
+        if (idempotencyService == null) {
+            throw new IllegalStateException("Idempotency service is unavailable");
+        }
+
+        String operation = userScopedOperation("agent-stream-chat", username);
+        String requestHash = idempotencyService.fingerprint(
+                username, "stream", sessionId, question, Boolean.toString(useRag));
+        PersistentIdempotencyContext persistentContext = persistentContext(
+                "agent-stream-chat", idempotencyKey, requestHash);
+        var claim = idempotencyService.claim(operation, idempotencyKey, requestHash);
+        if (claim.status() == ClaimStatus.COMPLETED) {
+            return Flux.just(idempotencyService.readCompleted(claim.payload(), String.class));
+        }
+        if (claim.status() == ClaimStatus.IN_PROGRESS) {
+            return Flux.just(idempotencyService.awaitCompleted(
+                    operation, idempotencyKey, requestHash, String.class));
+        }
+
+        StringBuilder answer = new StringBuilder();
+        return aiAgentService.streamChat(
+                        username, sessionId, question, useRag, persistentContext)
+                .doOnNext(answer::append)
+                .doOnComplete(() -> idempotencyService.complete(
+                        operation, idempotencyKey, requestHash, claim.ownerToken(), answer.toString()))
+                .doOnError(error -> idempotencyService.release(
+                        operation, idempotencyKey, requestHash, claim.ownerToken()))
+                .doOnCancel(() -> idempotencyService.release(
+                        operation, idempotencyKey, requestHash, claim.ownerToken()));
     }
 
 
@@ -130,8 +257,12 @@ public class AiAgentController {
     }
 
     @PostMapping("/document/upload")
-    public ResponseEntity<Map<String, Object>> uploadDocument(@RequestParam("file") MultipartFile file) {
-        var document = documentService.uploadDocument(file);
+    public ResponseEntity<Map<String, Object>> uploadDocument(
+            @RequestParam("file") MultipartFile file,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        var document = StringUtils.hasText(idempotencyKey)
+                ? documentService.uploadDocument(file, idempotencyKey)
+                : documentService.uploadDocument(file);
         return ResponseEntity.accepted().body(objectResponse(
                 "message", "Document accepted and queued for async ingestion",
                 "documentId", document.getId(),
@@ -140,9 +271,37 @@ public class AiAgentController {
         ));
     }
 
+    public ResponseEntity<Map<String, Object>> uploadDocument(MultipartFile file) {
+        return uploadDocument(file, null);
+    }
+
     @GetMapping("/document/{documentId}/status")
     public ResponseEntity<Map<String, Object>> getDocumentStatus(@PathVariable Long documentId) {
         return ResponseEntity.ok(documentService.getDocumentStatus(documentId));
+    }
+
+    @GetMapping("/document/readiness")
+    public ResponseEntity<Map<String, Object>> getKnowledgeReadiness() {
+        return ResponseEntity.ok(documentService.getKnowledgeReadiness());
+    }
+
+    @PostMapping("/document/{documentId}/retry")
+    public ResponseEntity<Map<String, Object>> retryDocument(@PathVariable Long documentId) {
+        var document = documentService.retryDocument(documentId);
+        return ResponseEntity.accepted().body(objectResponse(
+                "message", "Document retry accepted",
+                "documentId", document.getId(),
+                "status", document.getProcessingStatus()
+        ));
+    }
+
+    @DeleteMapping("/document/{documentId}")
+    public ResponseEntity<Map<String, Object>> deleteDocument(@PathVariable Long documentId) {
+        documentService.deleteDocument(documentId);
+        return ResponseEntity.ok(objectResponse(
+                "message", "Document deleted",
+                "documentId", documentId
+        ));
     }
 
     @PostMapping("/document/search")
@@ -318,6 +477,50 @@ public class AiAgentController {
         );
     }
 
+    private <V> Map<String, V> executeIdempotent(String operation,
+                                                  String idempotencyKey,
+                                                  String requestHash,
+                                                  Supplier<Map<String, V>> action) {
+        if (!StringUtils.hasText(idempotencyKey)) {
+            return action.get();
+        }
+        if (idempotencyService == null) {
+            throw new IllegalStateException("Idempotency service is unavailable");
+        }
+        return idempotencyService.executeMap(operation, idempotencyKey, requestHash, action);
+    }
+
+    private String requestFingerprint(String... values) {
+        return idempotencyService == null ? "" : idempotencyService.fingerprint(values);
+    }
+
+    private String userScopedOperation(String operation, String username) {
+        return operation + ":" + username;
+    }
+
+    private PersistentIdempotencyContext persistentContext(String operation,
+                                                           String idempotencyKey,
+                                                           String requestHash) {
+        if (!StringUtils.hasText(idempotencyKey)) {
+            return PersistentIdempotencyContext.disabled();
+        }
+        if (idempotencyService == null) {
+            throw new IllegalStateException("Idempotency service is unavailable");
+        }
+        return new PersistentIdempotencyContext(
+                operation,
+                idempotencyService.fingerprint(idempotencyKey),
+                requestHash);
+    }
+
+    private String requireUsername(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || !StringUtils.hasText(authentication.getName())) {
+            throw new AuthenticationRequiredException("Authentication required");
+        }
+        return authentication.getName();
+    }
+
     private Map<String, Object> buildChatResponse(String sessionId,
                                                   String question,
                                                   ChatExecutionResult result,
@@ -333,42 +536,24 @@ public class AiAgentController {
         payload.put("cacheHit", result.isCacheHit());
 
         AdaptiveRagContext context = result.getAdaptiveRagContext();
-        boolean adaptiveEvaluated = context != null && context.isUsedAdaptive();
-        payload.put("adaptiveEvaluated", adaptiveEvaluated);
-
-        if (context == null) {
-            payload.put("routeType", null);
-            payload.put("rewrittenQuery", null);
-            payload.put("decisionReason", null);
-            payload.put("decisionConfidence", null);
-            payload.put("verificationLevel", null);
-            payload.put("verificationReason", null);
-            payload.put("retrievalRounds", 0);
-            payload.put("chunkCount", 0);
-            payload.put("rewritten", false);
-            payload.put("verified", false);
-            payload.put("usedAdaptive", false);
-            payload.put("endReason", null);
-            payload.put("roundTraces", List.of());
-            payload.put("evidence", List.of());
-            payload.put("reactTrace", result.getReactTrace());
-            return payload;
-        }
-
-        payload.put("routeType", context.getRouteType() == null ? null : context.getRouteType().name());
-        payload.put("rewrittenQuery", context.getRewrittenQuery());
-        payload.put("decisionReason", context.getDecisionReason());
-        payload.put("decisionConfidence", context.getDecisionConfidence());
-        payload.put("verificationLevel", context.getVerificationLevel() == null ? null : context.getVerificationLevel().name());
-        payload.put("verificationReason", context.getVerificationReason());
-        payload.put("retrievalRounds", context.getRetrievalRounds());
-        payload.put("chunkCount", context.getChunkCount());
-        payload.put("rewritten", context.isRewritten());
-        payload.put("verified", context.isVerified());
-        payload.put("usedAdaptive", context.isUsedAdaptive());
-        payload.put("endReason", context.getEndReason());
-        payload.put("roundTraces", context.getRoundTraces() == null ? List.of() : context.getRoundTraces());
-        payload.put("evidence", buildEvidence(context));
+        payload.put("adaptiveEvaluated", context != null && context.isUsedAdaptive());
+        payload.put("routeType", context == null || context.getRouteType() == null
+                ? null : context.getRouteType().name());
+        payload.put("rewrittenQuery", context == null ? null : context.getRewrittenQuery());
+        payload.put("decisionReason", context == null ? null : context.getDecisionReason());
+        payload.put("decisionConfidence", context == null ? null : context.getDecisionConfidence());
+        payload.put("verificationLevel", context == null || context.getVerificationLevel() == null
+                ? null : context.getVerificationLevel().name());
+        payload.put("verificationReason", context == null ? null : context.getVerificationReason());
+        payload.put("retrievalRounds", context == null ? 0 : context.getRetrievalRounds());
+        payload.put("chunkCount", context == null ? 0 : context.getChunkCount());
+        payload.put("rewritten", context != null && context.isRewritten());
+        payload.put("verified", context != null && context.isVerified());
+        payload.put("usedAdaptive", context != null && context.isUsedAdaptive());
+        payload.put("endReason", context == null ? null : context.getEndReason());
+        payload.put("roundTraces", context == null || context.getRoundTraces() == null
+                ? List.of() : context.getRoundTraces());
+        payload.put("evidence", context == null ? List.of() : buildEvidence(context));
         payload.put("reactTrace", result.getReactTrace());
         return payload;
     }

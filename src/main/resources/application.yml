@@ -21,11 +21,11 @@ spring:
     password: ${MYSQL_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: 50
-      minimum-idle: 10
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+      maximum-pool-size: ${MYSQL_POOL_MAX_SIZE:50}
+      minimum-idle: ${MYSQL_POOL_MIN_IDLE:10}
+      connection-timeout: ${MYSQL_CONNECTION_TIMEOUT_MS:30000}
+      idle-timeout: ${MYSQL_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${MYSQL_MAX_LIFETIME_MS:1800000}
 
   jpa:
     hibernate:
@@ -51,11 +51,11 @@ spring:
       database: ${REDIS_DATABASE:1}
       lettuce:
         pool:
-          max-active: 100
-          max-idle: 50
-          min-idle: 10
-          max-wait: -1ms
-      timeout: 3000ms
+          max-active: ${REDIS_POOL_MAX_ACTIVE:100}
+          max-idle: ${REDIS_POOL_MAX_IDLE:50}
+          min-idle: ${REDIS_POOL_MIN_IDLE:10}
+          max-wait: ${REDIS_POOL_MAX_WAIT:2000ms}
+      timeout: ${REDIS_TIMEOUT:3000ms}
 
   servlet:
     multipart:
@@ -122,22 +122,53 @@ ai:
       dimension: 1024
       connection-timeout-ms: ${MILVUS_CONNECTION_TIMEOUT_MS:2000}
       read-only: ${MILVUS_READ_ONLY:false}
+      fallback-enabled: ${MILVUS_FALLBACK_ENABLED:false}
   document:
     chunk-size: 500
     chunk-overlap: 50
+    staging-directory: ${AI_DOCUMENT_STAGING_DIRECTORY:./data/staging}
+    parser-version: ${AI_DOCUMENT_PARSER_VERSION:v1}
+    ingestion-core-size: ${AI_DOCUMENT_INGESTION_CORE_SIZE:2}
+    ingestion-max-size: ${AI_DOCUMENT_INGESTION_MAX_SIZE:4}
+    ingestion-queue-capacity: ${AI_DOCUMENT_INGESTION_QUEUE_CAPACITY:100}
 
   rag:
     top-k: 5
     similarity-threshold: 0.7
-    enable-hybrid-search: true
+    # 当前正式银标评测中向量检索优于等权混合检索，默认走向量基线。
+    enable-hybrid-search: ${AI_RAG_ENABLE_HYBRID_SEARCH:false}
+    hybrid-vector-weight: ${AI_RAG_HYBRID_VECTOR_WEIGHT:0.95}
+    hybrid-bm25-weight: ${AI_RAG_HYBRID_BM25_WEIGHT:0.05}
+    hybrid-rrf-k: ${AI_RAG_HYBRID_RRF_K:60}
+    hybrid-vector-candidate-top-k: ${AI_RAG_HYBRID_VECTOR_CANDIDATE_TOP_K:20}
+    hybrid-bm25-candidate-top-k: ${AI_RAG_HYBRID_BM25_CANDIDATE_TOP_K:20}
+    hybrid-bm25-corpus-max-docs: ${AI_RAG_HYBRID_BM25_CORPUS_MAX_DOCS:5000}
+    hybrid-corpus-bm25-enabled: ${AI_RAG_HYBRID_CORPUS_BM25_ENABLED:false}
+    bm25-stopword-enabled: ${AI_RAG_BM25_STOPWORD_ENABLED:true}
     adaptive:
       enabled: true
       max-retrieval-rounds: 2
       max-context-chunks: 5
-      verification-threshold: 0.18
-      multi-hop-threshold: 0.28
+      verification-threshold: ${AI_RAG_VERIFICATION_THRESHOLD:0.72}
+      multi-hop-threshold: ${AI_RAG_MULTI_HOP_THRESHOLD:0.78}
       direct-threshold: 0.45
       min-keyword-count: 2
+      semantic-rerank-enabled: ${AI_RAG_SEMANTIC_RERANK_ENABLED:true}
+      rerank-provider: ${AI_RAG_RERANK_PROVIDER:embedding}
+      semantic-rerank-top-k: ${AI_RAG_SEMANTIC_RERANK_TOP_K:5}
+      semantic-rerank-min-score: ${AI_RAG_SEMANTIC_RERANK_MIN_SCORE:0.62}
+      minimum-keyword-coverage: ${AI_RAG_MINIMUM_KEYWORD_COVERAGE:0.60}
+      answer-support-enabled: ${AI_RAG_ANSWER_SUPPORT_ENABLED:true}
+      answer-support-min-score: ${AI_RAG_ANSWER_SUPPORT_MIN_SCORE:0.68}
+      answer-support-min-ratio: ${AI_RAG_ANSWER_SUPPORT_MIN_RATIO:0.8}
+      cross-encoder:
+        endpoint: ${AI_RAG_RERANK_ENDPOINT:https://api.siliconflow.cn/v1/rerank}
+        api-key: ${AI_RAG_RERANK_API_KEY:${SILICONFLOW_API_KEY:}}
+        model-name: ${AI_RAG_RERANK_MODEL:BAAI/bge-reranker-v2-m3}
+        min-score: ${AI_RAG_RERANK_MIN_SCORE:0.55}
+        timeout-ms: ${AI_RAG_RERANK_TIMEOUT_MS:10000}
+        max-document-characters: ${AI_RAG_RERANK_MAX_DOCUMENT_CHARACTERS:4000}
+        fallback-to-embedding: ${AI_RAG_RERANK_FALLBACK_TO_EMBEDDING:false}
 
   evaluation:
     dataset-directory: ${AI_EVALUATION_DATASET_DIRECTORY:./examples/evaluation-datasets}
@@ -146,6 +177,7 @@ ai:
     rate-limit:
       enabled: ${AI_RATE_LIMIT_ENABLED:true}
       requests-per-minute: ${AI_RATE_LIMIT_REQUESTS_PER_MINUTE:30}
+      authentication-requests-per-minute: ${AI_AUTH_RATE_LIMIT_REQUESTS_PER_MINUTE:10}
       fail-open: ${AI_RATE_LIMIT_FAIL_OPEN:true}
     cost-budget:
       enabled: ${AI_COST_BUDGET_ENABLED:true}
@@ -157,16 +189,18 @@ ai:
       fail-open: ${AI_COST_BUDGET_FAIL_OPEN:true}
   tool:
     database-query:
-      enabled: true
-      max-rows: 100
-      allowed-tables: conversations,messages,documents,document_chunks,users,ecommerce_qa_pairs,ecommerce_feedback,message_classify_log,vision_analysis_cache
+      enabled: ${AI_TOOL_DATABASE_QUERY_ENABLED:true}
+      max-rows: ${AI_TOOL_DATABASE_MAX_ROWS:100}
+      query-timeout-seconds: ${AI_TOOL_DATABASE_QUERY_TIMEOUT_SECONDS:5}
+      allowed-tables: ${AI_TOOL_DATABASE_ALLOWED_TABLES:conversations,messages,documents,document_chunks,users,ecommerce_qa_pairs,ecommerce_feedback,message_classify_log,vision_analysis_cache}
     api-call:
-      enabled: true
-      timeout: 30000
-      allowed-methods: GET,POST
+      enabled: ${AI_TOOL_API_CALL_ENABLED:true}
+      timeout: ${AI_TOOL_API_TIMEOUT_MS:30000}
+      allowed-methods: ${AI_TOOL_ALLOWED_METHODS:GET,POST}
       # empty allowlist disables outbound API calls; private/loopback hosts are always rejected
       allowed-hosts: ${AI_TOOL_ALLOWED_HOSTS:api.example.com}
-      max-response-chars: 8000
+      max-request-chars: ${AI_TOOL_MAX_REQUEST_CHARS:8000}
+      max-response-chars: ${AI_TOOL_MAX_RESPONSE_CHARS:8000}
 
   session:
     ttl: 86400
@@ -196,31 +230,6 @@ ai:
       queue-capacity: 200
     cache:
       ttl: 3600
-
-# =============================================
-# Resilience4j Configuration
-# =============================================
-resilience4j:
-  circuitbreaker:
-    instances:
-      llmChat:
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 30s
-        sliding-window-size: 10
-        minimum-number-of-calls: 5
-        permitted-number-of-calls-in-half-open-state: 3
-        record-exceptions:
-          - java.io.IOException
-          - java.util.concurrent.TimeoutException
-          - com.aiagent.infrastructure.config.ResilientChatLanguageModel$LlmServiceUnavailableException
-  retry:
-    instances:
-      llmChat:
-        max-attempts: 3
-        wait-duration: 2s
-        retry-exceptions:
-          - java.io.IOException
-          - java.util.concurrent.TimeoutException
 
 logging:
   level:
@@ -281,3 +290,7 @@ cs:
   import:
     data-dir: ${CS_IMPORT_DATA_DIR:}
     batch-size: 18
+  answer:
+    minimum-verification-level: ${CS_MINIMUM_VERIFICATION_LEVEL:HIGH}
+    handoff-message: ${CS_HANDOFF_MESSAGE:当前知识库没有足够信息可以可靠回答，建议转人工客服进一步处理。}
+    max-evidence: ${CS_MAX_EVIDENCE:5}

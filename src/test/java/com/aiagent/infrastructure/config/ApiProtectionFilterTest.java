@@ -116,6 +116,66 @@ class ApiProtectionFilterTest {
         assertThat(response.getStatus()).isEqualTo(200);
     }
 
+    @Test
+    void shouldRateLimitPublicLoginEndpoint() throws Exception {
+        aiProperties.getProtection().getRateLimit().setAuthenticationRequestsPerMinute(1);
+        when(valueOperations.increment(anyString(), eq(1L))).thenReturn(2L);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        request.setRemoteAddr("192.0.2.20");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, filterChain);
+
+        verify(filterChain, never()).doFilter(request, response);
+        assertThat(response.getStatus()).isEqualTo(429);
+    }
+
+    @Test
+    void shouldFailClosedForLoginWhenRedisIsUnavailable() throws Exception {
+        doThrow(new IllegalStateException("Redis down"))
+                .when(valueOperations).increment(anyString(), anyLong());
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        request.setRemoteAddr("192.0.2.20");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, filterChain);
+
+        verify(filterChain, never()).doFilter(request, response);
+        assertThat(response.getStatus()).isEqualTo(503);
+    }
+
+    @Test
+    void shouldProtectJsonCustomerSupportChatByContentLength() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "POST", "/api/v1/customer-support/chat");
+        request.setRemoteAddr("192.0.2.10");
+        request.setContentType("application/json");
+        request.setContent("{\"sessionId\":\"s\",\"question\":\"hello\"}"
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, filterChain);
+
+        verify(filterChain).doFilter(request, response);
+        verify(valueOperations).increment(anyString(), eq(1L));
+        verify(valueOperations).increment(anyString(), eq(292L));
+    }
+
+    @Test
+    void shouldRejectCustomerSupportJsonWhenContentLengthIsUnknown() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "POST", "/api/v1/customer-support/chat");
+        request.setRemoteAddr("192.0.2.10");
+        request.setContentType("application/json");
+        request.addHeader("Transfer-Encoding", "chunked");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, filterChain);
+
+        verify(filterChain, never()).doFilter(request, response);
+        assertThat(response.getStatus()).isEqualTo(413);
+    }
+
     private MockHttpServletRequest request(String question) {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/agent/chat");
         request.setRemoteAddr("192.0.2.10");

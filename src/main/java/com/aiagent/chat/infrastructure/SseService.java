@@ -3,58 +3,39 @@ package com.aiagent.chat.infrastructure;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
-/**
- * SSE 服务 — 虚拟线程 + 心跳机制
- *
- * <p>核心功能：
- * <ul>
- *   <li>使用虚拟线程管理 SSE 连接，减少线程开销（Q218）</li>
- *   <li>心跳机制：每 15 秒发送 `:heartbeat` 防止 Nginx 超时断开（Q153）</li>
- *   <li>连接追踪：自动清理已断开的连接</li>
- *   <li>超时设置：适配 spring.mvc.async.request-timeout</li>
- * </ul>
- *
- * <p>面试价值：
- * <ul>
- *   <li>Q151 SSE 流式输出实现</li>
- *   <li>Q152 SSE vs WebSocket 区别</li>
- *   <li>Q153 如何保证 SSE 连接稳定性</li>
- *   <li>Q218 虚拟线程底层原理</li>
- * </ul>
- */
 @Slf4j
 @Service
 public class SseService {
 
-    /** 心跳间隔（秒） */
     private static final long HEARTBEAT_INTERVAL_SECONDS = 15;
-
-    /** 连接超时（毫秒），需与 spring.mvc.async.request-timeout 一致 */
     private static final long SSE_TIMEOUT_MS = 300_000;
 
-    /** 活跃的 SSE 连接 */
     private final Map<String, SseEmitter> activeEmitters = new ConcurrentHashMap<>();
-
-    /** 心跳调度器 */
-    private final ScheduledExecutorService heartbeatScheduler = Executors.newSingleThreadScheduledExecutor(
-            r -> {
-                Thread t = new Thread(r, "sse-heartbeat");
-                t.setDaemon(true);
-                return t;
-            }
-    );
+    private final Supplier<SseEmitter> emitterFactory;
+    private final ScheduledExecutorService heartbeatScheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "sse-heartbeat");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     public SseService() {
-        // 启动心跳任务
+        this(() -> new SseEmitter(SSE_TIMEOUT_MS));
+    }
+
+    SseService(Supplier<SseEmitter> emitterFactory) {
+        this.emitterFactory = Objects.requireNonNull(emitterFactory, "emitterFactory must not be null");
         heartbeatScheduler.scheduleAtFixedRate(
                 this::sendHeartbeats,
                 HEARTBEAT_INTERVAL_SECONDS,
@@ -64,100 +45,72 @@ public class SseService {
         log.info("SSE 服务初始化完成，心跳间隔: {}s", HEARTBEAT_INTERVAL_SECONDS);
     }
 
-    /**
-     * 创建 SSE 连接
-     *
-     * @param sessionId 会话 ID
-     * @return SseEmitter
-     */
     public SseEmitter createEmitter(String sessionId) {
-        // 设置超时时间
-        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
+        if (!StringUtils.hasText(sessionId)) {
+            throw new IllegalArgumentException("sessionId must not be blank");
+        }
 
-        activeEmitters.put(sessionId, emitter);
-
-        // 完成回调
+        SseEmitter emitter = Objects.requireNonNull(emitterFactory.get(), "emitterFactory returned null");
         emitter.onCompletion(() -> {
             log.debug("SSE 连接完成: sessionId={}", sessionId);
-            removeEmitter(sessionId);
+            removeEmitter(sessionId, emitter);
         });
-
-        // 超时回调
         emitter.onTimeout(() -> {
             log.warn("SSE 连接超时: sessionId={}", sessionId);
-            removeEmitter(sessionId);
+            removeEmitter(sessionId, emitter);
+        });
+        emitter.onError(error -> {
+            log.warn("SSE 连接错误: sessionId={}, error={}", sessionId, error.getMessage());
+            removeEmitter(sessionId, emitter);
         });
 
-        // 错误回调
-        emitter.onError(e -> {
-            log.warn("SSE 连接错误: sessionId={}, error={}", sessionId, e.getMessage());
-            removeEmitter(sessionId);
-        });
-
-        log.debug("SSE 连接创建: sessionId={}, 活跃连接数: {}", sessionId, activeEmitters.size());
+        SseEmitter previous = activeEmitters.put(sessionId, emitter);
+        completeEmitter(previous);
+        log.debug("SSE 连接创建: sessionId={}, 活跃连接数={}", sessionId, activeEmitters.size());
         return emitter;
     }
 
-    /**
-     * 发送消息
-     */
     public boolean send(String sessionId, String data) {
-        SseEmitter emitter = activeEmitters.get(sessionId);
-        if (emitter == null) {
-            return false;
-        }
-        try {
-            emitter.send(SseEmitter.event()
-                    .name("message")
-                    .data(data));
-            return true;
-        } catch (IOException e) {
-            log.warn("SSE 发送失败: sessionId={}, error={}", sessionId, e.getMessage());
-            removeEmitter(sessionId);
-            return false;
-        }
+        return sendEvent(sessionId, "message", data);
     }
 
-    /**
-     * 发送事件
-     */
     public boolean sendEvent(String sessionId, String eventName, Object data) {
+        if (!StringUtils.hasText(sessionId) || !StringUtils.hasText(eventName)) {
+            return false;
+        }
         SseEmitter emitter = activeEmitters.get(sessionId);
         if (emitter == null) {
             return false;
         }
         try {
-            emitter.send(SseEmitter.event()
-                    .name(eventName)
-                    .data(data));
+            emitter.send(SseEmitter.event().name(eventName).data(data));
             return true;
-        } catch (IOException e) {
-            log.warn("SSE 发送事件失败: sessionId={}, event={}, error={}", sessionId, eventName, e.getMessage());
-            removeEmitter(sessionId);
+        } catch (IOException | IllegalStateException exception) {
+            log.warn("SSE 发送事件失败: sessionId={}, event={}, error={}",
+                    sessionId, eventName, exception.getMessage());
+            removeEmitter(sessionId, emitter);
+            completeEmitter(emitter);
             return false;
         }
     }
 
-    /**
-     * 完成连接
-     */
     public void complete(String sessionId) {
+        if (!StringUtils.hasText(sessionId)) {
+            return;
+        }
         completeEmitter(removeEmitter(sessionId));
     }
 
-    /**
-     * 发送错误并关闭
-     */
     public void completeWithError(String sessionId, Throwable error) {
+        if (!StringUtils.hasText(sessionId)) {
+            return;
+        }
         SseEmitter emitter = removeEmitter(sessionId);
         if (emitter != null) {
-            emitter.completeWithError(error);
+            emitter.completeWithError(error == null ? new IllegalStateException("SSE stream failed") : error);
         }
     }
 
-    /**
-     * 获取活跃连接数
-     */
     public int getActiveCount() {
         return activeEmitters.size();
     }
@@ -166,37 +119,29 @@ public class SseService {
         return activeEmitters.remove(sessionId);
     }
 
+    private void removeEmitter(String sessionId, SseEmitter emitter) {
+        activeEmitters.remove(sessionId, emitter);
+    }
+
     private void completeEmitter(SseEmitter emitter) {
         if (emitter == null) {
             return;
         }
         try {
             emitter.complete();
-        } catch (Exception ignored) {
+        } catch (RuntimeException exception) {
+            log.debug("SSE 连接已关闭: {}", exception.getMessage());
         }
     }
 
-    /**
-     * 向所有活跃连接发送心跳
-     * SSE 心跳协议：发送以 ":" 开头的注释行，客户端会自动忽略
-     * 但 Nginx 会将此视为有效数据传输，重置超时计时器
-     */
     private void sendHeartbeats() {
-        if (activeEmitters.isEmpty()) {
-            return;
-        }
-
-        log.debug("SSE 心跳: 向 {} 个活跃连接发送心跳", activeEmitters.size());
-
         activeEmitters.forEach((sessionId, emitter) -> {
             try {
-                // 发送心跳注释（SSE 协议标准心跳方式）
-                emitter.send(SseEmitter.event()
-                        .comment("heartbeat")
-                        .data(""));
-            } catch (IOException e) {
-                log.warn("SSE 心跳发送失败: sessionId={}, 已移除", sessionId);
-                removeEmitter(sessionId);
+                emitter.send(SseEmitter.event().comment("heartbeat").data(""));
+            } catch (IOException | IllegalStateException exception) {
+                log.warn("SSE 心跳发送失败: sessionId={}, error={}", sessionId, exception.getMessage());
+                removeEmitter(sessionId, emitter);
+                completeEmitter(emitter);
             }
         });
     }
@@ -204,7 +149,7 @@ public class SseService {
     @PreDestroy
     public void destroy() {
         log.info("SSE 服务关闭，清理 {} 个活跃连接", activeEmitters.size());
-        heartbeatScheduler.shutdown();
+        heartbeatScheduler.shutdownNow();
         activeEmitters.values().forEach(this::completeEmitter);
         activeEmitters.clear();
     }

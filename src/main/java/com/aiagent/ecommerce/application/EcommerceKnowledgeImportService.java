@@ -4,6 +4,7 @@ import com.aiagent.infrastructure.config.AiProperties;
 import com.aiagent.ecommerce.domain.EcommerceQaPair;
 import com.aiagent.ecommerce.infrastructure.repository.EcommerceQaPairRepository;
 import com.aiagent.ecommerce.config.EcommerceProperties;
+import com.aiagent.shared.data.TrainingQaParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.JsonArray;
@@ -12,6 +13,10 @@ import io.milvus.v2.client.MilvusClientV2;
 import io.milvus.v2.service.vector.request.InsertReq;
 import jakarta.annotation.PostConstruct;
 import jakarta.transaction.Transactional;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
@@ -22,15 +27,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 /**
  * 电商客服知识库导入服务
@@ -95,11 +96,10 @@ public class EcommerceKnowledgeImportService {
             throw new IllegalArgumentException("文件不存在: " + filePath);
         }
 
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(new FileInputStream(filePath), StandardCharsets.UTF_8))) {
+        int lineNum = 0;
+        try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
 
             String line;
-            int lineNum = 0;
             while ((line = reader.readLine()) != null) {
                 lineNum++;
                 line = line.trim();
@@ -116,7 +116,7 @@ public class EcommerceKnowledgeImportService {
             }
         }
 
-        log.info("JSONL 解析完成: {} 条有效记录 (总行数: {})", records.size(), records.size());
+        log.info("JSONL 解析完成: {} 条有效记录 (总行数: {})", records.size(), lineNum);
         return records;
     }
 
@@ -130,61 +130,24 @@ public class EcommerceKnowledgeImportService {
      * 4. 提取 assistant 回答（客服回答）
      * 5. 拼接为 embedding 文本
      */
-    @SuppressWarnings("unchecked")
     private QaRecord parseJsonLine(String jsonLine, int lineNum) throws JsonProcessingException {
-        Map<String, Object> root = objectMapper.readValue(jsonLine, Map.class);
-        List<Map<String, Object>> messages = (List<Map<String, Object>>) root.get("messages");
-
-        if (messages == null || messages.size() < 3) {
+        TrainingQaParser.TrainingQa parsed = TrainingQaParser.parse(objectMapper, jsonLine)
+                .orElse(null);
+        if (parsed == null) {
             log.warn("第 {} 行: messages 字段不足 3 条", lineNum);
             return null;
         }
-
-        String systemContent = "";
-        String userContent = "";
-        String assistantContent = "";
-
-        for (Map<String, Object> msg : messages) {
-            String role = (String) msg.get("role");
-            String content = (String) msg.get("content");
-            if (content == null) content = "";
-
-            switch (role) {
-                case "system" -> systemContent = content;
-                case "user" -> userContent = content;
-                case "assistant" -> assistantContent = content;
-            }
-        }
-
-        if (userContent.isEmpty()) {
+        if (!parsed.hasQuestion()) {
             log.warn("第 {} 行: user 内容为空，跳过", lineNum);
             return null;
         }
 
-        // 数据预处理：清洗文本，合并多余空白
-        String cleanQuestion = cleanText(userContent);
-        String cleanAnswer = cleanText(assistantContent);
-
-        // 构建用于 Embedding 的文本
-        // 特点：用户问题 + 客服回答 拼接在一起，使得语义相近的问题能检索到对应的回答
-        String qaText = "用户问题：" + cleanQuestion + " 客服回答：" + cleanAnswer;
-
         return QaRecord.builder()
-                .question(cleanQuestion)
-                .answer(cleanAnswer)
-                .qaText(qaText)
-                .systemPrompt(systemContent)
+                .question(parsed.question())
+                .answer(parsed.answer())
+                .qaText(parsed.embeddingText())
+                .systemPrompt(parsed.systemPrompt())
                 .build();
-    }
-
-    /**
-     * 文本清洗：去除多余空白、换行，减少 token 消耗
-     */
-    private String cleanText(String text) {
-        if (text == null) return "";
-        return text.trim()
-                .replaceAll("\\s+", " ")
-                .replaceAll("[\\r\\n]+", " ");
     }
 
     // =============================================
@@ -194,46 +157,13 @@ public class EcommerceKnowledgeImportService {
     /**
      * 批量生成向量
      */
-    @SuppressWarnings("unchecked")
     public List<List<Float>> batchGenerateEmbedding(List<String> texts) {
         List<String> cleanTexts = texts.stream()
-                .map(this::cleanText)
+                .map(TrainingQaParser::normalizeText)
                 .toList();
 
-        Map<String, Object> request = new HashMap<>();
-        request.put("model", ecommerceProperties.getOllama().getModel());
-        request.put("input", cleanTexts);
-        request.put("dimensions", ecommerceProperties.getOllama().getDimension());
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(new MediaType("application", "json", StandardCharsets.UTF_8));
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
-
         try {
-            Map<String, Object> response = restTemplate.postForObject(
-                    ecommerceProperties.getOllama().getHost() + "/api/embed",
-                    entity,
-                    Map.class
-            );
-
-            if (response == null) {
-                throw new RuntimeException("Ollama 返回空响应");
-            }
-
-            List<List<Double>> embeddings = (List<List<Double>>) response.get("embeddings");
-            if (embeddings == null || embeddings.isEmpty()) {
-                throw new RuntimeException("Ollama 返回的 embeddings 列表为空");
-            }
-
-            List<List<Float>> results = new ArrayList<>();
-            for (List<Double> emb : embeddings) {
-                if (emb == null) {
-                    results.add(null);
-                } else {
-                    results.add(emb.stream().map(d -> d.floatValue()).collect(Collectors.toList()));
-                }
-            }
-            return results;
-
+            return requestEmbeddings(cleanTexts);
         } catch (Exception e) {
             log.error("批量生成向量失败 (batch={})", texts.size(), e);
             // 降级：逐条重试
@@ -253,19 +183,24 @@ public class EcommerceKnowledgeImportService {
     /**
      * 单条文本生成向量
      */
-    @SuppressWarnings("unchecked")
     public List<Float> generateEmbedding(String text) {
-        String cleanText = cleanText(text);
+        List<Float> embedding = requestEmbeddings(TrainingQaParser.normalizeText(text)).get(0);
+        if (embedding == null) {
+            throw new RuntimeException("Ollama 返回的 embedding 向量为空");
+        }
+        return embedding;
+    }
 
+    private List<List<Float>> requestEmbeddings(Object input) {
         Map<String, Object> request = new HashMap<>();
         request.put("model", ecommerceProperties.getOllama().getModel());
-        request.put("input", cleanText);
+        request.put("input", input);
         request.put("dimensions", ecommerceProperties.getOllama().getDimension());
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(new MediaType("application", "json", StandardCharsets.UTF_8));
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
 
-        Map<String, Object> response = restTemplate.postForObject(
+        Map<?, ?> response = restTemplate.postForObject(
                 ecommerceProperties.getOllama().getHost() + "/api/embed",
                 entity,
                 Map.class
@@ -275,19 +210,32 @@ public class EcommerceKnowledgeImportService {
             throw new RuntimeException("Ollama 返回空响应");
         }
 
-        List<List<Double>> embeddings = (List<List<Double>>) response.get("embeddings");
-        if (embeddings == null || embeddings.isEmpty()) {
+        Object rawEmbeddings = response.get("embeddings");
+        if (!(rawEmbeddings instanceof List<?> embeddings) || embeddings.isEmpty()) {
             throw new RuntimeException("Ollama 返回的 embeddings 列表为空");
         }
 
-        List<Double> embedding = embeddings.get(0);
-        if (embedding == null) {
-            throw new RuntimeException("Ollama 返回的 embedding 向量为空");
+        return embeddings.stream()
+                .map(this::toFloatVector)
+                .toList();
+    }
+
+    private List<Float> toFloatVector(Object rawVector) {
+        if (rawVector == null) {
+            return null;
+        }
+        if (!(rawVector instanceof List<?> values)) {
+            throw new RuntimeException("Ollama 返回了无效的 embedding 向量");
         }
 
-        return embedding.stream()
-                .map(d -> d.floatValue())
-                .collect(Collectors.toList());
+        List<Float> vector = new ArrayList<>(values.size());
+        for (Object value : values) {
+            if (!(value instanceof Number number)) {
+                throw new RuntimeException("Ollama embedding 包含非数值元素");
+            }
+            vector.add(number.floatValue());
+        }
+        return vector;
     }
 
     // =============================================
@@ -327,7 +275,7 @@ public class EcommerceKnowledgeImportService {
 
         // 2. 分批处理
         long startTime = System.currentTimeMillis();
-        AtomicInteger batchCounter = new AtomicInteger(0);
+        int batchCounter = 0;
 
         for (int i = 0; i < allRecords.size(); i += ecommerceProperties.getImportConfig().getBatchSize()) {
             int end = Math.min(i + ecommerceProperties.getImportConfig().getBatchSize(), allRecords.size());
@@ -400,19 +348,26 @@ public class EcommerceKnowledgeImportService {
                 result.storedRecords += validRecords.size();
                 result.failedRecords += (batch.size() - validRecords.size());
 
-                int batchNum = batchCounter.incrementAndGet();
+                int batchNum = ++batchCounter;
                 log.info("批次 {} 完成: {}/{} 条已存 (累计: {}/{})",
                         batchNum, validRecords.size(), batch.size(),
                         result.storedRecords, result.totalRecords);
 
-                // 2g. 批次间隔，避免 Ollama 压力过大
-                if (ecommerceProperties.getImportConfig().getBatchIntervalMs() > 0 && i + ecommerceProperties.getImportConfig().getBatchSize() < allRecords.size()) {
-                    Thread.sleep(ecommerceProperties.getImportConfig().getBatchIntervalMs());
-                }
-
             } catch (Exception e) {
                 log.error("批次处理失败 (index={}-{})", i, end, e);
                 result.failedRecords += batch.size();
+                continue;
+            }
+
+            long intervalMs = ecommerceProperties.getImportConfig().getBatchIntervalMs();
+            if (intervalMs > 0 && end < allRecords.size()) {
+                try {
+                    Thread.sleep(intervalMs);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("导入任务已中断，停止处理后续批次");
+                    break;
+                }
             }
         }
 
@@ -453,54 +408,27 @@ public class EcommerceKnowledgeImportService {
     /**
      * QA 记录（预处理后的数据）
      */
+    @Getter
+    @Builder
     public static class QaRecord {
         private String question;       // 用户问题
         private String answer;         // 客服回答
         private String qaText;         // 拼接后的 Embedding 文本
         private String systemPrompt;   // 系统指令（用于参考，不参与 embedding）
         private String category;       // 问题分类（从 system prompt 或文件名推断）
+        @Setter
         private String sourceFile;     // 来源文件名
-
-        public static QaRecordBuilder builder() {
-            return new QaRecordBuilder();
-        }
-
-        public String getQuestion() { return question; }
-        public String getAnswer() { return answer; }
-        public String getQaText() { return qaText; }
-        public String getSystemPrompt() { return systemPrompt; }
-        public String getCategory() { return category; }
-        public String getSourceFile() { return sourceFile; }
-
-        public void setSourceFile(String sourceFile) { this.sourceFile = sourceFile; }
-
-        public static class QaRecordBuilder {
-            private final QaRecord record = new QaRecord();
-            public QaRecordBuilder question(String q) { record.question = q; return this; }
-            public QaRecordBuilder answer(String a) { record.answer = a; return this; }
-            public QaRecordBuilder qaText(String t) { record.qaText = t; return this; }
-            public QaRecordBuilder systemPrompt(String s) { record.systemPrompt = s; return this; }
-            public QaRecordBuilder category(String c) { record.category = c; return this; }
-            public QaRecord build() { return record; }
-        }
     }
 
     /**
      * 导入结果
      */
+    @ToString
     public static class ImportResult {
         public String filePath;
         public int totalRecords;
         public int storedRecords;
         public int failedRecords;
         public long elapsedSeconds;
-
-        @Override
-        public String toString() {
-            return String.format(
-                    "ImportResult{file=%s, total=%d, stored=%d, failed=%d, elapsed=%ds}",
-                    filePath, totalRecords, storedRecords, failedRecords, elapsedSeconds
-            );
-        }
     }
 }

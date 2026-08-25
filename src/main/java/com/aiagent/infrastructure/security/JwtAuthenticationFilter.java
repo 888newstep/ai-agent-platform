@@ -1,5 +1,6 @@
 package com.aiagent.infrastructure.security;
 
+import com.aiagent.auth.infrastructure.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +24,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserRepository userRepository;
+    private final JwtRevocationService jwtRevocationService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -30,9 +33,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String token = resolveToken(request);
 
-        if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token)) {
+        if (StringUtils.hasText(token)
+                && jwtTokenProvider.validateToken(token)
+                && !jwtRevocationService.isRevoked(token)) {
             String username = jwtTokenProvider.getUsernameFromToken(token);
-            if (username != null) {
+            boolean activeUser = username != null && userRepository.findByUsername(username)
+                    .map(user -> Boolean.TRUE.equals(user.getEnabled()))
+                    .orElse(false);
+            if (activeUser) {
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 username,

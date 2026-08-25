@@ -6,6 +6,7 @@ import com.aiagent.infrastructure.metrics.PlatformMetricsService;
 import com.aiagent.knowledge.application.DocumentService;
 import com.aiagent.knowledge.domain.RetrievalChunk;
 import com.aiagent.knowledge.infrastructure.vectorstore.VectorStoreService;
+import com.aiagent.shared.exception.KnowledgeRetrievalUnavailableException;
 import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
@@ -28,10 +29,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MultiRecallService {
 
-    private static final int RRF_K = 60;
-    private static final int PER_ROUTE_TOP_K = 20;
-    private static final int BM25_CANDIDATE_POOL = 50;
-    private static final int BM25_CORPUS_MAX_DOCS = 5000;
     private static final long CORPUS_INDEX_TTL_MS = 5 * 60 * 1000L;
 
     private final DocumentService documentService;
@@ -45,7 +42,10 @@ public class MultiRecallService {
     @PostConstruct
     public void init() {
         log.info("Multi-recall service initialized (RRF k={}, perRouteTopK={}, bm25Pool={}, corpusMaxDocs={})",
-                RRF_K, PER_ROUTE_TOP_K, BM25_CANDIDATE_POOL, BM25_CORPUS_MAX_DOCS);
+                aiProperties.getRag().getHybridRrfK(),
+                aiProperties.getRag().getHybridVectorCandidateTopK(),
+                aiProperties.getRag().getHybridBm25CandidateTopK(),
+                aiProperties.getRag().getHybridBm25CorpusMaxDocs());
     }
 
     public List<RetrievalChunk> search(String query, int topK) {
@@ -79,20 +79,37 @@ public class MultiRecallService {
 
             List<RetrievalChunk> finalResults;
             if (options.isHybridSearch()) {
-                List<RetrievalChunk> vectorResults = vectorSearch(query, PER_ROUTE_TOP_K, options.getSimilarityThreshold());
+                AiProperties.Rag ragConfig = aiProperties.getRag();
+                int vectorCandidateTopK = positiveOrDefault(ragConfig.getHybridVectorCandidateTopK(), 20);
+                int bm25CandidateTopK = positiveOrDefault(ragConfig.getHybridBm25CandidateTopK(), 20);
+                List<RetrievalChunk> bm25Results = ragConfig.isHybridCorpusBm25Enabled()
+                        ? bm25SearchCorpus(
+                                query,
+                                bm25CandidateTopK,
+                                ragConfig.isBm25StopwordEnabled(),
+                                positiveOrDefault(ragConfig.getHybridBm25CorpusMaxDocs(), 5000))
+                        : List.of();
+                int vectorSearchTopK = bm25Results.isEmpty()
+                        ? Math.max(50, Math.max(vectorCandidateTopK, bm25CandidateTopK))
+                        : vectorCandidateTopK;
+                List<RetrievalChunk> vectorResults = vectorSearch(
+                        query, vectorSearchTopK, options.getSimilarityThreshold());
                 log.debug("Vector result size={}", vectorResults.size());
 
-                List<RetrievalChunk> bm25Results = bm25SearchCorpus(query, PER_ROUTE_TOP_K);
                 if (bm25Results.isEmpty()) {
-                    log.debug("Corpus BM25 unavailable, falling back to candidate-pool BM25");
-                    List<RetrievalChunk> pool = vectorResults.size() >= BM25_CANDIDATE_POOL
-                            ? vectorResults
-                            : vectorSearch(query, BM25_CANDIDATE_POOL, options.getSimilarityThreshold());
-                    bm25Results = bm25SearchOnCandidates(query, pool, PER_ROUTE_TOP_K, options.getSimilarityThreshold());
+                    log.debug("Corpus BM25 disabled or unavailable, using candidate-pool BM25");
+                    bm25Results = bm25SearchOnCandidates(
+                            query, vectorResults, bm25CandidateTopK,
+                            ragConfig.isBm25StopwordEnabled());
                 }
                 log.debug("BM25 result size={}", bm25Results.size());
 
-                finalResults = rrfFuse(List.of(vectorResults, bm25Results), options.getTopK());
+                finalResults = rrfFuse(
+                        List.of(vectorResults, bm25Results),
+                        options.getTopK(),
+                        ragConfig.getHybridVectorWeight(),
+                        ragConfig.getHybridBm25Weight(),
+                        ragConfig.getHybridRrfK());
                 log.debug("RRF fused result size={}", finalResults.size());
             } else {
                 finalResults = annotateVectorOnly(
@@ -134,32 +151,43 @@ public class MultiRecallService {
         return query
                 + "|topK=" + options.getTopK()
                 + "|threshold=" + String.format(Locale.ROOT, "%.4f", options.getSimilarityThreshold())
-                + "|hybrid=" + options.isHybridSearch();
+                + "|hybrid=" + options.isHybridSearch()
+                + (options.isHybridSearch()
+                ? String.format(Locale.ROOT,
+                        "|vw=%.4f|bw=%.4f|rrfK=%d|stopwords=%s|vTopK=%d|bTopK=%d|bMaxDocs=%d|corpusBm25=%s",
+                        aiProperties.getRag().getHybridVectorWeight(),
+                        aiProperties.getRag().getHybridBm25Weight(),
+                        aiProperties.getRag().getHybridRrfK(),
+                        aiProperties.getRag().isBm25StopwordEnabled(),
+                        aiProperties.getRag().getHybridVectorCandidateTopK(),
+                        aiProperties.getRag().getHybridBm25CandidateTopK(),
+                        aiProperties.getRag().getHybridBm25CorpusMaxDocs(),
+                        aiProperties.getRag().isHybridCorpusBm25Enabled())
+                : "");
     }
 
     private List<RetrievalChunk> vectorSearch(String query, int topK, double threshold) {
         try {
             return documentService.searchSimilar(query, topK, threshold);
+        } catch (KnowledgeRetrievalUnavailableException exception) {
+            throw exception;
         } catch (Exception e) {
-            log.warn("Vector search failed: {}", e.getMessage());
-            return List.of();
+            log.error("Vector search failed", e);
+            throw new KnowledgeRetrievalUnavailableException(
+                    "Knowledge retrieval is temporarily unavailable", e);
         }
     }
 
     private List<RetrievalChunk> bm25SearchOnCandidates(String query,
                                                         List<RetrievalChunk> candidates,
                                                         int topK,
-                                                        double similarityThreshold) {
+                                                        boolean stopwordEnabled) {
         if (candidates == null || candidates.isEmpty()) {
-            log.warn("BM25 candidate pool is empty, falling back to vector search");
-            candidates = vectorSearch(query, BM25_CANDIDATE_POOL, similarityThreshold);
-            if (candidates.isEmpty()) {
-                return List.of();
-            }
+            return List.of();
         }
 
         try {
-            Bm25Search bm25 = new Bm25Search(candidates);
+            Bm25Search bm25 = new Bm25Search(candidates, stopwordEnabled);
             return bm25.search(query, topK);
         } catch (Exception e) {
             log.warn("BM25 search failed: {}", e.getMessage());
@@ -167,8 +195,11 @@ public class MultiRecallService {
         }
     }
 
-    private List<RetrievalChunk> bm25SearchCorpus(String query, int topK) {
-        Bm25Search index = corpusBm25Index();
+    private List<RetrievalChunk> bm25SearchCorpus(String query,
+                                                   int topK,
+                                                   boolean stopwordEnabled,
+                                                   int maxDocs) {
+        Bm25Search index = corpusBm25Index(stopwordEnabled, maxDocs);
         if (index == null) {
             return List.of();
         }
@@ -180,29 +211,37 @@ public class MultiRecallService {
         }
     }
 
-    private Bm25Search corpusBm25Index() {
+    private Bm25Search corpusBm25Index(boolean stopwordEnabled, int maxDocs) {
         Bm25IndexHolder holder = corpusBm25;
-        if (holder != null && !holder.isStale()) {
+        if (holder != null && !holder.isStale(stopwordEnabled, maxDocs)) {
             return holder.index;
         }
         synchronized (indexLock) {
             holder = corpusBm25;
-            if (holder != null && !holder.isStale()) {
+            if (holder != null && !holder.isStale(stopwordEnabled, maxDocs)) {
                 return holder.index;
             }
             List<RetrievalChunk> corpus;
             try {
-                corpus = vectorStoreService.fetchAllChunks(BM25_CORPUS_MAX_DOCS);
+                corpus = vectorStoreService.fetchAllChunks(maxDocs);
             } catch (Exception e) {
                 log.warn("Failed to load corpus for BM25 index: {}", e.getMessage());
+                corpusBm25 = Bm25IndexHolder.unavailable(stopwordEnabled, maxDocs);
                 return null;
             }
             if (corpus == null || corpus.isEmpty()) {
                 log.warn("Corpus is empty; corpus BM25 unavailable");
+                corpusBm25 = Bm25IndexHolder.unavailable(stopwordEnabled, maxDocs);
                 return null;
             }
-            Bm25Search built = new Bm25Search(corpus);
-            corpusBm25 = new Bm25IndexHolder(built, System.currentTimeMillis());
+            if (corpus.size() >= maxDocs) {
+                log.warn("BM25 corpus reached configured limit {}; refusing to treat a truncated corpus as complete",
+                        maxDocs);
+                corpusBm25 = Bm25IndexHolder.unavailable(stopwordEnabled, maxDocs);
+                return null;
+            }
+            Bm25Search built = new Bm25Search(corpus, stopwordEnabled);
+            corpusBm25 = new Bm25IndexHolder(built, System.currentTimeMillis(), stopwordEnabled, maxDocs);
             log.info("Rebuilt corpus BM25 index over {} chunks", corpus.size());
             return built;
         }
@@ -232,7 +271,14 @@ public class MultiRecallService {
         return annotated;
     }
 
-    private List<RetrievalChunk> rrfFuse(List<List<RetrievalChunk>> lists, int topK) {
+    private List<RetrievalChunk> rrfFuse(List<List<RetrievalChunk>> lists,
+                                         int topK,
+                                         double vectorWeight,
+                                         double bm25Weight,
+                                         int rrfK) {
+        double safeVectorWeight = positiveOrDefault(vectorWeight, 0.95);
+        double safeBm25Weight = positiveOrDefault(bm25Weight, 0.05);
+        int safeRrfK = positiveOrDefault(rrfK, 60);
         Map<String, Double> rrfScores = new HashMap<>();
         Map<String, RetrievalChunk> docMap = new HashMap<>();
         Map<String, Integer> vectorRanks = new HashMap<>();
@@ -244,7 +290,10 @@ public class MultiRecallService {
                 RetrievalChunk doc = list.get(rank);
                 String docId = doc.getId();
                 docMap.putIfAbsent(docId, doc);
-                rrfScores.merge(docId, 1.0 / (RRF_K + rank + 1), (a, b) -> a + b);
+                double routeWeight = listIndex == 0 ? safeVectorWeight : safeBm25Weight;
+                rrfScores.merge(docId,
+                        routeWeight / (safeRrfK + rank + 1),
+                        (a, b) -> a + b);
                 if (listIndex == 0) {
                     vectorRanks.putIfAbsent(docId, rank + 1);
                 } else if (listIndex == 1) {
@@ -272,6 +321,9 @@ public class MultiRecallService {
                         metadata.put("bm25Rank", bm25Rank);
                     }
                     metadata.put("rrfScore", entry.getValue());
+                    metadata.put("vectorWeight", safeVectorWeight);
+                    metadata.put("bm25Weight", safeBm25Weight);
+                    metadata.put("rrfK", safeRrfK);
 
                     return RetrievalChunk.builder()
                             .id(doc.getId())
@@ -281,6 +333,14 @@ public class MultiRecallService {
                             .build();
                 })
                 .collect(Collectors.toList());
+    }
+
+    private int positiveOrDefault(int value, int fallback) {
+        return value > 0 ? value : fallback;
+    }
+
+    private double positiveOrDefault(double value, double fallback) {
+        return Double.isFinite(value) && value > 0 ? value : fallback;
     }
 
     private String retrievalSource(Integer vectorRank, Integer bm25Rank) {
@@ -299,14 +359,27 @@ public class MultiRecallService {
     private static final class Bm25IndexHolder {
         private final Bm25Search index;
         private final long builtAtMillis;
+        private final boolean stopwordEnabled;
+        private final int maxDocs;
 
-        private Bm25IndexHolder(Bm25Search index, long builtAtMillis) {
+        private Bm25IndexHolder(Bm25Search index,
+                                long builtAtMillis,
+                                boolean stopwordEnabled,
+                                int maxDocs) {
             this.index = index;
             this.builtAtMillis = builtAtMillis;
+            this.stopwordEnabled = stopwordEnabled;
+            this.maxDocs = maxDocs;
         }
 
-        private boolean isStale() {
-            return System.currentTimeMillis() - builtAtMillis > CORPUS_INDEX_TTL_MS;
+        private static Bm25IndexHolder unavailable(boolean stopwordEnabled, int maxDocs) {
+            return new Bm25IndexHolder(null, System.currentTimeMillis(), stopwordEnabled, maxDocs);
+        }
+
+        private boolean isStale(boolean requestedStopwordEnabled, int requestedMaxDocs) {
+            return stopwordEnabled != requestedStopwordEnabled
+                    || maxDocs != requestedMaxDocs
+                    || System.currentTimeMillis() - builtAtMillis > CORPUS_INDEX_TTL_MS;
         }
     }
 

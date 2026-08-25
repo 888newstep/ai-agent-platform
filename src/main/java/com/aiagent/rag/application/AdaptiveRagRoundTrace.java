@@ -26,6 +26,9 @@ public class AdaptiveRagRoundTrace {
 
     private RagVerificationLevel verificationLevel;
     private double verificationScore;
+    private double semanticScore;
+    private double keywordCoverage;
+    private boolean evidenceSufficient;
     private List<String> matchedKeywords;
     private List<String> missingKeywords;
     private String verificationReason;
@@ -39,10 +42,17 @@ public class AdaptiveRagRoundTrace {
     @AllArgsConstructor
     public static class ChunkTrace {
         private String chunkId;
+        private String qaPairId;
+        private String documentId;
         private double score;
+        private String category;
+        private String question;
         private String retrievalSource;
         private Integer vectorRank;
         private Integer bm25Rank;
         private Double rrfScore;
+        private Double semanticRerankScore;
+        private String rerankProvider;
+        private Double rerankMinScore;
     }
 }

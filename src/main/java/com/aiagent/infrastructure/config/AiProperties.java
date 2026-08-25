@@ -123,6 +123,7 @@ public class AiProperties {
         private int dimension = 1024;
         private int connectionTimeoutMs = 2000;
         private boolean readOnly = false;
+        private boolean fallbackEnabled = false;
     }
 
     /** Document ingestion and chunking settings. */
@@ -130,6 +131,11 @@ public class AiProperties {
     public static class Document {
         private int chunkSize = 500;
         private int chunkOverlap = 50;
+        private String stagingDirectory = "./data/staging";
+        private String parserVersion = "v1";
+        private int ingestionCoreSize = 2;
+        private int ingestionMaxSize = 4;
+        private int ingestionQueueCapacity = 100;
     }
 
     /** Retrieval settings shared by classic and adaptive RAG. */
@@ -137,7 +143,17 @@ public class AiProperties {
     public static class Rag {
         private int topK = 5;
         private double similarityThreshold = 0.7;
-        private boolean enableHybridSearch = true;
+        /** 混合检索仅在评测证明有效后开启；默认使用当前更稳定的向量基线。 */
+        private boolean enableHybridSearch = false;
+        /** RRF 中向量和 BM25 路由的权重。向量优先，避免通用中文词引入噪声。 */
+        private double hybridVectorWeight = 0.95;
+        private double hybridBm25Weight = 0.05;
+        private int hybridRrfK = 60;
+        private int hybridVectorCandidateTopK = 20;
+        private int hybridBm25CandidateTopK = 20;
+        private int hybridBm25CorpusMaxDocs = 5000;
+        private boolean hybridCorpusBm25Enabled = false;
+        private boolean bm25StopwordEnabled = true;
         private Adaptive adaptive = new Adaptive();
     }
 
@@ -150,14 +166,43 @@ public class AiProperties {
         private int maxRetrievalRounds = 2;
         /** Maximum number of chunks injected into the final model context. */
         private int maxContextChunks = 5;
-        /** Minimum verification score for single-hop retrieval to be accepted. */
-        private double verificationThreshold = 0.18;
-        /** Minimum verification score for multi-hop retrieval to be accepted. */
-        private double multiHopThreshold = 0.28;
+        /** Minimum combined verification score for single-hop retrieval to be accepted. */
+        private double verificationThreshold = 0.72;
+        /** Minimum combined verification score for multi-hop retrieval to be accepted. */
+        private double multiHopThreshold = 0.78;
         /** Heuristic threshold reserved for future direct-answer routing tuning. */
         private double directThreshold = 0.45;
         /** Minimum number of keywords preserved during query rewriting. */
         private int minKeywordCount = 2;
+        /** Enables a second semantic scoring pass over recalled chunks. */
+        private boolean semanticRerankEnabled = true;
+        /** Reranker implementation: embedding or cross-encoder. */
+        private String rerankProvider = "embedding";
+        /** Maximum chunks retained after semantic reranking. */
+        private int semanticRerankTopK = 5;
+        /** Minimum cosine score required for a chunk to reach verification. */
+        private double semanticRerankMinScore = 0.62;
+        /** Minimum weighted keyword coverage required for sufficient evidence. */
+        private double minimumKeywordCoverage = 0.60;
+        /** Enables post-generation answer-to-evidence support checking. */
+        private boolean answerSupportEnabled = true;
+        /** Minimum semantic score for an answer claim to be supported. */
+        private double answerSupportMinScore = 0.68;
+        /** Minimum proportion of answer claims that must be supported. */
+        private double answerSupportMinRatio = 0.8;
+        /** Cross-encoder HTTP reranker settings. */
+        private CrossEncoder crossEncoder = new CrossEncoder();
+    }
+
+    @Data
+    public static class CrossEncoder {
+        private String endpoint = "https://api.siliconflow.cn/v1/rerank";
+        private String apiKey;
+        private String modelName = "BAAI/bge-reranker-v2-m3";
+        private double minScore = 0.55;
+        private int timeoutMs = 10_000;
+        private int maxDocumentCharacters = 4_000;
+        private boolean fallbackToEmbedding = false;
     }
 
     @Data
@@ -170,6 +215,7 @@ public class AiProperties {
     public static class DatabaseQuery {
         private boolean enabled = true;
         private int maxRows = 100;
+        private int queryTimeoutSeconds = 5;
         private List<String> allowedTables = List.of(
                 "conversations",
                 "messages",
@@ -189,6 +235,7 @@ public class AiProperties {
         private int timeout = 30000;
         private List<String> allowedHosts = List.of();
         private List<String> allowedMethods = List.of("GET", "POST");
+        private int maxRequestChars = 8000;
         private int maxResponseChars = 8000;
     }
 
@@ -213,6 +260,7 @@ public class AiProperties {
     public static class RateLimit {
         private boolean enabled = true;
         private int requestsPerMinute = 30;
+        private int authenticationRequestsPerMinute = 10;
         private boolean failOpen = true;
     }
 

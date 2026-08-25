@@ -54,11 +54,9 @@ public class SecurityConfig {
                 auth
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers("/api/v1/agent/health").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").hasRole("USER")
                     .requestMatchers("/api/v1/auth/**").permitAll()
                     .requestMatchers("/api/v1/agent/", "/api/v1/agent/admin", "/admin.html", "/error").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/v1/agent/session", "/api/v1/agent/chat", "/api/v1/agent/react/chat", "/api/v1/agent/document/search").permitAll()
-                    .requestMatchers(HttpMethod.DELETE, "/api/v1/agent/session/**").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/v1/agent/chat/stream").permitAll()
                     .requestMatchers("/actuator/health", "/actuator/info").permitAll();
 
                 if (isPublicMetricsEnabled()) {
@@ -66,10 +64,20 @@ public class SecurityConfig {
                 }
 
                 auth
-                    .requestMatchers(HttpMethod.GET, "/api/v1/agent/document/**").authenticated()
+                    .requestMatchers(HttpMethod.POST,
+                            "/api/v1/agent/session",
+                            "/api/v1/agent/chat",
+                            "/api/v1/agent/react/chat",
+                            "/api/v1/customer-support/**").hasRole("USER")
+                    .requestMatchers(HttpMethod.GET,
+                            "/api/v1/agent/chat/stream",
+                            "/api/v1/agent/session/**").hasRole("USER")
+                    .requestMatchers(HttpMethod.DELETE, "/api/v1/agent/session/**").hasRole("USER")
+                    .requestMatchers(HttpMethod.POST, "/api/v1/agent/document/search")
+                            .hasAnyRole("USER", "ADMIN")
+                    .requestMatchers("/api/v1/agent/document/**").hasRole("ADMIN")
                     .requestMatchers(
                             "/api/v1/agent/multi-agent/**",
-                            "/api/v1/agent/document/upload",
                             "/api/v1/agent/cache",
                             "/api/v1/agent/rag/**",
                             "/api/v1/agent/evaluate",

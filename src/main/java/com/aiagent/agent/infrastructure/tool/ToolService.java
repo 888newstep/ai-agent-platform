@@ -4,7 +4,6 @@ import com.aiagent.infrastructure.config.AiProperties;
 import com.aiagent.infrastructure.metrics.PlatformMetricsService;
 import dev.langchain4j.agent.tool.Tool;
 import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -34,18 +33,30 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ToolService {
 
     private static final Pattern TABLE_PATTERN = Pattern.compile("\\b(?:from|join)\\s+([a-zA-Z0-9_.$]+)", Pattern.CASE_INSENSITIVE);
-    private static final Set<String> FORBIDDEN_SQL_KEYWORDS = Set.of(
-            "insert", "update", "delete", "drop", "alter", "truncate",
-            "create", "grant", "revoke", "merge", "call", "execute", "for update"
+    private static final Pattern FORBIDDEN_SQL_PATTERN = Pattern.compile(
+            "\\b(?:insert|update|delete|drop|alter|truncate|create|grant|revoke|merge|call|execute)\\b|\\bfor\\s+update\\b",
+            Pattern.CASE_INSENSITIVE
     );
 
     private final DataSource dataSource;
     private final AiProperties aiProperties;
     private final PlatformMetricsService metricsService;
+    private final HttpClient httpClient;
+
+    public ToolService(DataSource dataSource,
+                       AiProperties aiProperties,
+                       PlatformMetricsService metricsService) {
+        this.dataSource = dataSource;
+        this.aiProperties = aiProperties;
+        this.metricsService = metricsService;
+        int configuredTimeout = aiProperties.getTool().getApiCall().getTimeout();
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofMillis(Math.max(1, configuredTimeout)))
+                .build();
+    }
 
     @Tool("query_database")
     public String queryDatabase(String sql) {
@@ -68,6 +79,11 @@ public class ToolService {
 
         List<Map<String, Object>> results = new ArrayList<>();
         int maxRows = aiProperties.getTool().getDatabaseQuery().getMaxRows();
+        int queryTimeoutSeconds = aiProperties.getTool().getDatabaseQuery().getQueryTimeoutSeconds();
+        if (maxRows <= 0 || queryTimeoutSeconds <= 0) {
+            recordToolExecution("query_database", "invalid_config", false, sample);
+            return "Error: database query tool configuration is invalid.";
+        }
         String status = "error";
         boolean success = false;
 
@@ -76,6 +92,7 @@ public class ToolService {
 
             conn.setReadOnly(true);
             stmt.setMaxRows(maxRows);
+            stmt.setQueryTimeout(queryTimeoutSeconds);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 ResultSetMetaData metaData = rs.getMetaData();
@@ -94,8 +111,8 @@ public class ToolService {
             success = true;
             return formatResults(results);
         } catch (SQLException e) {
-            log.error("Database query failed", e);
-            return "Error: " + e.getMessage();
+            log.error("Database query failed: sqlState={}, errorCode={}", e.getSQLState(), e.getErrorCode());
+            return "Error: database query failed.";
         } finally {
             recordToolExecution("query_database", status, success, sample);
         }
@@ -113,6 +130,7 @@ public class ToolService {
         URI uri;
         try {
             normalizedMethod = normalizeMethod(method);
+            validateApiCallConfiguration(normalizedMethod, body);
             uri = validateUri(url, normalizedMethod);
         } catch (IllegalArgumentException e) {
             log.warn("Rejected external API call: {}", e.getMessage());
@@ -120,12 +138,9 @@ public class ToolService {
             return "Error: " + e.getMessage();
         }
 
-        log.info("Calling guarded API: {} {}", normalizedMethod, uri);
+        log.info("Calling guarded API: {} {}", normalizedMethod, safeTarget(uri));
 
         int timeoutMs = aiProperties.getTool().getApiCall().getTimeout();
-        HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(timeoutMs))
-                .build();
         String status = "error";
         boolean success = false;
 
@@ -141,7 +156,7 @@ public class ToolService {
                 requestBuilder.GET();
             }
 
-            HttpResponse<String> response = client.send(
+            HttpResponse<String> response = httpClient.send(
                     requestBuilder.build(),
                     HttpResponse.BodyHandlers.ofString()
             );
@@ -152,15 +167,16 @@ public class ToolService {
             return "Status: " + response.statusCode() + "\nResponse: " + responseBody;
         } catch (java.net.http.HttpTimeoutException e) {
             status = "timeout";
-            log.warn("External API call timed out: {} {}", normalizedMethod, uri);
+            log.warn("External API call timed out: {} {}", normalizedMethod, safeTarget(uri));
             return "Error: request timed out.";
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            log.warn("External API call interrupted: {} {}", normalizedMethod, uri);
+            log.warn("External API call interrupted: {} {}", normalizedMethod, safeTarget(uri));
             return "Error: request interrupted.";
         } catch (Exception e) {
-            log.error("API call failed", e);
-            return "Error: " + e.getMessage();
+            log.error("API call failed: method={}, target={}, type={}",
+                    normalizedMethod, safeTarget(uri), e.getClass().getSimpleName());
+            return "Error: external API call failed.";
         } finally {
             recordToolExecution("call_external_api", status, success, sample);
         }
@@ -191,10 +207,9 @@ public class ToolService {
         if (lowerCase.contains("--") || lowerCase.contains("/*") || lowerCase.contains("*/") || lowerCase.contains(";")) {
             throw new IllegalArgumentException("Comments and multi-statement SQL are not allowed.");
         }
-        for (String forbiddenKeyword : FORBIDDEN_SQL_KEYWORDS) {
-            if (lowerCase.contains(forbiddenKeyword)) {
-                throw new IllegalArgumentException("Forbidden SQL keyword detected: " + forbiddenKeyword);
-            }
+        Matcher forbiddenMatcher = FORBIDDEN_SQL_PATTERN.matcher(lowerCase);
+        if (forbiddenMatcher.find()) {
+            throw new IllegalArgumentException("Forbidden SQL keyword detected: " + forbiddenMatcher.group());
         }
 
         Set<String> referencedTables = extractReferencedTables(normalized);
@@ -246,6 +261,20 @@ public class ToolService {
             throw new IllegalArgumentException("HTTP method is not allowed: " + normalizedMethod);
         }
         return normalizedMethod;
+    }
+
+    private void validateApiCallConfiguration(String method, String body) {
+        AiProperties.ApiCall config = aiProperties.getTool().getApiCall();
+        if (config.getTimeout() <= 0 || config.getMaxResponseChars() <= 0 || config.getMaxRequestChars() <= 0) {
+            throw new IllegalArgumentException("External API tool configuration is invalid.");
+        }
+        if ("POST".equals(method)) {
+            String requestBody = body == null ? "" : body;
+            int requestCharacters = requestBody.codePointCount(0, requestBody.length());
+            if (requestCharacters > config.getMaxRequestChars()) {
+                throw new IllegalArgumentException("Request body exceeds the configured character limit.");
+            }
+        }
     }
 
     private URI validateUri(String url, String method) {
@@ -302,6 +331,12 @@ public class ToolService {
         } catch (Exception e) {
             throw new IllegalArgumentException("Unable to resolve host: " + host);
         }
+    }
+
+    private String safeTarget(URI uri) {
+        String port = uri.getPort() < 0 ? "" : ":" + uri.getPort();
+        String path = StringUtils.hasText(uri.getRawPath()) ? uri.getRawPath() : "/";
+        return uri.getScheme() + "://" + uri.getHost() + port + path;
     }
 
     private String truncate(String value, int maxChars) {

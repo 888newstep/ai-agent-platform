@@ -1,6 +1,5 @@
 package com.aiagent.agent.application;
 
-import com.aiagent.agent.infrastructure.tool.ToolService;
 import com.aiagent.infrastructure.metrics.PlatformMetricsService;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import io.micrometer.core.instrument.Timer;
@@ -20,7 +19,6 @@ import static org.mockito.Mockito.lenient;
 @ExtendWith(MockitoExtension.class)
 class MultiAgentServiceAdditionalTest {
     @Mock private ChatLanguageModel chatLanguageModel;
-    @Mock private ToolService toolService;
     @Mock private ReActAgent reActAgent;
     @Mock private PlatformMetricsService metricsService;
     private MultiAgentService service;
@@ -28,16 +26,16 @@ class MultiAgentServiceAdditionalTest {
     @BeforeEach
     void setUp() {
         lenient().when(metricsService.startSample()).thenReturn(Timer.start());
-        service = new MultiAgentService(chatLanguageModel, toolService, reActAgent, metricsService);
+        service = new MultiAgentService(chatLanguageModel, reActAgent, metricsService);
     }
 
     @Test
     void shouldExecuteWithLongTask() {
         when(chatLanguageModel.generate(contains("TASK PLANNER")))
                 .thenReturn("SUBTASK 1: task1\nSUBTASK 2: task2");
-        when(reActAgent.execute(anyString(), eq(""), eq("")))
-                .thenReturn("result1")
-                .thenReturn("result2");
+        when(reActAgent.executeDetailed(anyString(), eq("context"), eq("")))
+                .thenReturn(workerResult("result1"))
+                .thenReturn(workerResult("result2"));
         when(chatLanguageModel.generate(contains("RESULT SYNTHESIZER")))
                 .thenReturn("Final");
         assertNotNull(service.execute("Complex task", "context"));
@@ -46,6 +44,8 @@ class MultiAgentServiceAdditionalTest {
     @Test
     void shouldExecuteWithSpecialChars() {
         when(chatLanguageModel.generate(anyString())).thenReturn("Result!");
+        when(reActAgent.executeDetailed(anyString(), eq(""), eq("")))
+                .thenReturn(workerResult("worker result"));
         assertNotNull(service.execute("task <special>", ""));
     }
 
@@ -53,10 +53,22 @@ class MultiAgentServiceAdditionalTest {
     void shouldHandleMultipleSubtasks() {
         when(chatLanguageModel.generate(contains("TASK PLANNER")))
                 .thenReturn("SUBTASK 1: a\nSUBTASK 2: b\nSUBTASK 3: c");
-        when(reActAgent.execute(anyString(), eq(""), eq("")))
-                .thenReturn("r1").thenReturn("r2").thenReturn("r3");
+        when(reActAgent.executeDetailed(anyString(), eq("ctx"), eq("")))
+                .thenReturn(workerResult("r1")).thenReturn(workerResult("r2")).thenReturn(workerResult("r3"));
         when(chatLanguageModel.generate(contains("RESULT SYNTHESIZER")))
                 .thenReturn("Result");
         assertNotNull(service.execute("multi-step task", "ctx"));
+    }
+
+    private ReActExecutionResult workerResult(String answer) {
+        return ReActExecutionResult.builder()
+                .answer(answer)
+                .trace(ReActExecutionTrace.builder()
+                        .stopReason("final_answer")
+                        .completed(true)
+                        .stepCount(1)
+                        .steps(java.util.List.of())
+                        .build())
+                .build();
     }
 }

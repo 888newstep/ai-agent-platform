@@ -1,5 +1,6 @@
 package com.aiagent.agent.application;
 
+import com.aiagent.chat.application.ChatSessionService;
 import com.aiagent.infrastructure.cache.SemanticCacheService;
 import com.aiagent.infrastructure.memory.LongContextManager;
 import com.aiagent.infrastructure.metrics.PlatformMetricsService;
@@ -32,53 +33,64 @@ class AiAgentServiceAdditionalTest {
     @Mock private AdaptiveRagService adaptiveRagService;
     @Mock private LongContextManager longContextManager;
     @Mock private PlatformMetricsService metricsService;
+    @Mock private ChatSessionService chatSessionService;
     private AiAgentService service;
 
     @BeforeEach void setUp() {
         service = new AiAgentService(chatLanguageModel, streamingChatLanguageModel,
-                reActAgent, semanticCacheService, adaptiveRagService, longContextManager, metricsService);
+                reActAgent, semanticCacheService, adaptiveRagService, longContextManager, metricsService,
+                chatSessionService);
         lenient().when(metricsService.startSample()).thenReturn(Timer.start());
+        lenient().when(chatSessionService.recordSuccessfulExchange(
+                        anyString(), anyString(), anyString(), anyString(),
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> invocation.getArgument(5));
     }
 
     @Test void shouldReturnCachedResponse() {
-        when(semanticCacheService.getIfCached("q")).thenReturn("cached");
-        assertEquals("cached", service.chat("s1", "q", false));
+        when(semanticCacheService.getIfCached("normal:direct", "q")).thenReturn("cached");
+        assertEquals("cached", service.chat("user", "s1", "q", false));
         verify(adaptiveRagService, never()).resolve(anyString());
     }
 
     @Test void shouldCallModelWhenNoCache() {
-        when(semanticCacheService.getIfCached(anyString())).thenReturn(null);
+        when(semanticCacheService.getIfCached(anyString(), anyString())).thenReturn(null);
         when(chatLanguageModel.generate(anyString())).thenReturn("resp");
         when(longContextManager.getOptimizedContext(anyString(), anyString())).thenReturn("");
         when(adaptiveRagService.resolve(anyString())).thenReturn(AdaptiveRagContext.builder().context("ctx").build());
-        assertEquals("resp", service.chat("s1", "question", true));
+        assertEquals("resp", service.chat("user", "s1", "question", true));
     }
 
     @Test void shouldReturnCachedReactResponse() {
-        when(semanticCacheService.getIfCached("q")).thenReturn("cached");
-        assertEquals("cached", service.reactChat("s1", "q", false));
+        when(semanticCacheService.getIfCached("react:direct", "q")).thenReturn("cached");
+        assertEquals("cached", service.reactChat("user", "s1", "q", false));
     }
 
     @Test void shouldCallReactAgent() {
-        when(semanticCacheService.getIfCached(anyString())).thenReturn(null);
-        when(reActAgent.execute(anyString(), anyString(), anyString())).thenReturn("react");
+        when(semanticCacheService.getIfCached(anyString(), anyString())).thenReturn(null);
+        when(reActAgent.executeDetailed(anyString(), anyString(), anyString()))
+                .thenReturn(ReActExecutionResult.builder().answer("react").build());
         when(longContextManager.getOptimizedContext(anyString(), anyString())).thenReturn("");
         when(adaptiveRagService.resolve(anyString())).thenReturn(AdaptiveRagContext.builder().context("ctx").build());
-        assertEquals("react", service.reactChat("s1", "question", true));
+        assertEquals("react", service.reactChat("user", "s1", "question", true));
     }
 
-    @Test void shouldCreateSession() { assertNotNull(service.createSession()); }
+    @Test void shouldCreateSession() {
+        when(chatSessionService.createSession("user")).thenReturn("s1");
+        assertNotNull(service.createSession("user"));
+    }
 
     @Test void shouldClearSession() {
-        assertDoesNotThrow(() -> service.clearSession("s1"));
-        verify(longContextManager).clearSession("s1");
+        assertDoesNotThrow(() -> service.clearSession("user", "s1"));
+        verify(chatSessionService).deleteSession("user", "s1");
     }
 
     @Test void shouldChatWithoutRag() {
-        when(semanticCacheService.getIfCached(anyString())).thenReturn(null);
+        when(semanticCacheService.getIfCached(anyString(), anyString())).thenReturn(null);
         when(chatLanguageModel.generate(anyString())).thenReturn("no rag");
         when(longContextManager.getOptimizedContext(anyString(), anyString())).thenReturn("");
-        assertEquals("no rag", service.chat("s1", "q", false));
+        assertEquals("no rag", service.chat("user", "s1", "q", false));
         verify(adaptiveRagService, never()).resolve(anyString());
     }
 }

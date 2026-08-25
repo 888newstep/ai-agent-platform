@@ -6,6 +6,7 @@ import com.aiagent.agent.application.MultiAgentExecutionResult;
 import com.aiagent.agent.application.MultiAgentExecutionTrace;
 import com.aiagent.agent.application.MultiAgentService;
 import com.aiagent.infrastructure.cache.SemanticCacheService;
+import com.aiagent.infrastructure.idempotency.PersistentIdempotencyContext;
 import com.aiagent.knowledge.application.DocumentService;
 import com.aiagent.knowledge.domain.Document;
 import com.aiagent.knowledge.domain.DocumentProcessingStatus;
@@ -23,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import reactor.core.publisher.Flux;
 
 import java.nio.file.Files;
@@ -56,6 +58,7 @@ class AiAgentControllerTest {
 
     private EvaluationReportHistoryService evaluationReportHistoryService;
     private AiAgentController controller;
+    private TestingAuthenticationToken authentication;
 
     @BeforeEach
     void setUp() {
@@ -68,24 +71,31 @@ class AiAgentControllerTest {
                 ragEvaluationService,
                 evaluationReportHistoryService
         );
+        authentication = new TestingAuthenticationToken("user", null, "ROLE_USER");
+        authentication.setAuthenticated(true);
     }
 
     @Test
     void shouldHandleSessionAndChatOperations() {
-        when(aiAgentService.createSession()).thenReturn("session-1");
-        when(aiAgentService.chat("session-1", "hello", true)).thenReturn("normal answer");
-        when(aiAgentService.reactChatDetailed("session-1", "analyze task", false))
+        when(aiAgentService.createSession("user", PersistentIdempotencyContext.disabled()))
+                .thenReturn("session-1");
+        when(aiAgentService.chat(
+                "user", "session-1", "hello", true, PersistentIdempotencyContext.disabled()))
+                .thenReturn("normal answer");
+        when(aiAgentService.reactChatDetailed(
+                "user", "session-1", "analyze task", false, PersistentIdempotencyContext.disabled()))
                 .thenReturn(ChatExecutionResult.builder().answer("react answer").build());
         when(multiAgentService.executeDetailed("plan task", "context"))
                 .thenReturn(MultiAgentExecutionResult.builder().answer("multi-agent result").build());
-        when(aiAgentService.streamChat("session-1", "stream question", true)).thenReturn(Flux.just("A", "B"));
+        when(aiAgentService.streamChat("user", "session-1", "stream question", true))
+                .thenReturn(Flux.just("A", "B"));
 
-        ResponseEntity<Map<String, String>> session = controller.createSession();
-        controller.clearSession("session-1");
-        ResponseEntity<Map<String, Object>> chat = controller.chat("session-1", "hello", true, false);
-        ResponseEntity<Map<String, Object>> react = controller.reactChat("session-1", "analyze task", false, false);
+        ResponseEntity<Map<String, String>> session = controller.createSession(null, authentication);
+        controller.clearSession("session-1", authentication);
+        ResponseEntity<Map<String, Object>> chat = controller.chat("session-1", "hello", true, false, null, authentication);
+        ResponseEntity<Map<String, Object>> react = controller.reactChat("session-1", "analyze task", false, false, null, authentication);
         ResponseEntity<Map<String, Object>> multiAgent = controller.multiAgentExecute("plan task", "context", false);
-        List<String> stream = controller.streamChat("session-1", "stream question", true).collectList().block();
+        List<String> stream = controller.streamChat("session-1", "stream question", true, null, authentication).collectList().block();
 
         assertThat(session.getBody()).containsEntry("sessionId", "session-1");
         assertThat(chat.getBody())
@@ -98,7 +108,7 @@ class AiAgentControllerTest {
                 .containsEntry("answer", "multi-agent result")
                 .containsEntry("mode", "multi-agent");
         assertThat(stream).containsExactly("A", "B");
-        verify(aiAgentService).clearSession("session-1");
+        verify(aiAgentService).clearSession("user", "session-1");
     }
 
     @Test
@@ -110,7 +120,9 @@ class AiAgentControllerTest {
                 .completed(true)
                 .steps(List.of())
                 .build();
-        when(aiAgentService.reactChatDetailed("session-1", "analyze task", true)).thenReturn(ChatExecutionResult.builder()
+        when(aiAgentService.reactChatDetailed(
+                "user", "session-1", "analyze task", true, PersistentIdempotencyContext.disabled()))
+                .thenReturn(ChatExecutionResult.builder()
                 .answer("react explain answer")
                 .adaptiveRagContext(AdaptiveRagContext.empty("analyze task"))
                 .cacheHit(false)
@@ -128,7 +140,8 @@ class AiAgentControllerTest {
                         .build())
                 .build());
 
-        ResponseEntity<Map<String, Object>> react = controller.reactChat("session-1", "analyze task", true, true);
+        ResponseEntity<Map<String, Object>> react = controller.reactChat(
+                "session-1", "analyze task", true, true, null, authentication);
         ResponseEntity<Map<String, Object>> multi = controller.multiAgentExecute("plan task", "context", true);
 
         @SuppressWarnings("unchecked")
@@ -319,6 +332,26 @@ class AiAgentControllerTest {
                 .containsEntry("status", "UP")
                 .containsEntry("version", "1.0.0");
         assertThat(controller.adminPage()).isEqualTo("redirect:/admin.html");
+    }
+
+    @Test
+    void shouldExposeDocumentRetryAndDeleteOperations() {
+        Document failed = Document.builder()
+                .id(51L)
+                .fileName("failed.md")
+                .processingStatus(DocumentProcessingStatus.PENDING)
+                .build();
+        when(documentService.retryDocument(51L)).thenReturn(failed);
+
+        var retryResponse = controller.retryDocument(51L);
+        var deleteResponse = controller.deleteDocument(51L);
+
+        assertThat(retryResponse.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(retryResponse.getBody())
+                .containsEntry("documentId", 51L)
+                .containsEntry("status", DocumentProcessingStatus.PENDING);
+        assertThat(deleteResponse.getBody()).containsEntry("documentId", 51L);
+        verify(documentService).deleteDocument(51L);
     }
 
     private static RagEvaluationService.EvaluationReport evaluationReport(String datasetSource, int datasetSize, List<Integer> topKs) {

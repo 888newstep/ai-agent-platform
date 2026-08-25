@@ -5,10 +5,14 @@ import com.aiagent.knowledge.infrastructure.vectorstore.MilvusAdminService;
 import com.aiagent.customer_support.config.CsProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -19,8 +23,19 @@ class CsDataImportControllerTest {
     @Mock private CsProperties csProperties;
     private CsDataImportController controller;
 
+    @TempDir
+    Path tempDir;
+
     @BeforeEach void setUp() throws Exception {
-        org.mockito.Mockito.lenient().when(csProperties.getDataDir()).thenReturn("/tmp/test");
+        Files.writeString(tempDir.resolve("test.jsonl"), "{}\n");
+        Files.writeString(tempDir.resolve("train_clean_v2_small.jsonl"), "{}\n");
+        Files.writeString(tempDir.resolve("dev_clean_v2.jsonl"), "{}\n");
+        Files.writeString(tempDir.resolve("test_clean_v2.jsonl"), "{}\n");
+        org.mockito.Mockito.lenient().when(csProperties.getDataDir()).thenReturn(tempDir.toString());
+        org.mockito.Mockito.lenient().when(csDataImportService.importFromJsonl(anyString()))
+                .thenReturn(new CsDataImportService.ImportResult());
+        org.mockito.Mockito.lenient().when(milvusAdminService.buildAllIndexesAsync())
+                .thenReturn(CompletableFuture.completedFuture(null));
         controller = new CsDataImportController(csDataImportService, milvusAdminService, csProperties);
     }
 
@@ -75,5 +90,10 @@ class CsDataImportControllerTest {
     @Test void shouldListFiles() {
         Map<String, Object> resp = controller.listFiles();
         assertNotNull(resp.get("dataDir"));
+        assertTrue(((java.util.List<?>) resp.get("files")).contains("test.jsonl"));
+    }
+
+    @Test void shouldRejectPathTraversal() {
+        assertThrows(IllegalArgumentException.class, () -> controller.importData("../outside.jsonl"));
     }
 }

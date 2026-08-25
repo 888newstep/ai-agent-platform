@@ -3,6 +3,7 @@ package com.aiagent.rag.application;
     import com.aiagent.infrastructure.config.AiProperties;
     import com.aiagent.infrastructure.metrics.PlatformMetricsService;
     import com.aiagent.knowledge.domain.RetrievalChunk;
+    import com.aiagent.shared.exception.KnowledgeRetrievalUnavailableException;
     import io.micrometer.core.instrument.Timer;
     import lombok.RequiredArgsConstructor;
     import lombok.extern.slf4j.Slf4j;
@@ -35,6 +36,7 @@ package com.aiagent.rag.application;
         private final QueryRouter queryRouter;
         private final QueryRewriter queryRewriter;
         private final SelfRagVerifier selfRagVerifier;
+        private final EvidenceReranker evidenceReranker;
         private final PlatformMetricsService metricsService;
 
         public AdaptiveRagContext resolve(String question) {
@@ -68,6 +70,7 @@ package com.aiagent.rag.application;
                     actualRounds = attempt;
                     rewriteResult = queryRewriter.rewrite(question, decision, verificationResult);
                     chunks = multiRecallService.search(rewriteResult.getRewrittenQuery(), aiProperties.getRag().getTopK());
+                    chunks = evidenceReranker.rerank(rewriteResult.getRewrittenQuery(), chunks);
                     verificationResult = selfRagVerifier.verify(question, rewriteResult, chunks, decision.getRouteType());
 
                     boolean terminal = isTerminal(verificationResult, attempt, maxRounds);
@@ -102,6 +105,10 @@ package com.aiagent.rag.application;
                         sample
                 );
                 return context;
+            } catch (KnowledgeRetrievalUnavailableException exception) {
+                recordAdaptiveMetrics("ERROR", RagVerificationLevel.NONE.name(), false, 0, 0,
+                        "retrieval_unavailable", false, sample);
+                throw exception;
             } catch (Exception e) {
                 log.warn("Adaptive RAG failed for question: {}", e.getMessage());
                 recordAdaptiveMetrics("ERROR", RagVerificationLevel.NONE.name(), false, 0, 0, context.getEndReason(), false, sample);
@@ -139,7 +146,8 @@ package com.aiagent.rag.application;
 
         private int resolveMaxRounds(AdaptiveRagDecision decision) {
             int plannedRounds = Math.max(1, decision.getPlannedRetrievalRounds());
-            return Math.max(plannedRounds, aiProperties.getRag().getAdaptive().getMaxRetrievalRounds());
+            int configuredMaximum = Math.max(1, aiProperties.getRag().getAdaptive().getMaxRetrievalRounds());
+            return Math.min(plannedRounds, configuredMaximum);
         }
 
         private boolean isTerminal(AdaptiveRagVerificationResult verificationResult, int attempt, int maxRounds) {
@@ -187,11 +195,18 @@ package com.aiagent.rag.application;
                 Map<String, Object> metadata = chunk.getMetadata();
                 chunkTraces.add(AdaptiveRagRoundTrace.ChunkTrace.builder()
                         .chunkId(chunk.getId())
+                        .qaPairId(metadataText(metadata, "qa_pair_id"))
+                        .documentId(metadataText(metadata, "documentId"))
                         .score(chunk.getScore())
+                        .category(metadataText(metadata, "category"))
+                        .question(metadataText(metadata, "question"))
                         .retrievalSource(metadata != null ? (String) metadata.get("retrievalSource") : null)
                         .vectorRank(metadata != null && metadata.get("vectorRank") instanceof Integer vectorRank ? vectorRank : null)
                         .bm25Rank(metadata != null && metadata.get("bm25Rank") instanceof Integer bm25Rank ? bm25Rank : null)
                         .rrfScore(metadata != null && metadata.get("rrfScore") instanceof Double rrfScore ? rrfScore : null)
+                        .semanticRerankScore(metadataNumber(metadata, SemanticEvidenceReranker.SEMANTIC_SCORE_METADATA))
+                        .rerankProvider(metadataText(metadata, SemanticEvidenceReranker.RERANK_PROVIDER_METADATA))
+                        .rerankMinScore(metadataNumber(metadata, SemanticEvidenceReranker.RERANK_MIN_SCORE_METADATA))
                         .build());
             }
 
@@ -205,12 +220,30 @@ package com.aiagent.rag.application;
                     .chunkCount(chunks.size())
                     .verificationLevel(verificationResult.getLevel())
                     .verificationScore(verificationResult.getScore())
+                    .semanticScore(verificationResult.getSemanticScore())
+                    .keywordCoverage(verificationResult.getKeywordCoverage())
+                    .evidenceSufficient(verificationResult.isEvidenceSufficient())
                     .matchedKeywords(verificationResult.getMatchedKeywords())
                     .missingKeywords(verificationResult.getMissingKeywords())
                     .verificationReason(verificationResult.getReason())
                     .terminal(terminal)
                     .terminalReason(terminalReason)
                     .build();
+        }
+
+        private String metadataText(Map<String, Object> metadata, String key) {
+            if (metadata == null || metadata.get(key) == null) {
+                return null;
+            }
+            String value = String.valueOf(metadata.get(key));
+            return StringUtils.hasText(value) ? value : null;
+        }
+
+        private Double metadataNumber(Map<String, Object> metadata, String key) {
+            if (metadata == null || !(metadata.get(key) instanceof Number value)) {
+                return null;
+            }
+            return value.doubleValue();
         }
 
         private AdaptiveRagContext buildContext(String question,
@@ -221,34 +254,9 @@ package com.aiagent.rag.application;
                                             int retrievalRounds,
                                             List<AdaptiveRagRoundTrace> roundTraces,
                                             String endReason) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("Adaptive RAG route: ")
-                .append(decision.getRouteType())
-                .append('\n');
-        builder.append("Route reason: ")
-                .append(decision.getReason())
-                .append('\n');
-
-        if (rewriteResult != null) {
-            builder.append("Rewritten query: ")
-                    .append(rewriteResult.getRewrittenQuery())
-                    .append('\n');
-        }
-
-        if (verificationResult != null) {
-            builder.append("Verification: ")
-                    .append(verificationResult.getLevel())
-                    .append(" (score=")
-                    .append(String.format("%.2f", verificationResult.getScore()))
-                    .append(')')
-                    .append('\n');
-        }
-
-        builder.append("Relevant reference information:")
-                .append('\n');
-
         int maxChunks = aiProperties.getRag().getAdaptive().getMaxContextChunks();
         int limit = Math.min(chunks.size(), maxChunks);
+        StringBuilder builder = new StringBuilder();
         for (int index = 0; index < limit; index++) {
             RetrievalChunk chunk = chunks.get(index);
             builder.append('[')

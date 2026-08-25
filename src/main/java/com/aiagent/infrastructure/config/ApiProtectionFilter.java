@@ -37,7 +37,10 @@ public class ApiProtectionFilter extends OncePerRequestFilter {
     private static final Set<String> PROTECTED_POST_PATHS = Set.of(
             "/api/v1/agent/chat",
             "/api/v1/agent/react/chat",
-            "/api/v1/agent/document/search"
+            "/api/v1/customer-support/chat",
+            "/api/v1/agent/document/search",
+            "/api/v1/auth/login",
+            "/api/v1/auth/register"
     );
 
     private final StringRedisTemplate redisTemplate;
@@ -58,9 +61,9 @@ public class ApiProtectionFilter extends OncePerRequestFilter {
             return;
         }
 
-        String input = extractInput(request);
+        long inputCharacters = extractInputCharacterCount(request);
         AiProperties.CostBudget costBudget = protection.getCostBudget();
-        if (costBudget.isEnabled() && input.codePointCount(0, input.length()) > costBudget.getMaxInputCharacters()) {
+        if (costBudget.isEnabled() && inputCharacters > costBudget.getMaxInputCharacters()) {
             reject(response, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
                     "request_too_large", "Request input exceeds the configured character limit", 0);
             return;
@@ -68,16 +71,26 @@ public class ApiProtectionFilter extends OncePerRequestFilter {
 
         String identity = resolveIdentity(request);
         AiProperties.RateLimit rateLimit = protection.getRateLimit();
-        if (rateLimit.isEnabled() && rateLimit.getRequestsPerMinute() > 0) {
-            ProtectionDecision decision = checkRateLimit(identity, rateLimit);
+        boolean authenticationRequest = isAuthenticationRequest(request);
+        int requestsPerMinute = authenticationRequest
+                ? rateLimit.getAuthenticationRequestsPerMinute()
+                : rateLimit.getRequestsPerMinute();
+        if (rateLimit.isEnabled() && requestsPerMinute > 0) {
+            ProtectionDecision decision = checkRateLimit(
+                    identity, requestsPerMinute, authenticationRequest ? false : rateLimit.isFailOpen());
             if (!decision.allowed()) {
                 reject(response, decision.status(), decision.code(), decision.message(), decision.retryAfterSeconds());
                 return;
             }
         }
 
+        if (authenticationRequest) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         if (costBudget.isEnabled() && costBudget.getEstimatedTokensPerMinute() > 0) {
-            long estimatedTokens = estimateTokens(input, costBudget);
+            long estimatedTokens = estimateTokens(inputCharacters, costBudget);
             if (costBudget.getMaxEstimatedTokensPerRequest() > 0
                     && estimatedTokens > costBudget.getMaxEstimatedTokensPerRequest()) {
                 reject(response, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
@@ -94,11 +107,13 @@ public class ApiProtectionFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private ProtectionDecision checkRateLimit(String identity, AiProperties.RateLimit rateLimit) {
+    private ProtectionDecision checkRateLimit(String identity,
+                                               int requestsPerMinute,
+                                               boolean failOpen) {
         String key = buildWindowKey("requests", identity);
         try {
             long count = increment(key, 1);
-            if (count > rateLimit.getRequestsPerMinute()) {
+            if (count > requestsPerMinute) {
                 return ProtectionDecision.denied(
                         429,
                         "rate_limit_exceeded",
@@ -108,8 +123,8 @@ public class ApiProtectionFilter extends OncePerRequestFilter {
             return ProtectionDecision.permit();
         } catch (RuntimeException ex) {
             log.warn("API rate-limit storage unavailable, failOpen={}: {}",
-                    rateLimit.isFailOpen(), ex.getMessage());
-            return rateLimit.isFailOpen()
+                    failOpen, ex.getMessage());
+            return failOpen
                     ? ProtectionDecision.permit()
                     : ProtectionDecision.denied(
                     HttpServletResponse.SC_SERVICE_UNAVAILABLE,
@@ -170,17 +185,31 @@ public class ApiProtectionFilter extends OncePerRequestFilter {
         return "POST".equalsIgnoreCase(method) && PROTECTED_POST_PATHS.contains(path);
     }
 
-    private String extractInput(HttpServletRequest request) {
-        String question = request.getParameter("question");
-        if (StringUtils.hasText(question)) {
-            return question;
-        }
-        String query = request.getParameter("query");
-        return query == null ? "" : query;
+    private boolean isAuthenticationRequest(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return "/api/v1/auth/login".equals(path) || "/api/v1/auth/register".equals(path);
     }
 
-    private long estimateTokens(String input, AiProperties.CostBudget costBudget) {
-        int characterCount = input.codePointCount(0, input.length());
+    private long extractInputCharacterCount(HttpServletRequest request) {
+        String question = request.getParameter("question");
+        if (StringUtils.hasText(question)) {
+            return question.codePointCount(0, question.length());
+        }
+        String query = request.getParameter("query");
+        if (StringUtils.hasText(query)) {
+            return query.codePointCount(0, query.length());
+        }
+        if ("/api/v1/customer-support/chat".equals(request.getRequestURI())) {
+            long contentLength = request.getContentLengthLong();
+            if (contentLength < 0) {
+                return (long) aiProperties.getProtection().getCostBudget().getMaxInputCharacters() + 1;
+            }
+            return contentLength;
+        }
+        return 0;
+    }
+
+    private long estimateTokens(long characterCount, AiProperties.CostBudget costBudget) {
         long contentTokens = (long) Math.ceil(characterCount * Math.max(costBudget.getTokensPerCharacter(), 0.01));
         return Math.max(1, costBudget.getPromptOverheadTokens()) + contentTokens;
     }

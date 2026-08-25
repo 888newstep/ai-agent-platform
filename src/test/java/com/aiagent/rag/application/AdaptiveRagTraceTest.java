@@ -38,6 +38,7 @@ class AdaptiveRagTraceTest {
                 new QueryRouter(aiProperties),
                 new QueryRewriter(aiProperties),
                 new SelfRagVerifier(aiProperties),
+                (query, chunks) -> withSemanticScores(chunks, 0.95),
                 metricsService
         );
     }
@@ -105,5 +106,21 @@ class AdaptiveRagTraceTest {
         AdaptiveRagContext context = adaptiveRagService.resolve("RAG 是什么");
 
         assertThat(context.getDecisionConfidence()).isGreaterThan(0.0);
+    }
+
+    private List<RetrievalChunk> withSemanticScores(List<RetrievalChunk> chunks, double score) {
+        return chunks.stream().map(chunk -> {
+            Map<String, Object> metadata = new java.util.LinkedHashMap<>();
+            if (chunk.getMetadata() != null) {
+                metadata.putAll(chunk.getMetadata());
+            }
+            metadata.put(SemanticEvidenceReranker.SEMANTIC_SCORE_METADATA, score);
+            return RetrievalChunk.builder()
+                    .id(chunk.getId())
+                    .content(chunk.getContent())
+                    .score(chunk.getScore())
+                    .metadata(metadata)
+                    .build();
+        }).toList();
     }
 }

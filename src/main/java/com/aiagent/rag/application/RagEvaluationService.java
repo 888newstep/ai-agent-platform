@@ -24,12 +24,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.HexFormat;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 /**
@@ -151,9 +151,11 @@ public class RagEvaluationService {
                         .add(recall, precision, latency, results.size());
             }
 
-            writeMetrics(report, String.valueOf(k), overall);
+            String topK = String.valueOf(k);
+            writeMetrics(overall, (name, value) -> report.addMetric(topK, name, value));
             for (Map.Entry<String, MetricAccumulator> entry : categoryAccumulators.entrySet()) {
-                writeCategoryMetrics(report, entry.getKey(), String.valueOf(k), entry.getValue());
+                writeMetrics(entry.getValue(), (name, value) ->
+                        report.addCategoryMetric(entry.getKey(), topK, name, value));
             }
         }
 
@@ -162,37 +164,21 @@ public class RagEvaluationService {
         return report;
     }
 
-    private void writeMetrics(EvaluationReport report, String k, MetricAccumulator accumulator) {
+    private void writeMetrics(MetricAccumulator accumulator, BiConsumer<String, Object> writer) {
         int sampleCount = accumulator.latencies.size();
-        report.addMetric(k, "sampleCount", sampleCount);
-        report.addMetric(k, "recall", average(accumulator.recalls));
-        report.addMetric(k, "precision", average(accumulator.precisions));
-        report.addMetric(k, "f1", calculateF1(average(accumulator.recalls), average(accumulator.precisions)));
-        report.addMetric(k, "avgLatency", averageLong(accumulator.latencies));
-        report.addMetric(k, "p95Latency", percentileLong(accumulator.latencies, 95));
-        report.addMetric(k, "p99Latency", percentileLong(accumulator.latencies, 99));
-        report.addMetric(k, "p50Latency", percentileLong(accumulator.latencies, 50));
-        report.addMetric(k, "emptyResultCount", accumulator.emptyResultCount);
-        report.addMetric(k, "emptyResultRate", ratio(accumulator.emptyResultCount, sampleCount));
-        report.addMetric(k, "retrievalHitRate", ratio(sampleCount - accumulator.emptyResultCount, sampleCount));
-    }
-
-    private void writeCategoryMetrics(EvaluationReport report,
-                                      String category,
-                                      String k,
-                                      MetricAccumulator accumulator) {
-        int sampleCount = accumulator.latencies.size();
-        report.addCategoryMetric(category, k, "sampleCount", sampleCount);
-        report.addCategoryMetric(category, k, "recall", average(accumulator.recalls));
-        report.addCategoryMetric(category, k, "precision", average(accumulator.precisions));
-        report.addCategoryMetric(category, k, "f1", calculateF1(average(accumulator.recalls), average(accumulator.precisions)));
-        report.addCategoryMetric(category, k, "avgLatency", averageLong(accumulator.latencies));
-        report.addCategoryMetric(category, k, "p95Latency", percentileLong(accumulator.latencies, 95));
-        report.addCategoryMetric(category, k, "p99Latency", percentileLong(accumulator.latencies, 99));
-        report.addCategoryMetric(category, k, "p50Latency", percentileLong(accumulator.latencies, 50));
-        report.addCategoryMetric(category, k, "emptyResultCount", accumulator.emptyResultCount);
-        report.addCategoryMetric(category, k, "emptyResultRate", ratio(accumulator.emptyResultCount, sampleCount));
-        report.addCategoryMetric(category, k, "retrievalHitRate", ratio(sampleCount - accumulator.emptyResultCount, sampleCount));
+        double recall = average(accumulator.recalls);
+        double precision = average(accumulator.precisions);
+        writer.accept("sampleCount", sampleCount);
+        writer.accept("recall", recall);
+        writer.accept("precision", precision);
+        writer.accept("f1", calculateF1(recall, precision));
+        writer.accept("avgLatency", averageLong(accumulator.latencies));
+        writer.accept("p95Latency", percentileLong(accumulator.latencies, 95));
+        writer.accept("p99Latency", percentileLong(accumulator.latencies, 99));
+        writer.accept("p50Latency", percentileLong(accumulator.latencies, 50));
+        writer.accept("emptyResultCount", accumulator.emptyResultCount);
+        writer.accept("emptyResultRate", ratio(accumulator.emptyResultCount, sampleCount));
+        writer.accept("retrievalHitRate", ratio(sampleCount - accumulator.emptyResultCount, sampleCount));
     }
 
     private EvaluationDataset loadDataset(String datasetPath) {
@@ -245,7 +231,7 @@ public class RagEvaluationService {
                 .map(s -> s.trim())
                 .map(header -> header.toLowerCase(Locale.ROOT))
                 .toList();
-        int questionIndex = headerIndex(headers, "question");
+        int questionIndex = headerIndexOrMinusOne(headers, "question");
         int relevantIndex = Math.max(headerIndexOrMinusOne(headers, "relevantdocids"), headerIndexOrMinusOne(headers, "relevant_doc_ids"));
         int categoryIndex = Math.max(headerIndexOrMinusOne(headers, "category"), headerIndexOrMinusOne(headers, "type"));
 
@@ -304,14 +290,6 @@ public class RagEvaluationService {
 
         String fingerprint = HexFormat.of().formatHex(digest.digest()).substring(0, 16);
         return path.getFileName() + "#" + fingerprint;
-    }
-
-    private int headerIndex(List<String> headers, String key) {
-        int index = headerIndexOrMinusOne(headers, key);
-        if (index < 0) {
-            throw new IllegalArgumentException("Missing CSV header: " + key);
-        }
-        return index;
     }
 
     private int headerIndexOrMinusOne(List<String> headers, String key) {
@@ -378,20 +356,20 @@ public class RagEvaluationService {
     }
 
 
-private EvaluationDataset buildSampleDataset() {
-    return EvaluationDataset.builder()
-            .source("built-in-sample")
-            .cases(List.of(
-                    EvaluationCase.builder().question("退款流程是什么").relevantDocIds(List.of("doc_refund_01", "doc_refund_02")).category("process").build(),
-                    EvaluationCase.builder().question("如何修改收货地址").relevantDocIds(List.of("doc_address_01", "doc_address_02")).category("process").build(),
-                    EvaluationCase.builder().question("商品质量问题怎么处理").relevantDocIds(List.of("doc_quality_01", "doc_quality_02")).category("after_sale").build(),
-                    EvaluationCase.builder().question("订单发货时间").relevantDocIds(List.of("doc_shipping_01", "doc_shipping_02")).category("fact").build(),
-                    EvaluationCase.builder().question("会员权益有哪些").relevantDocIds(List.of("doc_vip_01", "doc_vip_02")).category("fact").build()
-            ))
-            .build();
-}
+    private EvaluationDataset buildSampleDataset() {
+        return EvaluationDataset.builder()
+                .source("built-in-sample")
+                .cases(List.of(
+                        EvaluationCase.builder().question("退款流程是什么").relevantDocIds(List.of("doc_refund_01", "doc_refund_02")).category("process").build(),
+                        EvaluationCase.builder().question("如何修改收货地址").relevantDocIds(List.of("doc_address_01", "doc_address_02")).category("process").build(),
+                        EvaluationCase.builder().question("商品质量问题怎么处理").relevantDocIds(List.of("doc_quality_01", "doc_quality_02")).category("after_sale").build(),
+                        EvaluationCase.builder().question("订单发货时间").relevantDocIds(List.of("doc_shipping_01", "doc_shipping_02")).category("fact").build(),
+                        EvaluationCase.builder().question("会员权益有哪些").relevantDocIds(List.of("doc_vip_01", "doc_vip_02")).category("fact").build()
+                ))
+                .build();
+    }
 
-private List<EvaluationCase> normalizeCases(List<EvaluationCase> cases) {
+    private List<EvaluationCase> normalizeCases(List<EvaluationCase> cases) {
         if (cases == null || cases.isEmpty()) {
             throw new IllegalArgumentException("Evaluation dataset must contain at least one case");
         }
@@ -401,11 +379,10 @@ private List<EvaluationCase> normalizeCases(List<EvaluationCase> cases) {
                 continue;
             }
             List<String> relevantDocIds = evaluationCase.getRelevantDocIds() == null ? List.of() : evaluationCase.getRelevantDocIds().stream()
-                            .filter(StringUtils::hasText)
-                            .map(s -> s.trim())
-                            .collect(Collectors.toCollection(LinkedHashSet::new))
-                            .stream()
-                            .toList();
+                    .filter(StringUtils::hasText)
+                    .map(String::trim)
+                    .distinct()
+                    .toList();
             if (relevantDocIds.isEmpty()) {
                 throw new IllegalArgumentException("Every evaluation case must contain at least one relevantDocId");
             }
@@ -461,8 +438,7 @@ private List<EvaluationCase> normalizeCases(List<EvaluationCase> cases) {
         List<Integer> source = topKs == null || topKs.isEmpty() ? List.of(aiProperties.getRag().getTopK()) : topKs;
         List<Integer> sanitized = source.stream()
                 .filter(value -> value != null && value > 0)
-                .collect(Collectors.toCollection(LinkedHashSet::new))
-                .stream()
+                .distinct()
                 .toList();
         return sanitized.isEmpty() ? List.of(aiProperties.getRag().getTopK()) : sanitized;
     }
@@ -502,6 +478,14 @@ private List<EvaluationCase> normalizeCases(List<EvaluationCase> cases) {
         config.put("topK", aiProperties.getRag().getTopK());
         config.put("similarityThreshold", profile.getSimilarityThreshold());
         config.put("hybridSearch", Boolean.TRUE.equals(profile.getHybridSearch()));
+        config.put("hybridVectorWeight", aiProperties.getRag().getHybridVectorWeight());
+        config.put("hybridBm25Weight", aiProperties.getRag().getHybridBm25Weight());
+        config.put("hybridRrfK", aiProperties.getRag().getHybridRrfK());
+        config.put("hybridVectorCandidateTopK", aiProperties.getRag().getHybridVectorCandidateTopK());
+        config.put("hybridBm25CandidateTopK", aiProperties.getRag().getHybridBm25CandidateTopK());
+        config.put("hybridBm25CorpusMaxDocs", aiProperties.getRag().getHybridBm25CorpusMaxDocs());
+        config.put("hybridCorpusBm25Enabled", aiProperties.getRag().isHybridCorpusBm25Enabled());
+        config.put("bm25StopwordEnabled", aiProperties.getRag().isBm25StopwordEnabled());
         config.put("chunkSize", aiProperties.getDocument().getChunkSize());
         config.put("chunkOverlap", aiProperties.getDocument().getChunkOverlap());
         config.put("chunkingComparable", false);

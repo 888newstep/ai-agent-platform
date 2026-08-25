@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$BaseUrl = $(if ([string]::IsNullOrWhiteSpace($env:AI_BASE_URL)) { 'http://localhost:8081' } else { $env:AI_BASE_URL }),
-    [ValidateSet('health', 'search')]
+    [ValidateSet('health', 'actuator', 'search')]
     [string]$Scenario = 'health',
     [ValidateRange(1, 5000)]
     [int]$Threads = 1,
@@ -22,6 +22,12 @@ param(
     [string]$OutputDirectory = (Join-Path (Get-Location) 'evaluation-reports'),
     [ValidateRange(1, 120)]
     [int]$PreflightTimeoutSeconds = 10,
+    [ValidateRange(-1.0, 1.0)]
+    [double]$MaxErrorRate = -1,
+    [ValidateRange(-1, 120000)]
+    [int]$MaxP95Milliseconds = -1,
+    [ValidateRange(-1.0, 1000000.0)]
+    [double]$MinThroughputRps = -1,
     [switch]$SkipHealthCheck,
     [switch]$FailOnErrors
 )
@@ -246,6 +252,27 @@ $summary = [ordered]@{
     jtlFile = [IO.Path]::GetFileName($jtlPath)
     htmlReportDirectory = [IO.Path]::GetFileName($htmlPath)
 }
+$gateViolations = @()
+if ($MaxErrorRate -ge 0 -and $summary.errorRate -gt $MaxErrorRate) {
+    $gateViolations += "errorRate $($summary.errorRate) exceeded $MaxErrorRate"
+}
+if ($MaxP95Milliseconds -ge 0 -and $summary.p95ElapsedMs -gt $MaxP95Milliseconds) {
+    $gateViolations += "p95ElapsedMs $($summary.p95ElapsedMs) exceeded $MaxP95Milliseconds"
+}
+if ($MinThroughputRps -ge 0) {
+    if ($null -eq $summary.throughputRps) {
+        $gateViolations += 'throughputRps is unavailable because the run produced fewer than two timestamps'
+    } elseif ($summary.throughputRps -lt $MinThroughputRps) {
+        $gateViolations += "throughputRps $($summary.throughputRps) was below $MinThroughputRps"
+    }
+}
+$summary['qualityGates'] = [ordered]@{
+    maxErrorRate = if ($MaxErrorRate -ge 0) { $MaxErrorRate } else { $null }
+    maxP95Milliseconds = if ($MaxP95Milliseconds -ge 0) { $MaxP95Milliseconds } else { $null }
+    minThroughputRps = if ($MinThroughputRps -ge 0) { $MinThroughputRps } else { $null }
+    passed = $gateViolations.Count -eq 0
+    violations = $gateViolations
+}
 $summary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $summaryPath -Encoding utf8
 
 Write-Host ''
@@ -257,6 +284,12 @@ Write-Host "[RESULT] JTL: $jtlPath"
 Write-Host "[RESULT] HTML report: $htmlPath"
 
 if ($FailOnErrors -and $errorCount -gt 0) {
+    exit 1
+}
+if ($gateViolations.Count -gt 0) {
+    foreach ($violation in $gateViolations) {
+        Write-Host "[GATE] FAILED: $violation"
+    }
     exit 1
 }
 exit 0

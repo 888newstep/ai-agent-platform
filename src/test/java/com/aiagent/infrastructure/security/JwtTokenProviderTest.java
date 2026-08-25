@@ -30,17 +30,26 @@ class JwtTokenProviderTest {
     }
     @Test void shouldRejectInvalidToken() { assertFalse(jwtTokenProvider.validateToken("invalid")); }
     @Test void shouldRejectNullToken() { assertFalse(jwtTokenProvider.validateToken(null)); }
-    @Test void shouldRejectExpiredToken() {
+    @Test void shouldRejectInvalidExpirationConfiguration() {
         AiProperties p = new AiProperties();
         p.getSecurity().getJwt().setSecret("test-secret-key-for-jwt-must-be-at-least-32-chars-long");
         p.getSecurity().getJwt().setExpiration(-1000);
-        JwtTokenProvider ep = new JwtTokenProvider(p);
-        String t = ep.generateToken("u"); assertFalse(ep.validateToken(t));
+        assertThrows(IllegalStateException.class, () -> new JwtTokenProvider(p));
     }
     @Test void shouldHandleDifferentUsernames() {
         String t1 = jwtTokenProvider.generateToken("u1");
         String t2 = jwtTokenProvider.generateToken("u2");
         assertNotEquals(t1, t2);
         assertEquals("u1", jwtTokenProvider.getUsernameFromToken(t1));
+    }
+
+    @Test void shouldGenerateUniqueTokensForSameUser() {
+        assertNotEquals(
+                jwtTokenProvider.generateToken("same-user"),
+                jwtTokenProvider.generateToken("same-user"));
+    }
+
+    @Test void shouldExposeExpiration() {
+        assertNotNull(jwtTokenProvider.getExpiration(jwtTokenProvider.generateToken("user")));
     }
 }

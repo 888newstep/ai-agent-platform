@@ -8,6 +8,14 @@ import dev.langchain4j.store.embedding.EmbeddingMatch;
 import java.util.List;
 
 public interface VectorStoreService {
+    default boolean isAvailable() {
+        return true;
+    }
+
+    default boolean isWriteAvailable() {
+        return true;
+    }
+
     void add(String id, Embedding embedding);
     List<String> addAll(List<Embedding> embeddings, List<TextSegment> segments);
     List<EmbeddingMatch<TextSegment>> search(Embedding queryEmbedding, int topK, double minScore);

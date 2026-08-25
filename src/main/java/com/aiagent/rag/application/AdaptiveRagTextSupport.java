@@ -16,14 +16,17 @@ final class AdaptiveRagTextSupport {
     private static final Set<String> STOP_WORDS = Set.of(
             "请", "帮我", "麻烦", "一下", "一下子", "详细", "简单", "告诉我", "可以吗", "能不能",
             "帮忙", "这个", "那个", "这些", "那些", "一下吧", "请问", "给我", "谢谢",
-            "关于", "相关", "问题", "内容", "一下呢", "帮我看", "帮我想", "帮我做", "帮我写"
+            "关于", "相关", "问题", "内容", "一下呢", "帮我看", "帮我想", "帮我做", "帮我写",
+            "什么", "是什么", "为什么", "怎么", "如何", "多少", "多久", "哪些", "是否", "能否"
     );
 
     private static final List<String> DOMAIN_TERMS = List.of(
             "RAG", "Milvus", "BM25", "RRF", "embedding", "Embedding", "召回", "检索", "向量",
             "缓存", "路由", "改写", "验证", "多跳", "对比", "区别", "原因", "流程", "原理",
             "数据", "文档", "上下文", "多路", "融合", "阈值", "语义", "模型", "搜索", "知识",
-            "答案", "配置", "参数", "评估", "延迟", "命中率", "准确率", "精确率", "召回率"
+            "答案", "配置", "参数", "评估", "延迟", "命中率", "准确率", "精确率", "召回率",
+            "退款", "到账", "订单", "收货地址", "修改", "商品", "会员", "权益", "专属折扣",
+            "发货", "售后", "退货", "换货", "物流", "优惠券", "支付", "时效", "配送", "发票"
     );
 
     private AdaptiveRagTextSupport() {
@@ -50,6 +53,11 @@ final class AdaptiveRagTextSupport {
                     return new ArrayList<>(keywords);
                 }
             }
+        }
+
+        // 领域词比无分词条件下的中文字符切片更稳定，命中后不再生成噪声 n-gram。
+        if (!keywords.isEmpty()) {
+            return new ArrayList<>(keywords);
         }
 
         String cleaned = NON_WORD_PATTERN.matcher(normalized).replaceAll(" ");

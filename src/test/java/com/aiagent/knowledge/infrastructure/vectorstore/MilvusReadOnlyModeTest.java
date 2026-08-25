@@ -45,6 +45,32 @@ class MilvusReadOnlyModeTest {
     }
 
     @Test
+    void unavailableMilvusRejectsWritesWhenFallbackIsDisabled() {
+        AiProperties properties = new AiProperties();
+        MilvusVectorStoreService genericStore = new MilvusVectorStoreService(properties, Optional.empty());
+        MilvusQaVectorStoreService qaStore = new MilvusQaVectorStoreService(properties, null);
+        Embedding embedding = new Embedding(new float[]{1.0f, 0.0f});
+
+        assertEquals(false, genericStore.isWriteAvailable());
+        assertEquals(false, qaStore.isWriteAvailable());
+        assertThrows(IllegalStateException.class, () -> genericStore.add("id", embedding));
+        assertThrows(IllegalStateException.class, () -> qaStore.add("1", embedding));
+        assertEquals(List.of(), genericStore.search(embedding, 5, 0.0));
+        assertEquals(List.of(), qaStore.search(embedding, 5, 0.0));
+    }
+
+    @Test
+    void explicitFallbackAllowsLocalDevelopmentWrites() {
+        AiProperties properties = new AiProperties();
+        properties.getVectorStore().getMilvus().setFallbackEnabled(true);
+        MilvusVectorStoreService store = new MilvusVectorStoreService(properties, Optional.empty());
+        Embedding embedding = new Embedding(new float[]{1.0f, 0.0f});
+
+        assertEquals(true, store.isWriteAvailable());
+        assertDoesNotThrow(() -> store.add("id", embedding));
+    }
+
+    @Test
     void adminStoreSkipsMutatingOperationsInReadOnlyMode() throws Exception {
         AiProperties properties = readOnlyProperties();
         MilvusAdminService adminService = new MilvusAdminService(null, properties);

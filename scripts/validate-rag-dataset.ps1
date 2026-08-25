@@ -2,7 +2,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$DatasetPath,
-    [ValidateSet("unknown", "sample", "smoke", "independent-human-labeled")]
+    [ValidateSet("unknown", "sample", "smoke", "llm-assisted-silver", "synthetic", "independent-human-labeled")]
     [string]$DatasetKind = "unknown",
     [int]$MinCases = 1,
     [int]$MinCategories = 1,
@@ -183,10 +183,16 @@ if ($categoryCounts.Count -lt $MinCategories) {
 if ($DatasetKind -eq "sample" -or $DatasetKind -eq "smoke") {
     $warnings.Add("datasetKind=$DatasetKind is diagnostic data and must not be used as a formal quality conclusion")
 }
+if ($DatasetKind -eq "llm-assisted-silver") {
+    $warnings.Add("LLM-assisted silver labels require manual audit before they can support business-quality claims")
+}
+if ($DatasetKind -eq "synthetic") {
+    $warnings.Add("synthetic data may be used for regression and boundary testing, not production-quality claims")
+}
 if ($DatasetKind -eq "independent-human-labeled") {
     $warnings.Add("structural validation cannot prove annotation independence, source quality, or annotator agreement")
 }
-$warnings.Add("the script does not verify that relevantDocIds exist in Milvus")
+$warnings.Add("this structural check does not query Milvus; run validate-rag-milvus-ids.ps1 separately")
 
 $summary = [ordered]@{}
 $summary.datasetFileName = [System.IO.Path]::GetFileName($resolvedPath)

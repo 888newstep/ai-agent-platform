@@ -8,7 +8,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +50,11 @@ public class SemanticCacheService {
     }
 
     public String getIfCached(String question) {
+        return getIfCached("default", question);
+    }
+
+    public String getIfCached(String namespace, String question) {
+        validateNamespace(namespace);
         var sample = metricsService.startSample();
         boolean hit = false;
         double bestScore = 0;
@@ -75,6 +85,11 @@ public class SemanticCacheService {
 
                 Object embeddingValue = entry.get("embedding");
                 Object answerValue = entry.get("answer");
+                Object namespaceValue = entry.get("namespace");
+                String entryNamespace = namespaceValue instanceof String value ? value : "default";
+                if (!namespace.equals(entryNamespace)) {
+                    continue;
+                }
                 if (!(embeddingValue instanceof float[] cachedEmbedding) || !(answerValue instanceof String cachedAnswer)) {
                     log.warn("Ignoring malformed semantic cache entry: {}", cacheKey);
                     continue;
@@ -103,6 +118,11 @@ public class SemanticCacheService {
         }
     }
     public void put(String question, String answer) {
+        put("default", question, answer);
+    }
+
+    public void put(String namespace, String question, String answer) {
+        validateNamespace(namespace);
         CacheExceptionHandler.safeWrite("Semantic", () -> {
             Embedding embedding = getEmbedding(question);
             if (embedding == null) {
@@ -110,9 +130,10 @@ public class SemanticCacheService {
                 return;
             }
 
-            String cacheKey = CACHE_PREFIX + Math.abs(question.hashCode());
+            String cacheKey = CACHE_PREFIX + sha256(namespace + "\u001f" + question);
 
             Map<String, Object> entry = Map.of(
+                    "namespace", namespace,
                     "question", question,
                     "answer", answer,
                     "embedding", embedding.vector(),
@@ -147,6 +168,22 @@ public class SemanticCacheService {
         }
         redisTemplate.delete(CACHE_INDEX);
         log.info("Semantic cache cleared");
+    }
+
+    private void validateNamespace(String namespace) {
+        if (!StringUtils.hasText(namespace) || namespace.length() > 64) {
+            throw new IllegalArgumentException("Semantic cache namespace must contain 1 to 64 characters");
+        }
+    }
+
+    private String sha256(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
+        }
     }
 
     private double cosineSimilarity(float[] a, float[] b) {

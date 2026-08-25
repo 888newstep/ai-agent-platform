@@ -3,7 +3,7 @@ param(
     [string]$BaseUrl = "http://localhost:8081",
     [string]$AdminApiKey,
     [string]$DatasetPath = "examples/evaluation-datasets/rag-sample.json",
-    [ValidateSet("unknown", "sample", "smoke", "independent-human-labeled")]
+    [ValidateSet("unknown", "sample", "smoke", "llm-assisted-silver", "synthetic", "independent-human-labeled")]
     [string]$DatasetKind = "unknown",
     [string]$TopKs = "1,3,5",
     [double]$SimilarityThreshold = 0.60,

@@ -12,6 +12,10 @@ public class DocumentParserFactory {
 
     private final List<DocumentParser> parsers;
 
+    public boolean supports(String fileName) {
+        return parsers.stream().anyMatch(parser -> parser.supports(fileName));
+    }
+
     public String parse(String fileName, InputStream inputStream) {
         for (DocumentParser parser : parsers) {
             if (parser.supports(fileName)) {

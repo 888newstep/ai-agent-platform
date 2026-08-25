@@ -1,13 +1,11 @@
 package com.aiagent.knowledge.infrastructure.parser;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -56,8 +54,10 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 @Component
+@Order(0)
 public class TxtDocumentParser implements DocumentParser {
 
+    private static final int MAX_TEXT_BYTES = 20 * 1024 * 1024;
     /** 格式检测阈值：某种格式的段落占比超过此值即判定为该格式 */
     private static final double FORMAT_DETECT_THRESHOLD = 0.5;
 
@@ -436,15 +436,7 @@ public class TxtDocumentParser implements DocumentParser {
      * 读取输入流为字符串
      */
     private String readAll(InputStream inputStream) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line).append("\n");
-            }
-        }
-        return sb.toString();
+        return BoundedTextReader.read(inputStream, MAX_TEXT_BYTES);
     }
 
     /**

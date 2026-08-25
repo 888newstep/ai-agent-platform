@@ -6,6 +6,7 @@ import com.aiagent.infrastructure.metrics.PlatformMetricsService;
 import com.aiagent.knowledge.application.DocumentService;
 import com.aiagent.knowledge.domain.RetrievalChunk;
 import com.aiagent.knowledge.infrastructure.vectorstore.VectorStoreService;
+import com.aiagent.shared.exception.KnowledgeRetrievalUnavailableException;
 import io.micrometer.core.instrument.Timer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,10 +18,15 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -49,6 +55,7 @@ class MultiRecallServiceTest {
         aiProperties = new AiProperties();
         aiProperties.getRag().setSimilarityThreshold(0.66);
         aiProperties.getRag().setEnableHybridSearch(true);
+        aiProperties.getRag().setHybridCorpusBm25Enabled(true);
         sample = Timer.start();
         when(metricsService.startSample()).thenReturn(sample);
 
@@ -62,7 +69,7 @@ class MultiRecallServiceTest {
                 chunk("2", "banana apple"),
                 chunk("3", "orange pear")
         );
-        when(ragCacheService.getCachedResults("apple|topK=2|threshold=0.6600|hybrid=true")).thenReturn(cached);
+        when(ragCacheService.getCachedResults("apple|topK=2|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true")).thenReturn(cached);
 
         List<RetrievalChunk> results = multiRecallService.search("apple", 2);
 
@@ -83,7 +90,7 @@ class MultiRecallServiceTest {
                 chunk("2", "apple pie"),
                 chunk("3", "banana smoothie")
         );
-        when(ragCacheService.getCachedResults("apple banana|topK=2|threshold=0.6600|hybrid=true")).thenReturn(null);
+        when(ragCacheService.getCachedResults("apple banana|topK=2|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true")).thenReturn(null);
         when(documentService.searchSimilar("apple banana", 20, 0.66)).thenReturn(vectorResults);
         when(vectorStoreService.fetchAllChunks(anyInt())).thenReturn(corpus);
 
@@ -96,19 +103,19 @@ class MultiRecallServiceTest {
         assertThat(results.get(0).getMetadata()).containsKeys("vectorRank", "bm25Rank", "rrfScore");
         verify(documentService).searchSimilar("apple banana", 20, 0.66);
         verify(vectorStoreService).fetchAllChunks(anyInt());
-        verify(ragCacheService).cacheResults(eq("apple banana|topK=2|threshold=0.6600|hybrid=true"), eq(results));
+        verify(ragCacheService).cacheResults(eq("apple banana|topK=2|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true"), eq(results));
         verify(metricsService).recordRagSearch(false, 2, sample);
     }
 
     @Test
-    void shouldReturnEmptyWhenVectorSearchFails() {
-        when(ragCacheService.getCachedResults("apple|topK=3|threshold=0.6600|hybrid=true")).thenReturn(null);
+    void shouldReportUnavailableWhenVectorSearchFails() {
+        when(ragCacheService.getCachedResults("apple|topK=3|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true")).thenReturn(null);
         when(documentService.searchSimilar(eq("apple"), anyInt(), eq(0.66))).thenThrow(new RuntimeException("Milvus down"));
 
-        List<RetrievalChunk> results = multiRecallService.search("apple", 3);
-
-        assertThat(results).isEmpty();
-        verify(ragCacheService).cacheResults("apple|topK=3|threshold=0.6600|hybrid=true", List.of());
+        assertThatThrownBy(() -> multiRecallService.search("apple", 3))
+                .isInstanceOf(KnowledgeRetrievalUnavailableException.class)
+                .hasMessage("Knowledge retrieval is temporarily unavailable");
+        verify(ragCacheService, never()).cacheResults(anyString(), anyList());
         verify(metricsService).recordRagSearch(false, 0, sample);
     }
 
@@ -119,7 +126,7 @@ class MultiRecallServiceTest {
                 chunk("2", "how to reset banana smoothie order"),
                 chunk("3", "banana pie recipe")
         );
-        when(ragCacheService.getCachedResults("banana smoothie|topK=2|threshold=0.6600|hybrid=true")).thenReturn(null);
+        when(ragCacheService.getCachedResults("banana smoothie|topK=2|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true")).thenReturn(null);
         when(documentService.searchSimilar("banana smoothie", 20, 0.66)).thenReturn(List.of());
         when(vectorStoreService.fetchAllChunks(anyInt())).thenReturn(corpus);
 
@@ -130,6 +137,35 @@ class MultiRecallServiceTest {
         assertThat(results).allSatisfy(result ->
                 assertThat(result.getMetadata()).containsEntry("retrievalSource", "bm25_only"));
         verify(vectorStoreService).fetchAllChunks(anyInt());
+    }
+
+    @Test
+    void shouldFallbackToVectorCandidatesWhenCorpusIsTruncated() {
+        aiProperties.getRag().setHybridBm25CorpusMaxDocs(3);
+        List<RetrievalChunk> truncatedCorpus = List.of(
+                chunk("10", "first corpus row"),
+                chunk("11", "second corpus row"),
+                chunk("12", "third corpus row")
+        );
+        List<RetrievalChunk> vectorCandidates = List.of(
+                chunk("1", "refund conditions and process"),
+                chunk("2", "shipping schedule")
+        );
+        String cacheKey = "refund conditions|topK=2|threshold=0.6600|hybrid=true"
+                + "|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=3|corpusBm25=true";
+        when(ragCacheService.getCachedResults(cacheKey)).thenReturn(null);
+        when(documentService.searchSimilar("refund conditions", 50, 0.66)).thenReturn(vectorCandidates);
+        when(vectorStoreService.fetchAllChunks(3)).thenReturn(truncatedCorpus);
+
+        List<RetrievalChunk> results = multiRecallService.search("refund conditions", 2);
+        verify(vectorStoreService).fetchAllChunks(3);
+        clearInvocations(vectorStoreService);
+        List<RetrievalChunk> repeatedResults = multiRecallService.search("refund conditions", 2);
+
+        assertThat(results).extracting(RetrievalChunk::getId).containsExactly("1", "2");
+        assertThat(repeatedResults).extracting(RetrievalChunk::getId).containsExactly("1", "2");
+        verifyNoInteractions(vectorStoreService);
+        verify(ragCacheService, times(2)).cacheResults(cacheKey, results);
     }
 
     @Test

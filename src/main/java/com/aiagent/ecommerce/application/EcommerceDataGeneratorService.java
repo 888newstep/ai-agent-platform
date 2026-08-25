@@ -4,6 +4,7 @@ import com.aiagent.infrastructure.config.AiProperties;
 import com.aiagent.ecommerce.domain.EcommerceQaPair;
 import com.aiagent.ecommerce.infrastructure.repository.EcommerceQaPairRepository;
 import com.aiagent.ecommerce.config.EcommerceProperties;
+import com.aiagent.shared.data.TrainingQaParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -14,17 +15,17 @@ import org.springframework.stereotype.Service;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
 
 /**
  * 电商客服多格式训练数据生成器
@@ -83,6 +84,38 @@ public class EcommerceDataGeneratorService {
     /** 对话模块额外预算（用户单独分配，精度最高） */
     private static final double CONVERSATION_EXTRA_BUDGET = 1.0;
 
+    private enum GenerationFormat {
+        FAQ("FAQ", "FAQ 格式（20% 预算）", FILE_FAQ, BUDGET * 0.2, "条", true, 0),
+        CONVERSATION("对话", "多轮对话格式（30% 预算 + 额外 ¥1.0）",
+                FILE_CONVERSATIONS, BUDGET * 0.3 + CONVERSATION_EXTRA_BUDGET, "段", false, 0),
+        ARTICLE("文章", "知识文章格式（30% 预算）", FILE_ARTICLES, BUDGET * 0.3, "篇", false, 0),
+        CSV("CSV", "CSV 格式（20% 预算）", FILE_CSV, BUDGET * 0.2, "条", true, 1),
+        JSONL("JSONL", "JSONL 格式（10% 预算）", FILE_JSONL, BUDGET * 0.1, "条", true, 0);
+
+        private final String label;
+        private final String description;
+        private final String fileName;
+        private final double budget;
+        private final String unit;
+        private final boolean batched;
+        private final int headerCount;
+
+        GenerationFormat(String label, String description, String fileName, double budget,
+                         String unit, boolean batched, int headerCount) {
+            this.label = label;
+            this.description = description;
+            this.fileName = fileName;
+            this.budget = budget;
+            this.unit = unit;
+            this.batched = batched;
+            this.headerCount = headerCount;
+        }
+
+        private int dataCount(List<String> content) {
+            return Math.max(0, content.size() - headerCount);
+        }
+    }
+
     // =============================================
     // 依赖注入
     // =============================================
@@ -100,17 +133,6 @@ public class EcommerceDataGeneratorService {
 
 
 
-
-    // =============================================
-    // 统计
-    // =============================================
-
-    private final AtomicInteger totalGenerated = new AtomicInteger(0);
-    private final AtomicInteger totalDuplicates = new AtomicInteger(0);
-    private final AtomicLong totalInputTokens = new AtomicLong(0);
-    private final AtomicLong totalOutputTokens = new AtomicLong(0);
-    private final Map<String, Integer> formatCounts = new ConcurrentHashMap<>();
-    private final AtomicLong totalCost = new AtomicLong(0); // 单位: 分
 
     public EcommerceDataGeneratorService(
             EcommerceQaPairRepository qaPairRepository,
@@ -151,15 +173,6 @@ public class EcommerceDataGeneratorService {
     // 辅助方法
     // =============================================
 
-    private void resetStats() {
-        totalGenerated.set(0);
-        totalDuplicates.set(0);
-        totalInputTokens.set(0);
-        totalOutputTokens.set(0);
-        totalCost.set(0);
-        formatCounts.clear();
-    }
-
     private List<String> getCategories() {
         return ecommerceProperties.getGenerator().getCategories() != null && !ecommerceProperties.getGenerator().getCategories().isEmpty()
                 ? ecommerceProperties.getGenerator().getCategories() : DEFAULT_CATEGORIES;
@@ -170,7 +183,7 @@ public class EcommerceDataGeneratorService {
         try {
             Files.createDirectories(outputDir);
         } catch (IOException e) {
-            log.error("创建输出目录失败: {}", outputDir, e);
+            throw new UncheckedIOException("创建输出目录失败: " + outputDir, e);
         }
         return outputDir;
     }
@@ -183,137 +196,60 @@ public class EcommerceDataGeneratorService {
      * 单独生成 FAQ 格式（20% 预算）
      */
     public GenerationSummary generateFaq() {
-        long startTime = System.currentTimeMillis();
-        resetStats();
-        List<String> categories = getCategories();
-        Path outputDir = getOutputDir();
-
-        logBanner("FAQ", "FAQ 格式（20% 预算）");
-
-        try {
-            Path faqPath = outputDir.resolve(FILE_FAQ);
-            List<String> faqContent = generateFaqFormat(categories, BUDGET * 0.2, faqPath);
-            writeToFile(faqPath, faqContent);
-            formatCounts.put("FAQ", faqContent.size());
-            log.info("✅ FAQ 格式完成，共 {} 条", faqContent.size());
-        } catch (Exception e) {
-            log.error("❌ FAQ 格式生成失败: {}", e.getMessage(), e);
-        }
-
-        return logAndReturnSummary(startTime, categories);
+        return generateSingle(GenerationFormat.FAQ);
     }
 
     /**
      * 单独生成多轮对话格式（30% 预算 + 额外 1.0 元）
      */
     public GenerationSummary generateConversations() {
-        long startTime = System.currentTimeMillis();
-        resetStats();
-        List<String> categories = getCategories();
-        Path outputDir = getOutputDir();
-
-        logBanner("对话", "多轮对话格式（30% 预算 + 额外 ¥1.0）");
-
-        try {
-            Path convPath = outputDir.resolve(FILE_CONVERSATIONS);
-            List<String> convContent = generateConversationFormat(categories, BUDGET * 0.3 + CONVERSATION_EXTRA_BUDGET, convPath);
-            writeToFile(convPath, convContent);
-            formatCounts.put("对话", convContent.size());
-            log.info("✅ 对话格式完成，共 {} 段", convContent.size());
-        } catch (Exception e) {
-            log.error("❌ 对话格式生成失败: {}", e.getMessage(), e);
-        }
-
-        return logAndReturnSummary(startTime, categories);
+        return generateSingle(GenerationFormat.CONVERSATION);
     }
 
     /**
      * 单独生成知识文章格式（30% 预算）
      */
     public GenerationSummary generateArticles() {
-        long startTime = System.currentTimeMillis();
-        resetStats();
-        List<String> categories = getCategories();
-        Path outputDir = getOutputDir();
-
-        logBanner("文章", "知识文章格式（30% 预算）");
-
-        try {
-            Path articlePath = outputDir.resolve(FILE_ARTICLES);
-            List<String> articleContent = generateArticleFormat(categories, BUDGET * 0.3, articlePath);
-            writeToFile(articlePath, articleContent);
-            formatCounts.put("文章", articleContent.size());
-            log.info("✅ 文章格式完成，共 {} 篇", articleContent.size());
-        } catch (Exception e) {
-            log.error("❌ 文章格式生成失败: {}", e.getMessage(), e);
-        }
-
-        return logAndReturnSummary(startTime, categories);
+        return generateSingle(GenerationFormat.ARTICLE);
     }
 
     /**
      * 单独生成 CSV 格式（20% 预算）
      */
     public GenerationSummary generateCsv() {
-        long startTime = System.currentTimeMillis();
-        resetStats();
-        List<String> categories = getCategories();
-        Path outputDir = getOutputDir();
-
-        logBanner("CSV", "CSV 格式（20% 预算）");
-
-        try {
-            Path csvPath = outputDir.resolve(FILE_CSV);
-            List<String> csvContent = generateCsvFormat(categories, BUDGET * 0.2, csvPath);
-            writeToFile(csvPath, csvContent);
-            formatCounts.put("CSV", csvContent.size());
-            log.info("✅ CSV 格式完成，共 {} 条", csvContent.size());
-        } catch (Exception e) {
-            log.error("❌ CSV 格式生成失败: {}", e.getMessage(), e);
-        }
-
-        return logAndReturnSummary(startTime, categories);
+        return generateSingle(GenerationFormat.CSV);
     }
 
     /**
      * 单独生成 JSONL 格式（10% 预算），并写入 MySQL
      */
     public GenerationSummary generateJsonl() {
-        long startTime = System.currentTimeMillis();
-        resetStats();
-        List<String> categories = getCategories();
-        Path outputDir = getOutputDir();
-
-        logBanner("JSONL", "JSONL 格式（10% 预算）");
-
-        List<String> jsonlContent = new ArrayList<>();
-        try {
-            Path jsonlPath = outputDir.resolve(FILE_JSONL);
-            jsonlContent = generateJsonlFormat(categories, BUDGET * 0.1, jsonlPath);
-            writeToFile(jsonlPath, jsonlContent);
-            formatCounts.put("JSONL", jsonlContent.size());
-            log.info("✅ JSONL 格式完成，共 {} 条", jsonlContent.size());
-        } catch (Exception e) {
-            log.error("❌ JSONL 格式生成失败: {}", e.getMessage(), e);
-        }
-
-        // 写入 MySQL（用于后续 Milvus 向量化）
-        saveToMySQL(jsonlContent);
-
-        return logAndReturnSummary(startTime, categories);
+        return generateSingle(GenerationFormat.JSONL);
     }
 
-    private void logBanner(String format, String description) {
+    private GenerationSummary generateSingle(GenerationFormat format) {
+        long startTime = System.currentTimeMillis();
+        List<String> categories = getCategories();
+        GenerationContext context = new GenerationContext(format.budget);
+
+        logBanner(format.label, format.description, categories.size());
+        List<String> content = generateAndWrite(format, categories, getOutputDir(), context);
+        persistGeneratedJsonl(format, content);
+        return logAndReturnSummary(startTime, categories, context);
+    }
+
+    private void logBanner(String format, String description, int categoryCount) {
         log.info("╔══════════════════════════════════════════════════════╗");
         log.info("║     {} 生成: {}", format, description);
         log.info("║ 模型: doubao-seed-2-0-mini");
-        log.info("║ 类别: {} 个", getCategories().size());
+        log.info("║ 类别: {} 个", categoryCount);
         log.info("╚══════════════════════════════════════════════════════╝");
     }
 
-    private GenerationSummary logAndReturnSummary(long startTime, List<String> categories) {
+    private GenerationSummary logAndReturnSummary(long startTime, List<String> categories,
+                                                   GenerationContext context) {
         long elapsed = System.currentTimeMillis() - startTime;
-        GenerationSummary summary = buildSummary(elapsed, categories);
+        GenerationSummary summary = buildSummary(elapsed, categories, context);
         log.info("\n{}", summary.format());
         return summary;
     }
@@ -323,9 +259,9 @@ public class EcommerceDataGeneratorService {
      */
     public GenerationSummary generateAll() {
         long startTime = System.currentTimeMillis();
-        resetStats();
         List<String> categories = getCategories();
         Path outputDir = getOutputDir();
+        GenerationContext context = new GenerationContext(BUDGET + CONVERSATION_EXTRA_BUDGET);
 
         log.info("╔══════════════════════════════════════════════════════╗");
         log.info("║     电商客服训练数据生成器启动（全量）                  ");
@@ -337,74 +273,35 @@ public class EcommerceDataGeneratorService {
         log.info("║ 格式: FAQ / 对话 / 文章 / CSV / JSONL");
         log.info("╚══════════════════════════════════════════════════════╝");
 
-        // 1. FAQ 格式 —— 20% 预算
-        try {
-            log.info("─── 开始生成 FAQ 格式 ───");
-            Path faqPath = outputDir.resolve(FILE_FAQ);
-            List<String> faqContent = generateFaqFormat(categories, BUDGET * 0.2, faqPath);
-            writeToFile(faqPath, faqContent);
-            formatCounts.put("FAQ", faqContent.size());
-            log.info("✅ FAQ 格式完成，共 {} 条", faqContent.size());
-        } catch (Exception e) {
-            log.error("❌ FAQ 格式生成失败: {}", e.getMessage(), e);
+        for (GenerationFormat format : GenerationFormat.values()) {
+            log.info("─── 开始生成 {} 格式 ───", format.label);
+            List<String> content = generateAndWrite(format, categories, outputDir, context);
+            persistGeneratedJsonl(format, content);
         }
 
-        // 2. 多轮对话格式 —— 30% 预算 + 额外 1.0 元
+        return logAndReturnSummary(startTime, categories, context);
+    }
+
+    private List<String> generateAndWrite(GenerationFormat format, List<String> categories,
+                                          Path outputDir, GenerationContext context) {
+        Path outputPath = outputDir.resolve(format.fileName);
         try {
-            log.info("─── 开始生成 多轮对话 格式（额外 ¥1.0 预算）───");
-            Path convPath = outputDir.resolve(FILE_CONVERSATIONS);
-            List<String> conversationContent = generateConversationFormat(categories, BUDGET * 0.3 + CONVERSATION_EXTRA_BUDGET, convPath);
-            writeToFile(convPath, conversationContent);
-            formatCounts.put("对话", conversationContent.size());
-            log.info("✅ 对话格式完成，共 {} 段", conversationContent.size());
+            List<String> content = generateFormat(format, categories, outputPath, context);
+            writeToFile(outputPath, content);
+            int dataCount = format.dataCount(content);
+            context.formatCounts.put(format.label, dataCount);
+            log.info("✅ {} 格式完成，共 {} {}", format.label, dataCount, format.unit);
+            return content;
         } catch (Exception e) {
-            log.error("❌ 对话格式生成失败: {}", e.getMessage(), e);
+            log.error("❌ {} 格式生成失败: {}", format.label, e.getMessage(), e);
+            return List.of();
         }
+    }
 
-        // 3. 知识文章格式 —— 30% 预算
-        try {
-            log.info("─── 开始生成 知识文章 格式 ───");
-            Path articlePath = outputDir.resolve(FILE_ARTICLES);
-            List<String> articleContent = generateArticleFormat(categories, BUDGET * 0.3, articlePath);
-            writeToFile(articlePath, articleContent);
-            formatCounts.put("文章", articleContent.size());
-            log.info("✅ 文章格式完成，共 {} 篇", articleContent.size());
-        } catch (Exception e) {
-            log.error("❌ 文章格式生成失败: {}", e.getMessage(), e);
+    private void persistGeneratedJsonl(GenerationFormat format, List<String> content) {
+        if (format == GenerationFormat.JSONL) {
+            saveToMySQL(content);
         }
-
-        // 4. CSV 格式 —— 20% 预算
-        try {
-            log.info("─── 开始生成 CSV 格式 ───");
-            Path csvPath = outputDir.resolve(FILE_CSV);
-            List<String> csvContent = generateCsvFormat(categories, BUDGET * 0.2, csvPath);
-            writeToFile(csvPath, csvContent);
-            formatCounts.put("CSV", csvContent.size());
-            log.info("✅ CSV 格式完成，共 {} 条", csvContent.size());
-        } catch (Exception e) {
-            log.error("❌ CSV 格式生成失败: {}", e.getMessage(), e);
-        }
-
-        // 5. JSONL 格式 —— 10% 预算
-        List<String> jsonlContent = new ArrayList<>();
-        try {
-            log.info("─── 开始生成 JSONL 格式 ───");
-            Path jsonlPath = outputDir.resolve(FILE_JSONL);
-            jsonlContent = generateJsonlFormat(categories, BUDGET * 0.1, jsonlPath);
-            writeToFile(jsonlPath, jsonlContent);
-            formatCounts.put("JSONL", jsonlContent.size());
-            log.info("✅ JSONL 格式完成，共 {} 条", jsonlContent.size());
-        } catch (Exception e) {
-            log.error("❌ JSONL 格式生成失败: {}", e.getMessage(), e);
-        }
-
-        // 同时写入 MySQL（用于后续 Milvus 向量化）
-        saveToMySQL(jsonlContent);
-
-        long elapsed = System.currentTimeMillis() - startTime;
-        GenerationSummary summary = buildSummary(elapsed, categories);
-        log.info("\n{}", summary.format());
-        return summary;
     }
 
     // =============================================
@@ -434,12 +331,94 @@ public class EcommerceDataGeneratorService {
         }
     }
 
-    private List<String> generateFaqFormat(List<String> categories, double budgetTokens, Path outputPath) {
-        List<String> entries = new ArrayList<>();
-        long maxTokens = (long) (budgetTokens / COST_PER_MILLION_TOKENS * 1_000_000);
-        long usedTokens = 0;
+    private void appendIntermediate(Path filePath, List<String> entries) {
+        if (entries.isEmpty()) {
+            return;
+        }
+        try (BufferedWriter writer = Files.newBufferedWriter(filePath, StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
+            for (String entry : entries) {
+                writer.write(entry);
+                writer.newLine();
+            }
+        } catch (IOException e) {
+            log.error("追加中间文件失败: {}", filePath, e);
+        }
+    }
 
-        String prompt = """
+    private List<String> generateFormat(GenerationFormat format, List<String> categories,
+                                        Path outputPath, GenerationContext context) {
+        List<String> entries = initialContent(format);
+        long maxTokens = (long) (format.budget / COST_PER_MILLION_TOKENS * 1_000_000);
+        long usedTokens = 0;
+        String prompt = promptFor(format);
+        int targetPerCategory = ecommerceProperties.getGenerator().getTargetPerCategory();
+        int batchSize = ecommerceProperties.getGenerator().getBatchSize();
+        writeIntermediate(outputPath, entries);
+
+        for (String category : categories) {
+            int categoryCount = 0;
+            while (categoryCount < targetPerCategory) {
+                if (usedTokens >= maxTokens) {
+                    return entries;
+                }
+
+                int requestedCount = format.batched
+                        ? Math.min(batchSize, targetPerCategory - categoryCount)
+                        : 1;
+                try {
+                    String response = callModel(prompt, category, requestedCount);
+                    usedTokens += recordTokenUsage(prompt, category, response, context);
+
+                    List<String> parsedEntries = parseGeneratedContent(format, response);
+                    entries.addAll(parsedEntries);
+                    categoryCount += Math.max(parsedEntries.size(), 1);
+                    log.info("[{}][{}] 生成 {} {}, 累计 {} {}", format.label, category,
+                            parsedEntries.size(), format.unit, format.dataCount(entries), format.unit);
+                    appendIntermediate(outputPath, parsedEntries);
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("[{}][{}] 生成任务已中断", format.label, category);
+                    return entries;
+                } catch (Exception e) {
+                    log.error("[{}][{}] 生成失败: {}", format.label, category, e.getMessage());
+                    break;
+                }
+            }
+        }
+        return entries;
+    }
+
+    private List<String> initialContent(GenerationFormat format) {
+        List<String> entries = new ArrayList<>();
+        if (format == GenerationFormat.CSV) {
+            entries.add("question,answer,category");
+        }
+        return entries;
+    }
+
+    private long recordTokenUsage(String prompt, String category, String response,
+                                  GenerationContext context) {
+        long inputTokens = (prompt.length() + category.length()) / 2;
+        long outputTokens = response.length() / 2;
+        context.inputTokens += inputTokens;
+        context.outputTokens += outputTokens;
+        return inputTokens + outputTokens;
+    }
+
+    private String promptFor(GenerationFormat format) {
+        return switch (format) {
+            case FAQ -> faqPrompt();
+            case CONVERSATION -> conversationPrompt();
+            case ARTICLE -> articlePrompt();
+            case CSV -> csvPrompt();
+            case JSONL -> jsonlPrompt();
+        };
+    }
+
+    private String faqPrompt() {
+        return """
                 你是一个电商客服FAQ生成专家。请生成%d条"%s"类别的FAQ问答。
 
                 输出格式要求（严格遵循）：
@@ -462,57 +441,11 @@ public class EcommerceDataGeneratorService {
                 A: 如果是商品质量问题，退货运费由我们承担，您可以选择上门取件或自行寄回（运费到付）。如果是个人原因，退货运费需要您自理。
                 ---
                 """;
-
-        for (String category : categories) {
-            int categoryCount = 0;
-            while (categoryCount < ecommerceProperties.getGenerator().getTargetPerCategory()) {
-                if (usedTokens >= maxTokens) break;
-                int count = Math.min(ecommerceProperties.getGenerator().getBatchSize(), ecommerceProperties.getGenerator().getTargetPerCategory() - categoryCount);
-
-                try {
-                    String response = callModel(prompt, category, count);
-                    int inputTokens = (prompt.length() + category.length()) / 2;
-                    int outputTokens = response.length() / 2;
-                    usedTokens += inputTokens + outputTokens;
-                    totalInputTokens.addAndGet(inputTokens);
-                    totalOutputTokens.addAndGet(outputTokens);
-
-                    String[] faqItems = response.split("\n---\n|\\n---\\n");
-                    int parsed = 0;
-                    for (String item : faqItems) {
-                        item = item.trim();
-                        if (item.startsWith("Q:") || item.startsWith("Q：")) {
-                            entries.add(item + "\n---\n");
-                            parsed++;
-                        }
-                    }
-                    categoryCount += Math.max(parsed, 1);
-                    log.info("[FAQ][{}] 生成 {} 条, 累计 {}", category, parsed, entries.size());
-                    // 每批写入中间结果，防止崩溃丢失
-                    writeIntermediate(outputPath, entries);
-                    Thread.sleep(500);
-                } catch (Exception e) {
-                    log.error("[FAQ][{}] 生成失败: {}", category, e.getMessage());
-                    break;
-                }
-            }
-        }
-        return entries;
     }
 
-    // ---------- 2. 多轮对话格式 ----------
-
-    /**
-     * 生成多轮对话格式训练数据
-     * 格式: User: ...\nAssistant: ...\nUser: ...\nAssistant: ...\n---\n
-     */
-    private List<String> generateConversationFormat(List<String> categories, double budgetTokens, Path outputPath) {
-        List<String> entries = new ArrayList<>();
-        long maxTokens = (long) (budgetTokens / COST_PER_MILLION_TOKENS * 1_000_000);
-        long usedTokens = 0;
-
-        String prompt = """
-                你是一个电商客服多轮对话生成专家。请生成1段关于"%s"类别的客服对话，包含3-5轮交互。
+    private String conversationPrompt() {
+        return """
+                你是一个电商客服多轮对话生成专家。请生成1段关于"%2$s"类别的客服对话，包含3-5轮交互。
 
                 输出格式要求（严格遵循）：
                 User: 顾客说的话
@@ -534,56 +467,11 @@ public class EcommerceDataGeneratorService {
                 Assistant: 好的，已为您提交换货申请，快递员会在1小时内联系您。新机发出后我会第一时间通知您。
                 ---
                 """;
-
-        for (String category : categories) {
-            int categoryCount = 0;
-            while (categoryCount < ecommerceProperties.getGenerator().getTargetPerCategory()) {
-                if (usedTokens >= maxTokens) break;
-
-                try {
-                    String response = callModel(prompt, category, 1);
-                    int inputTokens = (prompt.length() + category.length()) / 2;
-                    int outputTokens = response.length() / 2;
-                    usedTokens += inputTokens + outputTokens;
-                    totalInputTokens.addAndGet(inputTokens);
-                    totalOutputTokens.addAndGet(outputTokens);
-
-                    String[] conversations = response.split("\n---\n|\\n---\\n");
-                    int parsed = 0;
-                    for (String conv : conversations) {
-                        conv = conv.trim();
-                        if (conv.contains("User:") && conv.contains("Assistant:")) {
-                            entries.add(conv + "\n---\n");
-                            parsed++;
-                        }
-                    }
-                    categoryCount += Math.max(parsed, 1);
-                    log.info("[对话][{}] 生成 1 段, 累计 {} 段", category, entries.size());
-                    // 每批写入中间结果，防止崩溃丢失
-                    writeIntermediate(outputPath, entries);
-                    Thread.sleep(500);
-                } catch (Exception e) {
-                    log.error("[对话][{}] 生成失败: {}", category, e.getMessage());
-                    break;
-                }
-            }
-        }
-        return entries;
     }
 
-    // ---------- 3. 知识文章格式 ----------
-
-    /**
-     * 生成知识文章格式训练数据
-     * 格式: # 标题\n## 类别: ...\n## 关键词: ...\n正文\n===\n
-     */
-    private List<String> generateArticleFormat(List<String> categories, double budgetTokens, Path outputPath) {
-        List<String> entries = new ArrayList<>();
-        long maxTokens = (long) (budgetTokens / COST_PER_MILLION_TOKENS * 1_000_000);
-        long usedTokens = 0;
-
-        String prompt = """
-                你是一个电商知识文章生成专家。请生成1篇关于"%s"类别的知识文章。
+    private String articlePrompt() {
+        return """
+                你是一个电商知识文章生成专家。请生成1篇关于"%2$s"类别的知识文章。
 
                 输出格式要求（严格遵循）：
                 # 文章标题
@@ -620,57 +508,10 @@ public class EcommerceDataGeneratorService {
                 - 超过退货时效需特殊申请
                 ===
                 """;
-
-        for (String category : categories) {
-            int categoryCount = 0;
-            while (categoryCount < ecommerceProperties.getGenerator().getTargetPerCategory()) {
-                if (usedTokens >= maxTokens) break;
-
-                try {
-                    String response = callModel(prompt, category, 1);
-                    int inputTokens = (prompt.length() + category.length()) / 2;
-                    int outputTokens = response.length() / 2;
-                    usedTokens += inputTokens + outputTokens;
-                    totalInputTokens.addAndGet(inputTokens);
-                    totalOutputTokens.addAndGet(outputTokens);
-
-                    String[] articles = response.split("\n===\n|\\n===\\n");
-                    int parsed = 0;
-                    for (String article : articles) {
-                        article = article.trim();
-                        if (article.startsWith("#")) {
-                            entries.add(article + "\n===\n");
-                            parsed++;
-                        }
-                    }
-                    categoryCount += Math.max(parsed, 1);
-                    log.info("[文章][{}] 生成 1 篇, 累计 {} 篇", category, entries.size());
-                    // 每批写入中间结果，防止崩溃丢失
-                    writeIntermediate(outputPath, entries);
-                    Thread.sleep(500);
-                } catch (Exception e) {
-                    log.error("[文章][{}] 生成失败: {}", category, e.getMessage());
-                    break;
-                }
-            }
-        }
-        return entries;
     }
 
-    // ---------- 4. CSV 格式 ----------
-
-    /**
-     * 生成 CSV 结构化格式训练数据
-     * 格式: question,answer,category
-     */
-    private List<String> generateCsvFormat(List<String> categories, double budgetTokens, Path outputPath) {
-        List<String> entries = new ArrayList<>();
-        // CSV 头
-        entries.add("question,answer,category");
-        long maxTokens = (long) (budgetTokens / COST_PER_MILLION_TOKENS * 1_000_000);
-        long usedTokens = 0;
-
-        String prompt = """
+    private String csvPrompt() {
+        return """
                 你是一个电商客服数据生成专家。请生成%d条"%s"类别的QA数据，输出CSV格式。
 
                 输出格式要求（严格遵循）：
@@ -687,60 +528,10 @@ public class EcommerceDataGeneratorService {
                 退款需要多长时间到账？,亲，退款一般在1-3个工作日内原路返回，具体时间取决于支付方式。,售后服务
                 退货的运费谁承担？,如果是商品质量问题由我们承担，个人原因需自理。,退换货
                 """;
-
-        for (String category : categories) {
-            int categoryCount = 0;
-            while (categoryCount < ecommerceProperties.getGenerator().getTargetPerCategory()) {
-                if (usedTokens >= maxTokens) break;
-                int count = Math.min(ecommerceProperties.getGenerator().getBatchSize(), ecommerceProperties.getGenerator().getTargetPerCategory() - categoryCount);
-
-                try {
-                    String response = callModel(prompt, category, count);
-                    int inputTokens = (prompt.length() + category.length()) / 2;
-                    int outputTokens = response.length() / 2;
-                    usedTokens += inputTokens + outputTokens;
-                    totalInputTokens.addAndGet(inputTokens);
-                    totalOutputTokens.addAndGet(outputTokens);
-
-                    String[] lines = response.split("\n");
-                    int parsed = 0;
-                    for (String line : lines) {
-                        line = line.trim();
-                        if (line.contains("，") && line.contains(",")) {
-                            // 兼容两种分隔符
-                            entries.add(line);
-                            parsed++;
-                        } else if (line.contains(",") && !line.startsWith("问题")) {
-                            entries.add(line);
-                            parsed++;
-                        }
-                    }
-                    categoryCount += Math.max(parsed, 1);
-                    log.info("[CSV][{}] 生成 {} 条, 累计 {} 条", category, parsed, entries.size() - 1);
-                    // 每批写入中间结果，防止崩溃丢失
-                    writeIntermediate(outputPath, entries);
-                    Thread.sleep(500);
-                } catch (Exception e) {
-                    log.error("[CSV][{}] 生成失败: {}", category, e.getMessage());
-                    break;
-                }
-            }
-        }
-        return entries;
     }
 
-    // ---------- 5. JSONL 格式 ----------
-
-    /**
-     * 生成标准 JSONL 格式（兼容原有导入流程）
-     * 格式: 每行一个 JSON 对象
-     */
-    private List<String> generateJsonlFormat(List<String> categories, double budgetTokens, Path outputPath) {
-        List<String> entries = new ArrayList<>();
-        long maxTokens = (long) (budgetTokens / COST_PER_MILLION_TOKENS * 1_000_000);
-        long usedTokens = 0;
-
-        String prompt = """
+    private String jsonlPrompt() {
+        return """
                 你是一个电商客服QA数据生成专家。请生成%d条"%s"类别的问答对，输出JSON格式。
 
                 输出格式要求（严格遵循）：
@@ -750,50 +541,54 @@ public class EcommerceDataGeneratorService {
                 示例：
                 [{"question":"退款需要多长时间？","answer":"亲，一般1-3个工作日原路返回。"},{"question":"退货运费谁承担？","answer":"质量问题我们承担，个人原因需自理。"}]
                 """;
+    }
 
-        for (String category : categories) {
-            int categoryCount = 0;
-            while (categoryCount < ecommerceProperties.getGenerator().getTargetPerCategory()) {
-                if (usedTokens >= maxTokens) break;
-                int count = Math.min(ecommerceProperties.getGenerator().getBatchSize(), ecommerceProperties.getGenerator().getTargetPerCategory() - categoryCount);
+    private List<String> parseGeneratedContent(GenerationFormat format, String response) throws IOException {
+        return switch (format) {
+            case FAQ -> parseDelimited(response, "\\R---\\R|\\\\n---\\\\n",
+                    item -> item.startsWith("Q:") || item.startsWith("Q："), "\n---\n");
+            case CONVERSATION -> parseDelimited(response, "\\R---\\R|\\\\n---\\\\n",
+                    item -> item.contains("User:") && item.contains("Assistant:"), "\n---\n");
+            case ARTICLE -> parseDelimited(response, "\\R===\\R|\\\\n===\\\\n",
+                    item -> item.startsWith("#"), "\n===\n");
+            case CSV -> parseCsv(response);
+            case JSONL -> parseJsonl(response);
+        };
+    }
 
-                try {
-                    String response = callModel(prompt, category, count);
-                    int inputTokens = (prompt.length() + category.length()) / 2;
-                    int outputTokens = response.length() / 2;
-                    usedTokens += inputTokens + outputTokens;
-                    totalInputTokens.addAndGet(inputTokens);
-                    totalOutputTokens.addAndGet(outputTokens);
+    private List<String> parseDelimited(String response, String delimiterRegex,
+                                        Predicate<String> accepted, String suffix) {
+        return Arrays.stream(response.split(delimiterRegex))
+                .map(String::trim)
+                .filter(accepted)
+                .map(item -> item + suffix)
+                .toList();
+    }
 
-                    // 解析 JSON 数组
-                    List<QaPair> pairs = parseJsonResponse(response);
-                    int parsed = 0;
-                    for (QaPair pair : pairs) {
-                        // 清洗
-                        pair.question = cleanText(pair.question);
-                        pair.answer = cleanText(pair.answer);
-                        if (!pair.question.isEmpty() && !pair.answer.isEmpty()) {
-                            // 构建类似 ImportService 的格式
-                            Map<String, Object> msg = new LinkedHashMap<>();
-                            msg.put("messages", List.of(
-                                    Map.of("role", "system", "content", "你是一个专业的电商客服助手"),
-                                    Map.of("role", "user", "content", pair.question),
-                                    Map.of("role", "assistant", "content", pair.answer)
-                            ));
-                            entries.add(objectMapper.writeValueAsString(msg));
-                            parsed++;
-                        }
-                    }
-                    categoryCount += Math.max(parsed, 1);
-                    log.info("[JSONL][{}] 生成 {} 条, 累计 {} 条", category, parsed, entries.size());
-                    // 每批写入中间结果，防止崩溃丢失
-                    writeIntermediate(outputPath, entries);
-                    Thread.sleep(500);
-                } catch (Exception e) {
-                    log.error("[JSONL][{}] 生成失败: {}", category, e.getMessage());
-                    break;
-                }
+    private List<String> parseCsv(String response) {
+        return response.lines()
+                .map(String::trim)
+                .filter(line -> (line.contains("，") && line.contains(","))
+                        || (line.contains(",") && !line.startsWith("问题")))
+                .toList();
+    }
+
+    private List<String> parseJsonl(String response) throws IOException {
+        List<String> entries = new ArrayList<>();
+        for (QaPair pair : parseJsonResponse(response)) {
+            String question = TrainingQaParser.normalizeText(pair.question);
+            String answer = TrainingQaParser.normalizeText(pair.answer);
+            if (question.isEmpty() || answer.isEmpty()) {
+                continue;
             }
+
+            Map<String, Object> record = new LinkedHashMap<>();
+            record.put("messages", List.of(
+                    Map.of("role", "system", "content", "你是一个专业的电商客服助手"),
+                    Map.of("role", "user", "content", question),
+                    Map.of("role", "assistant", "content", answer)
+            ));
+            entries.add(objectMapper.writeValueAsString(record));
         }
         return entries;
     }
@@ -810,27 +605,16 @@ public class EcommerceDataGeneratorService {
         int saved = 0;
         for (String jsonLine : jsonlEntries) {
             try {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> root = objectMapper.readValue(jsonLine, Map.class);
-                @SuppressWarnings("unchecked")
-                List<Map<String, String>> messages = (List<Map<String, String>>) root.get("messages");
-                if (messages == null || messages.size() < 3) continue;
-
-                String userContent = "", assistantContent = "";
-                for (Map<String, String> msg : messages) {
-                    String role = msg.get("role");
-                    String content = msg.get("content");
-                    if ("user".equals(role)) userContent = content;
-                    if ("assistant".equals(role)) assistantContent = content;
+                TrainingQaParser.TrainingQa record = TrainingQaParser.parse(objectMapper, jsonLine)
+                        .orElse(null);
+                if (record == null || !record.isComplete()) {
+                    continue;
                 }
-                if (userContent.isEmpty() || assistantContent.isEmpty()) continue;
-
-                String qaText = "用户问题：" + userContent + " 客服回答：" + assistantContent;
 
                 EcommerceQaPair pair = EcommerceQaPair.builder()
-                        .question(userContent)
-                        .answer(assistantContent)
-                        .qaText(qaText)
+                        .question(record.question())
+                        .answer(record.answer())
+                        .qaText(record.embeddingText())
                         .category("generated")
                         .sourceFile("generated/data_generator")
                         .status(1)
@@ -878,16 +662,6 @@ public class EcommerceDataGeneratorService {
     }
 
     /**
-     * 文本清洗
-     */
-    private String cleanText(String text) {
-        if (text == null) return "";
-        return text.trim()
-                .replaceAll("\\s+", " ")
-                .replaceAll("[\\r\\n]+", " ");
-    }
-
-    /**
      * 写入文件
      */
     private void writeToFile(Path filePath, List<String> content) {
@@ -907,26 +681,27 @@ public class EcommerceDataGeneratorService {
             writer.flush();
             log.info("已写入文件: {} ({} 条)", filePath.getFileName(), content.size());
         } catch (IOException e) {
-            log.error("写入文件失败: {}", filePath, e);
+            throw new UncheckedIOException("写入文件失败: " + filePath, e);
         }
     }
 
     /**
      * 构建生成摘要
      */
-    private GenerationSummary buildSummary(long elapsedMs, List<String> categories) {
+    private GenerationSummary buildSummary(long elapsedMs, List<String> categories,
+                                            GenerationContext context) {
         GenerationSummary summary = new GenerationSummary();
-        summary.totalGenerated = totalGenerated.get();
-        summary.totalDuplicates = totalDuplicates.get();
-        summary.totalInputTokens = totalInputTokens.get();
-        summary.totalOutputTokens = totalOutputTokens.get();
+        summary.totalGenerated = context.formatCounts.values().stream().mapToInt(Integer::intValue).sum();
+        summary.totalDuplicates = 0;
+        summary.totalInputTokens = context.inputTokens;
+        summary.totalOutputTokens = context.outputTokens;
         summary.elapsedMs = elapsedMs;
-        summary.categories = categories;
-        summary.formatCounts = new HashMap<>(formatCounts);
+        summary.categories = List.copyOf(categories);
+        summary.formatCounts = new LinkedHashMap<>(context.formatCounts);
 
-        long totalTokens = totalInputTokens.get() + totalOutputTokens.get();
+        long totalTokens = context.inputTokens + context.outputTokens;
         summary.estimatedCost = totalTokens * COST_PER_MILLION_TOKENS / 1_000_000;
-        summary.budget = BUDGET + CONVERSATION_EXTRA_BUDGET;
+        summary.budget = context.budget;
 
         return summary;
     }
@@ -934,6 +709,17 @@ public class EcommerceDataGeneratorService {
     // =============================================
     // 内部类
     // =============================================
+
+    private static final class GenerationContext {
+        private final double budget;
+        private final Map<String, Integer> formatCounts = new LinkedHashMap<>();
+        private long inputTokens;
+        private long outputTokens;
+
+        private GenerationContext(double budget) {
+            this.budget = budget;
+        }
+    }
 
     @Data
     public static class QaPair {

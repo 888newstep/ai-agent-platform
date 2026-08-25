@@ -1,9 +1,14 @@
 package com.aiagent.infrastructure.config;
 
 import com.aiagent.agent.api.AiAgentController;
+import com.aiagent.auth.domain.User;
+import com.aiagent.auth.infrastructure.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import com.aiagent.agent.application.AiAgentService;
 import com.aiagent.infrastructure.cache.SemanticCacheService;
+import com.aiagent.infrastructure.idempotency.IdempotencyService;
+import com.aiagent.infrastructure.idempotency.PersistentIdempotencyContext;
+import com.aiagent.infrastructure.security.KnowledgeFileAccessPolicy;
 import com.aiagent.infrastructure.security.JwtAuthenticationFilter;
 import com.aiagent.knowledge.application.DocumentService;
 import com.aiagent.rag.application.AdaptiveRagContext;
@@ -19,6 +24,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -47,6 +54,15 @@ class SecurityConfigTest {
     @MockitoBean
     private SemanticCacheService semanticCacheService;
 
+    @MockitoBean
+    private IdempotencyService idempotencyService;
+
+    @MockitoBean(name = "knowledgeMaintenanceExecutor")
+    private Executor knowledgeMaintenanceExecutor;
+
+    @MockitoBean
+    private KnowledgeFileAccessPolicy knowledgeFileAccessPolicy;
+
     @MockitoBean(name = "multiAgentService")
     private com.aiagent.agent.application.MultiAgentService multiAgentService;
 
@@ -64,6 +80,12 @@ class SecurityConfigTest {
 
     @MockitoBean
     private com.aiagent.infrastructure.security.JwtTokenProvider jwtTokenProvider;
+
+    @MockitoBean
+    private com.aiagent.infrastructure.security.JwtRevocationService jwtRevocationService;
+
+    @MockitoBean
+    private UserRepository userRepository;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -128,8 +150,48 @@ class SecurityConfigTest {
     void shouldRejectProtectedEvaluateEndpointWithRegularUserJwt() throws Exception {
         when(jwtTokenProvider.validateToken("user-token")).thenReturn(true);
         when(jwtTokenProvider.getUsernameFromToken("user-token")).thenReturn("user");
+        when(userRepository.findByUsername("user")).thenReturn(Optional.of(
+                User.builder().username("user").enabled(true).build()));
 
         mockMvc.perform(post("/api/v1/agent/evaluate")
+                        .header("Authorization", "Bearer user-token"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void shouldRejectChatSessionWithoutAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/agent/session"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldRejectLogoutWithoutAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldAllowChatSessionWithActiveUserJwt() throws Exception {
+        when(jwtTokenProvider.validateToken("user-token")).thenReturn(true);
+        when(jwtTokenProvider.getUsernameFromToken("user-token")).thenReturn("user");
+        when(userRepository.findByUsername("user")).thenReturn(Optional.of(
+                User.builder().username("user").enabled(true).build()));
+        when(aiAgentService.createSession("user", PersistentIdempotencyContext.disabled()))
+                .thenReturn("session-1");
+
+        mockMvc.perform(post("/api/v1/agent/session")
+                        .header("Authorization", "Bearer user-token"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void shouldRejectDocumentRetryForRegularUser() throws Exception {
+        when(jwtTokenProvider.validateToken("user-token")).thenReturn(true);
+        when(jwtTokenProvider.getUsernameFromToken("user-token")).thenReturn("user");
+        when(userRepository.findByUsername("user")).thenReturn(Optional.of(
+                User.builder().username("user").enabled(true).build()));
+
+        mockMvc.perform(post("/api/v1/agent/document/7/retry")
                         .header("Authorization", "Bearer user-token"))
                 .andExpect(status().isForbidden());
     }

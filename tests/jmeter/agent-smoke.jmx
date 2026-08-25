@@ -83,6 +83,14 @@
               <stringProp name="Header.name">Accept</stringProp>
               <stringProp name="Header.value">application/json</stringProp>
             </elementProp>
+            <elementProp name="X-Admin-Api-Key" elementType="Header">
+              <stringProp name="Header.name">X-Admin-Api-Key</stringProp>
+              <stringProp name="Header.value">${__groovy(System.getenv('JMETER_ADMIN_API_KEY') ?: '')}</stringProp>
+            </elementProp>
+            <elementProp name="Authorization" elementType="Header">
+              <stringProp name="Header.name">Authorization</stringProp>
+              <stringProp name="Header.value">${__groovy(System.getenv('JMETER_AUTHORIZATION') ?: '')}</stringProp>
+            </elementProp>
           </collectionProp>
         </HeaderManager>
         <hashTree />
@@ -101,6 +109,34 @@
             <stringProp name="HTTPSampler.protocol">${protocol}</stringProp>
             <stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp>
             <stringProp name="HTTPSampler.path">${basePath}/api/v1/agent/health</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+            <boolProp name="HTTPSampler.embedded_resources">false</boolProp>
+            <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+            <stringProp name="HTTPSampler.connect_timeout">${connectTimeoutMs}</stringProp>
+            <stringProp name="HTTPSampler.response_timeout">${responseTimeoutMs}</stringProp>
+            <stringProp name="HTTPSampler.implementation">HttpClient4</stringProp>
+          </HTTPSamplerProxy>
+          <hashTree />
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Dependency health scenario" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get('scenario') == 'actuator')}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET /actuator/health" enabled="true">
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Request parameters" enabled="true">
+              <collectionProp name="Arguments.arguments" />
+            </elementProp>
+            <stringProp name="HTTPSampler.domain">${host}</stringProp>
+            <stringProp name="HTTPSampler.port">${port}</stringProp>
+            <stringProp name="HTTPSampler.protocol">${protocol}</stringProp>
+            <stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp>
+            <stringProp name="HTTPSampler.path">${basePath}/actuator/health</stringProp>
             <stringProp name="HTTPSampler.method">GET</stringProp>
             <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
             <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
