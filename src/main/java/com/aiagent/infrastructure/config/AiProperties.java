@@ -153,6 +153,13 @@ public class AiProperties {
         private int hybridBm25CandidateTopK = 20;
         private int hybridBm25CorpusMaxDocs = 5000;
         private boolean hybridCorpusBm25Enabled = false;
+        /** QA 模式下通过 MySQL ngram FULLTEXT 提供独立于 Milvus 的词法候选。 */
+        private boolean hybridMysqlFulltextEnabled = false;
+        private int hybridMysqlCandidateTopK = 20;
+        private int hybridPreserveVectorTopK = 1;
+        private boolean hybridCrossEncoderEnabled = false;
+        private int hybridRerankCandidateTopK = 40;
+        private boolean hybridRerankFailOpen = true;
         private boolean bm25StopwordEnabled = true;
         private Adaptive adaptive = new Adaptive();
     }

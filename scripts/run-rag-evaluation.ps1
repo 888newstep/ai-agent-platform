@@ -7,6 +7,8 @@ param(
     [string]$DatasetKind = "unknown",
     [string]$TopKs = "1,3,5",
     [double]$SimilarityThreshold = 0.60,
+    [ValidateRange(30, 1800)]
+    [int]$ApiTimeoutSec = 300,
     [string]$OutputDirectory = "evaluation-reports",
     [bool]$BaselineHybridSearch = $false,
     [bool]$CandidateHybridSearch = $true,
@@ -66,7 +68,7 @@ function Invoke-JsonApi {
     )
 
     try {
-        return Invoke-RestMethod -Method $Method -Uri $Uri -Headers $headers -TimeoutSec 120
+        return Invoke-RestMethod -Method $Method -Uri $Uri -Headers $headers -TimeoutSec $ApiTimeoutSec
     } catch {
         $detail = $_.ErrorDetails.Message
         if ([string]::IsNullOrWhiteSpace($detail)) {

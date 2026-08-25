@@ -3,6 +3,7 @@ package com.aiagent.knowledge.application;
 import com.aiagent.knowledge.domain.Document;
 import com.aiagent.knowledge.domain.DocumentProcessingStatus;
 import com.aiagent.knowledge.domain.DocumentChunk;
+import com.aiagent.knowledge.domain.RetrievalChunk;
 import com.aiagent.infrastructure.config.AiProperties;
 import com.aiagent.infrastructure.metrics.PlatformMetricsService;
 import com.aiagent.knowledge.infrastructure.repository.DocumentRepository;
@@ -11,7 +12,11 @@ import com.aiagent.knowledge.infrastructure.parser.DocumentParserFactory;
 import com.aiagent.knowledge.infrastructure.storage.DocumentStagingStorage;
 import com.aiagent.knowledge.infrastructure.vectorstore.VectorStoreService;
 import com.aiagent.shared.exception.ResourceStateConflictException;
+import dev.langchain4j.data.embedding.Embedding;
+import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.output.Response;
+import dev.langchain4j.store.embedding.EmbeddingMatch;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +31,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -109,6 +116,26 @@ class DocumentServiceTest {
         }
         verify(documentIngestionService).ingestAsync(123L);
         verify(metricsService).recordDocumentQueued();
+    }
+
+    @Test
+    void shouldReuseOneEmbeddingForMultipleVectorTopKs() {
+        Embedding embedding = new Embedding(new float[]{0.8f, 0.2f});
+        TextSegment segment = TextSegment.from("退款规则");
+        when(vectorStoreService.isAvailable()).thenReturn(true);
+        when(embeddingModel.embed("怎么退款")).thenReturn(new Response<>(embedding));
+        when(vectorStoreService.search(embedding, 5, 0.6)).thenReturn(List.of(
+                new EmbeddingMatch<>(0.9, "qa-1", embedding, segment)));
+        when(vectorStoreService.search(embedding, 20, 0.6)).thenReturn(List.of(
+                new EmbeddingMatch<>(0.9, "qa-1", embedding, segment),
+                new EmbeddingMatch<>(0.8, "qa-2", embedding, segment)));
+
+        Map<Integer, List<RetrievalChunk>> results = documentService.searchSimilar(
+                "怎么退款", List.of(5, 20), 0.6);
+
+        assertThat(results.get(5)).extracting(RetrievalChunk::getId).containsExactly("qa-1");
+        assertThat(results.get(20)).extracting(RetrievalChunk::getId).containsExactly("qa-1", "qa-2");
+        verify(embeddingModel, times(1)).embed("怎么退款");
     }
 
     @Test

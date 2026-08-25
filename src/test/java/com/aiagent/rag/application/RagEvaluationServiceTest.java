@@ -80,13 +80,18 @@ class RagEvaluationServiceTest {
                 .containsEntry("chunkSize", 400)
                 .containsEntry("chunkOverlap", 80);
         assertThat(report.getCategoryMetrics()).containsKey("uncategorized");
+        assertThat(report.getDiagnostics()).hasSize(2);
+        assertThat(report.getDiagnostics().get(0).getCaseHash()).hasSize(16);
+        assertThat(report.getDiagnostics().get(0).getActualDocIds()).containsExactly("doc-1", "other");
+        assertThat(report.getDiagnostics().get(0).getFirstRelevantRank()).isEqualTo(1);
+        verify(multiRecallService, times(2)).search(anyString(), any(MultiRecallService.SearchOptions.class));
 
         Map<String, Object> k1 = report.getMetrics().get("1");
         Map<String, Object> k2 = report.getMetrics().get("2");
         assertThat(k1).containsKeys("sampleCount", "p95Latency", "emptyResultCount", "emptyResultRate", "retrievalHitRate");
-        assertThat(k1.get("emptyResultCount")).isEqualTo(1);
-        assertThat(((Number) k1.get("emptyResultRate")).doubleValue()).isCloseTo(0.5, within(0.001));
-        assertThat(((Number) k1.get("retrievalHitRate")).doubleValue()).isCloseTo(0.5, within(0.001));
+        assertThat(k1.get("emptyResultCount")).isEqualTo(0);
+        assertThat(((Number) k1.get("emptyResultRate")).doubleValue()).isCloseTo(0.0, within(0.001));
+        assertThat(((Number) k1.get("retrievalHitRate")).doubleValue()).isCloseTo(1.0, within(0.001));
         assertThat(k1.get("sampleCount")).isEqualTo(2);
         assertThat(((Number) k1.get("recall")).doubleValue()).isCloseTo(0.25, within(0.001));
         assertThat(((Number) k1.get("precision")).doubleValue()).isCloseTo(0.5, within(0.001));

@@ -19,6 +19,22 @@ public interface EcommerceQaPairRepository extends JpaRepository<EcommerceQaPair
 
     long countByIdInAndStatus(Collection<Long> ids, Integer status);
 
+    @Query(value = """
+            SELECT qa.id AS id,
+                   qa.question AS question,
+                   qa.answer AS answer,
+                   qa.qa_text AS qaText,
+                   qa.category AS category,
+                   MATCH(qa.question) AGAINST (:query IN NATURAL LANGUAGE MODE) AS lexicalScore
+              FROM ecommerce_qa_pairs qa
+             WHERE qa.status = 1
+               AND MATCH(qa.question) AGAINST (:query IN NATURAL LANGUAGE MODE) > 0
+             ORDER BY lexicalScore DESC, qa.id ASC
+             LIMIT :limit
+            """, nativeQuery = true)
+    List<LexicalCandidate> searchQuestionFullText(@Param("query") String query,
+                                                  @Param("limit") int limit);
+
     @Modifying
     @Query("""
             update EcommerceQaPair qa
@@ -28,4 +44,18 @@ public interface EcommerceQaPairRepository extends JpaRepository<EcommerceQaPair
                and qa.status = 1
             """)
     int incrementHitCount(@Param("ids") Collection<Long> ids, @Param("hitAt") LocalDateTime hitAt);
+
+    interface LexicalCandidate {
+        Long getId();
+
+        String getQuestion();
+
+        String getAnswer();
+
+        String getQaText();
+
+        String getCategory();
+
+        Double getLexicalScore();
+    }
 }

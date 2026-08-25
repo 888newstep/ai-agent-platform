@@ -445,6 +445,7 @@ public class AiAgentController {
                 "topKs", report.getTopKs(),
                 "metrics", report.getMetrics(),
                 "categoryMetrics", report.getCategoryMetrics(),
+                "diagnostics", report.getDiagnostics(),
                 "config", report.getConfigSnapshot(),
                 "note", EVALUATION_NOTE
         );

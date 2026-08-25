@@ -144,6 +144,12 @@ ai:
     hybrid-bm25-candidate-top-k: ${AI_RAG_HYBRID_BM25_CANDIDATE_TOP_K:20}
     hybrid-bm25-corpus-max-docs: ${AI_RAG_HYBRID_BM25_CORPUS_MAX_DOCS:5000}
     hybrid-corpus-bm25-enabled: ${AI_RAG_HYBRID_CORPUS_BM25_ENABLED:false}
+    hybrid-mysql-fulltext-enabled: ${AI_RAG_HYBRID_MYSQL_FULLTEXT_ENABLED:false}
+    hybrid-mysql-candidate-top-k: ${AI_RAG_HYBRID_MYSQL_CANDIDATE_TOP_K:20}
+    hybrid-preserve-vector-top-k: ${AI_RAG_HYBRID_PRESERVE_VECTOR_TOP_K:1}
+    hybrid-cross-encoder-enabled: ${AI_RAG_HYBRID_CROSS_ENCODER_ENABLED:false}
+    hybrid-rerank-candidate-top-k: ${AI_RAG_HYBRID_RERANK_CANDIDATE_TOP_K:40}
+    hybrid-rerank-fail-open: ${AI_RAG_HYBRID_RERANK_FAIL_OPEN:true}
     bm25-stopword-enabled: ${AI_RAG_BM25_STOPWORD_ENABLED:true}
     adaptive:
       enabled: true

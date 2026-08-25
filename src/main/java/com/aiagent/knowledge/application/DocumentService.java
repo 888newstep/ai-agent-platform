@@ -306,14 +306,34 @@ public class DocumentService {
     }
 
     public List<RetrievalChunk> searchSimilar(String query, int topK, double threshold) {
+        return searchSimilar(query, List.of(topK), threshold).getOrDefault(topK, List.of());
+    }
+
+    public Map<Integer, List<RetrievalChunk>> searchSimilar(String query,
+                                                            List<Integer> topKs,
+                                                            double threshold) {
+        List<Integer> sanitizedTopKs = topKs == null
+                ? List.of()
+                : topKs.stream().filter(topK -> topK != null && topK > 0).distinct().toList();
+        if (sanitizedTopKs.isEmpty()) {
+            return Map.of();
+        }
         if (!vectorStoreService.isAvailable() && !vectorStoreService.isWriteAvailable()) {
             throw new KnowledgeRetrievalUnavailableException(
                     "Knowledge retrieval is temporarily unavailable");
         }
         var queryEmbedding = embeddingModel.embed(query).content();
-        List<dev.langchain4j.store.embedding.EmbeddingMatch<TextSegment>> matches =
-                vectorStoreService.search(queryEmbedding, topK, threshold);
+        Map<Integer, List<RetrievalChunk>> results = new LinkedHashMap<>();
+        for (int topK : sanitizedTopKs) {
+            List<dev.langchain4j.store.embedding.EmbeddingMatch<TextSegment>> matches =
+                    vectorStoreService.search(queryEmbedding, topK, threshold);
+            results.put(topK, toRetrievalChunks(matches));
+        }
+        return results;
+    }
 
+    private List<RetrievalChunk> toRetrievalChunks(
+            List<dev.langchain4j.store.embedding.EmbeddingMatch<TextSegment>> matches) {
         List<RetrievalChunk> chunks = new ArrayList<>();
         for (var match : matches) {
             chunks.add(RetrievalChunk.builder()

@@ -13,8 +13,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -22,11 +22,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class MultiRecallService {
 
     private static final long CORPUS_INDEX_TTL_MS = 5 * 60 * 1000L;
@@ -36,8 +38,29 @@ public class MultiRecallService {
     private final RagCacheService ragCacheService;
     private final PlatformMetricsService metricsService;
     private final VectorStoreService vectorStoreService;
+    private final EcommerceQaLexicalSearchService lexicalSearchService;
+    private final CrossEncoderRerankClient crossEncoderRerankClient;
+    private final Executor ioTaskExecutor;
     private final Object indexLock = new Object();
     private volatile Bm25IndexHolder corpusBm25;
+
+    public MultiRecallService(DocumentService documentService,
+                              AiProperties aiProperties,
+                              RagCacheService ragCacheService,
+                              PlatformMetricsService metricsService,
+                              VectorStoreService vectorStoreService,
+                              EcommerceQaLexicalSearchService lexicalSearchService,
+                              CrossEncoderRerankClient crossEncoderRerankClient,
+                              @Qualifier("ioTaskExecutor") Executor ioTaskExecutor) {
+        this.documentService = documentService;
+        this.aiProperties = aiProperties;
+        this.ragCacheService = ragCacheService;
+        this.metricsService = metricsService;
+        this.vectorStoreService = vectorStoreService;
+        this.lexicalSearchService = lexicalSearchService;
+        this.crossEncoderRerankClient = crossEncoderRerankClient;
+        this.ioTaskExecutor = ioTaskExecutor;
+    }
 
     @PostConstruct
     public void init() {
@@ -82,34 +105,71 @@ public class MultiRecallService {
                 AiProperties.Rag ragConfig = aiProperties.getRag();
                 int vectorCandidateTopK = positiveOrDefault(ragConfig.getHybridVectorCandidateTopK(), 20);
                 int bm25CandidateTopK = positiveOrDefault(ragConfig.getHybridBm25CandidateTopK(), 20);
-                List<RetrievalChunk> bm25Results = ragConfig.isHybridCorpusBm25Enabled()
-                        ? bm25SearchCorpus(
-                                query,
-                                bm25CandidateTopK,
-                                ragConfig.isBm25StopwordEnabled(),
-                                positiveOrDefault(ragConfig.getHybridBm25CorpusMaxDocs(), 5000))
-                        : List.of();
-                int vectorSearchTopK = bm25Results.isEmpty()
-                        ? Math.max(50, Math.max(vectorCandidateTopK, bm25CandidateTopK))
-                        : vectorCandidateTopK;
-                List<RetrievalChunk> vectorResults = vectorSearch(
-                        query, vectorSearchTopK, options.getSimilarityThreshold());
-                log.debug("Vector result size={}", vectorResults.size());
+                int mysqlCandidateTopK = positiveOrDefault(ragConfig.getHybridMysqlCandidateTopK(), 50);
+                CompletableFuture<List<RetrievalChunk>> lexicalFuture = startLexicalSearch(
+                        query, mysqlCandidateTopK, ragConfig.isHybridMysqlFulltextEnabled());
+                int fallbackVectorTopK = Math.max(50, Math.max(vectorCandidateTopK, bm25CandidateTopK));
+                int vectorSearchTopK = ragConfig.isHybridMysqlFulltextEnabled()
+                        ? options.getTopK()
+                        : fallbackVectorTopK;
+                List<RetrievalChunk> stableVectorResults;
+                List<RetrievalChunk> vectorResults;
+                if (ragConfig.isHybridCrossEncoderEnabled() && vectorCandidateTopK > vectorSearchTopK) {
+                    Map<Integer, List<RetrievalChunk>> vectorBatches = vectorSearch(
+                            query,
+                            List.of(vectorSearchTopK, vectorCandidateTopK),
+                            options.getSimilarityThreshold());
+                    stableVectorResults = vectorBatches.getOrDefault(vectorSearchTopK, List.of());
+                    vectorResults = mergeCandidates(
+                            stableVectorResults,
+                            vectorBatches.getOrDefault(vectorCandidateTopK, List.of()));
+                } else {
+                    stableVectorResults = vectorSearch(
+                            query, vectorSearchTopK, options.getSimilarityThreshold());
+                    vectorResults = stableVectorResults;
+                }
+                log.debug("Vector result size={}, stable vector size={}",
+                        vectorResults.size(), stableVectorResults.size());
 
-                if (bm25Results.isEmpty()) {
+                List<RetrievalChunk> lexicalResults = awaitLexicalResults(lexicalFuture);
+                if (lexicalResults.isEmpty() && ragConfig.isHybridCorpusBm25Enabled()) {
+                    lexicalResults = bm25SearchCorpus(
+                            query,
+                            bm25CandidateTopK,
+                            ragConfig.isBm25StopwordEnabled(),
+                            positiveOrDefault(ragConfig.getHybridBm25CorpusMaxDocs(), 5000));
+                }
+                if (lexicalResults.isEmpty()) {
                     log.debug("Corpus BM25 disabled or unavailable, using candidate-pool BM25");
-                    bm25Results = bm25SearchOnCandidates(
+                    if (vectorSearchTopK < fallbackVectorTopK) {
+                        vectorResults = vectorSearch(
+                                query, fallbackVectorTopK, options.getSimilarityThreshold());
+                    }
+                    lexicalResults = bm25SearchOnCandidates(
                             query, vectorResults, bm25CandidateTopK,
                             ragConfig.isBm25StopwordEnabled());
                 }
-                log.debug("BM25 result size={}", bm25Results.size());
+                log.debug("Lexical result size={}", lexicalResults.size());
 
-                finalResults = rrfFuse(
-                        List.of(vectorResults, bm25Results),
-                        options.getTopK(),
+                List<RetrievalChunk> rrfResults = rrfFuse(
+                        List.of(vectorResults, lexicalResults),
+                        Math.max(options.getTopK(), ragConfig.getHybridRerankCandidateTopK()),
                         ragConfig.getHybridVectorWeight(),
                         ragConfig.getHybridBm25Weight(),
-                        ragConfig.getHybridRrfK());
+                        ragConfig.getHybridRrfK(),
+                        ragConfig.getHybridPreserveVectorTopK());
+                finalResults = ragConfig.isHybridCrossEncoderEnabled()
+                        ? crossEncoderRerank(
+                                query,
+                                stableVectorResults,
+                                vectorResults,
+                                lexicalResults,
+                                rrfResults,
+                                options.getTopK(),
+                                ragConfig.getHybridPreserveVectorTopK(),
+                                ragConfig.getHybridRerankCandidateTopK(),
+                                ragConfig.isHybridRerankFailOpen())
+                        : limit(rrfResults, options.getTopK());
                 log.debug("RRF fused result size={}", finalResults.size());
             } else {
                 finalResults = annotateVectorOnly(
@@ -148,13 +208,15 @@ public class MultiRecallService {
     }
 
     private String buildCacheKeyMaterial(String query, SearchOptions options) {
-        return query
+        String baseKey = query
                 + "|topK=" + options.getTopK()
                 + "|threshold=" + String.format(Locale.ROOT, "%.4f", options.getSimilarityThreshold())
-                + "|hybrid=" + options.isHybridSearch()
-                + (options.isHybridSearch()
-                ? String.format(Locale.ROOT,
-                        "|vw=%.4f|bw=%.4f|rrfK=%d|stopwords=%s|vTopK=%d|bTopK=%d|bMaxDocs=%d|corpusBm25=%s",
+                + "|hybrid=" + options.isHybridSearch();
+        if (!options.isHybridSearch()) {
+            return baseKey;
+        }
+        String hybridKey = baseKey + String.format(Locale.ROOT,
+                        "|vw=%.4f|bw=%.4f|rrfK=%d|stopwords=%s|vTopK=%d|bTopK=%d|bMaxDocs=%d|corpusBm25=%s|mysqlFt=%s|mysqlTopK=%d|preserveV=%d",
                         aiProperties.getRag().getHybridVectorWeight(),
                         aiProperties.getRag().getHybridBm25Weight(),
                         aiProperties.getRag().getHybridRrfK(),
@@ -162,8 +224,143 @@ public class MultiRecallService {
                         aiProperties.getRag().getHybridVectorCandidateTopK(),
                         aiProperties.getRag().getHybridBm25CandidateTopK(),
                         aiProperties.getRag().getHybridBm25CorpusMaxDocs(),
-                        aiProperties.getRag().isHybridCorpusBm25Enabled())
-                : "");
+                        aiProperties.getRag().isHybridCorpusBm25Enabled(),
+                        aiProperties.getRag().isHybridMysqlFulltextEnabled(),
+                        aiProperties.getRag().getHybridMysqlCandidateTopK(),
+                        aiProperties.getRag().getHybridPreserveVectorTopK());
+        if (!aiProperties.getRag().isHybridCrossEncoderEnabled()) {
+            return hybridKey;
+        }
+        return hybridKey + String.format(Locale.ROOT,
+                        "|cross=true|rerankTopK=%d|rerankFailOpen=%s",
+                        aiProperties.getRag().getHybridRerankCandidateTopK(),
+                        aiProperties.getRag().isHybridRerankFailOpen());
+    }
+
+    private List<RetrievalChunk> crossEncoderRerank(String query,
+                                                    List<RetrievalChunk> stableVectorResults,
+                                                    List<RetrievalChunk> vectorResults,
+                                                    List<RetrievalChunk> lexicalResults,
+                                                    List<RetrievalChunk> fallbackResults,
+                                                    int topK,
+                                                    int preserveVectorTopK,
+                                                    int candidateTopK,
+                                                    boolean failOpen) {
+        Map<String, RetrievalChunk> candidates = new LinkedHashMap<>();
+        vectorResults.forEach(chunk -> candidates.putIfAbsent(chunk.getId(), chunk));
+        lexicalResults.forEach(chunk -> candidates.putIfAbsent(chunk.getId(), chunk));
+        Map<String, RetrievalChunk> fallbackById = fallbackResults.stream()
+                .collect(Collectors.toMap(RetrievalChunk::getId, chunk -> chunk, (left, right) -> left));
+        List<RetrievalChunk> boundedCandidates = candidates.values().stream()
+                .map(chunk -> fallbackById.getOrDefault(chunk.getId(), chunk))
+                .limit(positiveOrDefault(candidateTopK, 25))
+                .toList();
+        if (boundedCandidates.isEmpty()) {
+            return List.of();
+        }
+
+        try {
+            List<CrossEncoderRerankClient.RerankScore> scores = crossEncoderRerankClient.rerank(
+                    query,
+                    boundedCandidates.stream().map(RetrievalChunk::getContent).toList());
+            if (scores == null || scores.size() != boundedCandidates.size()) {
+                throw new IllegalStateException("Cross-encoder did not score every hybrid candidate");
+            }
+            Map<Integer, Double> scoreByIndex = new HashMap<>();
+            for (CrossEncoderRerankClient.RerankScore score : scores) {
+                if (score == null || score.index() < 0 || score.index() >= boundedCandidates.size()
+                        || !Double.isFinite(score.score()) || score.score() < 0.0 || score.score() > 1.0
+                        || scoreByIndex.putIfAbsent(score.index(), score.score()) != null) {
+                    throw new IllegalStateException("Cross-encoder returned invalid hybrid candidate scores");
+                }
+            }
+            if (scoreByIndex.size() != boundedCandidates.size()) {
+                throw new IllegalStateException("Cross-encoder omitted hybrid candidate scores");
+            }
+
+            List<RetrievalChunk> ranked = java.util.stream.IntStream.range(0, boundedCandidates.size())
+                    .mapToObj(index -> withRerankMetadata(boundedCandidates.get(index), scoreByIndex.get(index), index + 1))
+                    .sorted(java.util.Comparator.comparingDouble(RetrievalChunk::getScore).reversed()
+                            .thenComparing(RetrievalChunk::getId))
+                    .toList();
+            return preserveVectorResults(ranked, stableVectorResults, topK, preserveVectorTopK);
+        } catch (RuntimeException exception) {
+            if (!failOpen) {
+                throw exception;
+            }
+            log.warn("Hybrid cross-encoder reranking failed; using RRF fallback: {}", exception.getMessage());
+            return limit(fallbackResults, topK);
+        }
+    }
+
+    private RetrievalChunk withRerankMetadata(RetrievalChunk chunk, double score, int originalRank) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        if (chunk.getMetadata() != null) {
+            metadata.putAll(chunk.getMetadata());
+        }
+        metadata.put("hybridRerankProvider", "cross-encoder");
+        metadata.put("hybridRerankScore", score);
+        metadata.put("hybridPreRerankRank", originalRank);
+        return RetrievalChunk.builder()
+                .id(chunk.getId())
+                .content(chunk.getContent())
+                .score(score)
+                .metadata(metadata)
+                .build();
+    }
+
+    private List<RetrievalChunk> preserveVectorResults(List<RetrievalChunk> ranked,
+                                                       List<RetrievalChunk> vectorResults,
+                                                       int topK,
+                                                       int preserveVectorTopK) {
+        int preserveCount = Math.max(0, Math.min(preserveVectorTopK, topK));
+        Map<String, RetrievalChunk> rankedById = ranked.stream()
+                .collect(Collectors.toMap(RetrievalChunk::getId, chunk -> chunk, (left, right) -> left));
+        Map<String, RetrievalChunk> ordered = new LinkedHashMap<>();
+        vectorResults.stream()
+                .limit(preserveCount)
+                .map(RetrievalChunk::getId)
+                .map(rankedById::get)
+                .filter(java.util.Objects::nonNull)
+                .forEach(chunk -> ordered.put(chunk.getId(), chunk));
+        ranked.forEach(chunk -> ordered.putIfAbsent(chunk.getId(), chunk));
+        return ordered.values().stream().limit(topK).toList();
+    }
+
+    private List<RetrievalChunk> limit(List<RetrievalChunk> chunks, int topK) {
+        return chunks.size() > topK ? chunks.subList(0, topK) : chunks;
+    }
+
+    private List<RetrievalChunk> mergeCandidates(List<RetrievalChunk> primary,
+                                                 List<RetrievalChunk> secondary) {
+        Map<String, RetrievalChunk> merged = new LinkedHashMap<>();
+        primary.forEach(chunk -> merged.putIfAbsent(chunk.getId(), chunk));
+        secondary.forEach(chunk -> merged.putIfAbsent(chunk.getId(), chunk));
+        return List.copyOf(merged.values());
+    }
+
+    private CompletableFuture<List<RetrievalChunk>> startLexicalSearch(String query,
+                                                                        int topK,
+                                                                        boolean enabled) {
+        if (!enabled) {
+            return CompletableFuture.completedFuture(List.of());
+        }
+        try {
+            return CompletableFuture.supplyAsync(() -> lexicalSearchService.search(query, topK), ioTaskExecutor);
+        } catch (RuntimeException exception) {
+            log.warn("Unable to schedule lexical retrieval: {}", exception.getMessage());
+            return CompletableFuture.completedFuture(List.of());
+        }
+    }
+
+    private List<RetrievalChunk> awaitLexicalResults(CompletableFuture<List<RetrievalChunk>> future) {
+        try {
+            List<RetrievalChunk> results = future.join();
+            return results == null ? List.of() : results;
+        } catch (CompletionException exception) {
+            log.warn("Lexical retrieval failed asynchronously: {}", exception.getMessage());
+            return List.of();
+        }
     }
 
     private List<RetrievalChunk> vectorSearch(String query, int topK, double threshold) {
@@ -175,6 +372,18 @@ public class MultiRecallService {
             log.error("Vector search failed", e);
             throw new KnowledgeRetrievalUnavailableException(
                     "Knowledge retrieval is temporarily unavailable", e);
+        }
+    }
+
+    private Map<Integer, List<RetrievalChunk>> vectorSearch(String query,
+                                                            List<Integer> topKs,
+                                                            double threshold) {
+        try {
+            return documentService.searchSimilar(query, topKs, threshold);
+        } catch (Exception exception) {
+            log.error("Vector search failed", exception);
+            throw new KnowledgeRetrievalUnavailableException(
+                    "Knowledge retrieval is temporarily unavailable", exception);
         }
     }
 
@@ -275,14 +484,15 @@ public class MultiRecallService {
                                          int topK,
                                          double vectorWeight,
                                          double bm25Weight,
-                                         int rrfK) {
+                                         int rrfK,
+                                         int preserveVectorTopK) {
         double safeVectorWeight = positiveOrDefault(vectorWeight, 0.95);
         double safeBm25Weight = positiveOrDefault(bm25Weight, 0.05);
         int safeRrfK = positiveOrDefault(rrfK, 60);
         Map<String, Double> rrfScores = new HashMap<>();
         Map<String, RetrievalChunk> docMap = new HashMap<>();
         Map<String, Integer> vectorRanks = new HashMap<>();
-        Map<String, Integer> bm25Ranks = new HashMap<>();
+        Map<String, Integer> lexicalRanks = new HashMap<>();
 
         for (int listIndex = 0; listIndex < lists.size(); listIndex++) {
             List<RetrievalChunk> list = lists.get(listIndex);
@@ -297,14 +507,14 @@ public class MultiRecallService {
                 if (listIndex == 0) {
                     vectorRanks.putIfAbsent(docId, rank + 1);
                 } else if (listIndex == 1) {
-                    bm25Ranks.putIfAbsent(docId, rank + 1);
+                    lexicalRanks.putIfAbsent(docId, rank + 1);
                 }
             }
         }
 
-        return rrfScores.entrySet().stream()
-                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
-                .limit(topK)
+        List<RetrievalChunk> ranked = rrfScores.entrySet().stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed()
+                        .thenComparing(Map.Entry::getKey))
                 .map(entry -> {
                     RetrievalChunk doc = docMap.get(entry.getKey());
                     Map<String, Object> metadata = new LinkedHashMap<>();
@@ -312,13 +522,14 @@ public class MultiRecallService {
                         metadata.putAll(doc.getMetadata());
                     }
                     Integer vectorRank = vectorRanks.get(entry.getKey());
-                    Integer bm25Rank = bm25Ranks.get(entry.getKey());
-                    metadata.put("retrievalSource", retrievalSource(vectorRank, bm25Rank));
+                    Integer lexicalRank = lexicalRanks.get(entry.getKey());
+                    metadata.put("retrievalSource", retrievalSource(vectorRank, lexicalRank));
                     if (vectorRank != null) {
                         metadata.put("vectorRank", vectorRank);
                     }
-                    if (bm25Rank != null) {
-                        metadata.put("bm25Rank", bm25Rank);
+                    if (lexicalRank != null) {
+                        metadata.put("lexicalRank", lexicalRank);
+                        metadata.put("bm25Rank", lexicalRank);
                     }
                     metadata.put("rrfScore", entry.getValue());
                     metadata.put("vectorWeight", safeVectorWeight);
@@ -333,6 +544,23 @@ public class MultiRecallService {
                             .build();
                 })
                 .collect(Collectors.toList());
+
+        int preserveCount = Math.max(0, Math.min(preserveVectorTopK, topK));
+        if (preserveCount == 0 || lists.isEmpty()) {
+            return ranked.size() > topK ? ranked.subList(0, topK) : ranked;
+        }
+
+        Map<String, RetrievalChunk> rankedById = ranked.stream()
+                .collect(Collectors.toMap(RetrievalChunk::getId, chunk -> chunk, (left, right) -> left));
+        Map<String, RetrievalChunk> ordered = new LinkedHashMap<>();
+        lists.get(0).stream()
+                .limit(preserveCount)
+                .map(RetrievalChunk::getId)
+                .map(rankedById::get)
+                .filter(java.util.Objects::nonNull)
+                .forEach(chunk -> ordered.put(chunk.getId(), chunk));
+        ranked.forEach(chunk -> ordered.putIfAbsent(chunk.getId(), chunk));
+        return ordered.values().stream().limit(topK).toList();
     }
 
     private int positiveOrDefault(int value, int fallback) {
@@ -343,15 +571,15 @@ public class MultiRecallService {
         return Double.isFinite(value) && value > 0 ? value : fallback;
     }
 
-    private String retrievalSource(Integer vectorRank, Integer bm25Rank) {
-        if (vectorRank != null && bm25Rank != null) {
+    private String retrievalSource(Integer vectorRank, Integer lexicalRank) {
+        if (vectorRank != null && lexicalRank != null) {
             return "both";
         }
         if (vectorRank != null) {
             return "vector_only";
         }
-        if (bm25Rank != null) {
-            return "bm25_only";
+        if (lexicalRank != null) {
+            return "lexical_only";
         }
         return "unknown";
     }

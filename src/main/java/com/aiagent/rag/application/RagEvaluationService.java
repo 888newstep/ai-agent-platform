@@ -116,44 +116,50 @@ public class RagEvaluationService {
         report.setTopKs(topKs);
         report.setConfigSnapshot(getConfigSnapshot(profile));
 
-        for (int k : topKs) {
-            MetricAccumulator overall = new MetricAccumulator();
-            Map<String, MetricAccumulator> categoryAccumulators = new LinkedHashMap<>();
+        int maxTopK = topKs.stream().mapToInt(Integer::intValue).max().orElse(aiProperties.getRag().getTopK());
+        Map<Integer, MetricAccumulator> overallByTopK = new LinkedHashMap<>();
+        Map<Integer, Map<String, MetricAccumulator>> categoryByTopK = new LinkedHashMap<>();
+        topKs.forEach(k -> {
+            overallByTopK.put(k, new MetricAccumulator());
+            categoryByTopK.put(k, new LinkedHashMap<>());
+        });
 
-            for (EvaluationCase evaluationCase : dataset.getCases()) {
-                long startTime = System.currentTimeMillis();
-                List<RetrievalChunk> searchResults = multiRecallService.search(
-                        evaluationCase.getQuestion(),
-                        MultiRecallService.SearchOptions.builder()
-                                .topK(k)
-                                .similarityThreshold(profile.getSimilarityThreshold())
-                                .hybridSearch(Boolean.TRUE.equals(profile.getHybridSearch()))
-                                .cacheEnabled(false)
-                                .build());
-                long latency = System.currentTimeMillis() - startTime;
-                List<RetrievalChunk> results = searchResults == null ? List.of() : searchResults;
+        for (EvaluationCase evaluationCase : dataset.getCases()) {
+            long startTime = System.currentTimeMillis();
+            List<RetrievalChunk> searchResults = multiRecallService.search(
+                    evaluationCase.getQuestion(),
+                    MultiRecallService.SearchOptions.builder()
+                            .topK(maxTopK)
+                            .similarityThreshold(profile.getSimilarityThreshold())
+                            .hybridSearch(Boolean.TRUE.equals(profile.getHybridSearch()))
+                            .cacheEnabled(false)
+                            .build());
+            long latency = System.currentTimeMillis() - startTime;
+            List<RetrievalChunk> results = searchResults == null ? List.of() : searchResults;
+            report.getDiagnostics().add(buildDiagnostic(evaluationCase, results, maxTopK, latency));
 
-                Set<String> resultIds = results.stream()
-                        .map(c -> c.getId())
+            for (int k : topKs) {
+                List<RetrievalChunk> topResults = results.size() > k ? results.subList(0, k) : results;
+                Set<String> resultIds = topResults.stream()
+                        .map(RetrievalChunk::getId)
                         .collect(Collectors.toSet());
                 long relevantInResults = resultIds.stream()
                         .filter(evaluationCase.getRelevantDocIds()::contains)
                         .count();
-
-                double recall = evaluationCase.getRelevantDocIds().isEmpty()
-                        ? 0
-                        : (double) relevantInResults / evaluationCase.getRelevantDocIds().size();
+                double recall = (double) relevantInResults / evaluationCase.getRelevantDocIds().size();
                 double precision = (double) relevantInResults / Math.max(k, 1);
 
-                overall.add(recall, precision, latency, results.size());
-                categoryAccumulators
+                overallByTopK.get(k).add(recall, precision, latency, topResults.size());
+                categoryByTopK.get(k)
                         .computeIfAbsent(evaluationCase.getCategory(), ignored -> new MetricAccumulator())
-                        .add(recall, precision, latency, results.size());
+                        .add(recall, precision, latency, topResults.size());
             }
+        }
 
+        for (int k : topKs) {
             String topK = String.valueOf(k);
-            writeMetrics(overall, (name, value) -> report.addMetric(topK, name, value));
-            for (Map.Entry<String, MetricAccumulator> entry : categoryAccumulators.entrySet()) {
+            writeMetrics(overallByTopK.get(k), (name, value) -> report.addMetric(topK, name, value));
+            for (Map.Entry<String, MetricAccumulator> entry : categoryByTopK.get(k).entrySet()) {
                 writeMetrics(entry.getValue(), (name, value) ->
                         report.addCategoryMetric(entry.getKey(), topK, name, value));
             }
@@ -162,6 +168,34 @@ public class RagEvaluationService {
         log.debug("RAG 评估完成: dataset={}, profile={}, size={}",
                 dataset.getSource(), profile.getName(), dataset.getCases().size());
         return report;
+    }
+
+    private QueryDiagnostic buildDiagnostic(EvaluationCase evaluationCase,
+                                            List<RetrievalChunk> results,
+                                            int maxTopK,
+                                            long latency) {
+        List<String> actualDocIds = results.stream().map(RetrievalChunk::getId).toList();
+        Integer firstRelevantRank = null;
+        for (int index = 0; index < actualDocIds.size(); index++) {
+            if (evaluationCase.getRelevantDocIds().contains(actualDocIds.get(index))) {
+                firstRelevantRank = index + 1;
+                break;
+            }
+        }
+        List<String> retrievalSources = results.stream()
+                .map(RetrievalChunk::getMetadata)
+                .map(metadata -> metadata == null ? "unknown" : String.valueOf(metadata.getOrDefault("retrievalSource", "unknown")))
+                .toList();
+        return QueryDiagnostic.builder()
+                .caseHash(fingerprint(evaluationCase.getQuestion()))
+                .category(evaluationCase.getCategory())
+                .relevantDocIds(evaluationCase.getRelevantDocIds())
+                .actualDocIds(actualDocIds)
+                .retrievalSources(retrievalSources)
+                .firstRelevantRank(firstRelevantRank)
+                .maxTopK(maxTopK)
+                .latencyMs(latency)
+                .build();
     }
 
     private void writeMetrics(MetricAccumulator accumulator, BiConsumer<String, Object> writer) {
@@ -290,6 +324,16 @@ public class RagEvaluationService {
 
         String fingerprint = HexFormat.of().formatHex(digest.digest()).substring(0, 16);
         return path.getFileName() + "#" + fingerprint;
+    }
+
+    private String fingerprint(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                    .substring(0, 16);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
     }
 
     private int headerIndexOrMinusOne(List<String> headers, String key) {
@@ -485,7 +529,14 @@ public class RagEvaluationService {
         config.put("hybridBm25CandidateTopK", aiProperties.getRag().getHybridBm25CandidateTopK());
         config.put("hybridBm25CorpusMaxDocs", aiProperties.getRag().getHybridBm25CorpusMaxDocs());
         config.put("hybridCorpusBm25Enabled", aiProperties.getRag().isHybridCorpusBm25Enabled());
+        config.put("hybridMysqlFulltextEnabled", aiProperties.getRag().isHybridMysqlFulltextEnabled());
+        config.put("hybridMysqlCandidateTopK", aiProperties.getRag().getHybridMysqlCandidateTopK());
+        config.put("hybridPreserveVectorTopK", aiProperties.getRag().getHybridPreserveVectorTopK());
+        config.put("hybridCrossEncoderEnabled", aiProperties.getRag().isHybridCrossEncoderEnabled());
+        config.put("hybridRerankCandidateTopK", aiProperties.getRag().getHybridRerankCandidateTopK());
+        config.put("hybridRerankFailOpen", aiProperties.getRag().isHybridRerankFailOpen());
         config.put("bm25StopwordEnabled", aiProperties.getRag().isBm25StopwordEnabled());
+        config.put("evaluationRetrievalStrategy", "single-max-top-k");
         config.put("chunkSize", aiProperties.getDocument().getChunkSize());
         config.put("chunkOverlap", aiProperties.getDocument().getChunkOverlap());
         config.put("chunkingComparable", false);
@@ -539,6 +590,21 @@ public class RagEvaluationService {
     }
 
     @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class QueryDiagnostic {
+        private String caseHash;
+        private String category;
+        private List<String> relevantDocIds;
+        private List<String> actualDocIds;
+        private List<String> retrievalSources;
+        private Integer firstRelevantRank;
+        private int maxTopK;
+        private long latencyMs;
+    }
+
+    @Data
     public static class EvaluationReport {
         private String datasetSource;
         private int datasetSize;
@@ -546,6 +612,7 @@ public class RagEvaluationService {
         private Map<String, Object> configSnapshot;
         private Map<String, Map<String, Object>> metrics = new LinkedHashMap<>();
         private Map<String, Map<String, Map<String, Object>>> categoryMetrics = new LinkedHashMap<>();
+        private List<QueryDiagnostic> diagnostics = new ArrayList<>();
 
         public void addMetric(String k, String name, Object value) {
             metrics.computeIfAbsent(k, ignored -> new LinkedHashMap<>());

@@ -46,6 +46,12 @@ class MultiRecallServiceTest {
     @Mock
     private VectorStoreService vectorStoreService;
 
+    @Mock
+    private EcommerceQaLexicalSearchService lexicalSearchService;
+
+    @Mock
+    private CrossEncoderRerankClient crossEncoderRerankClient;
+
     private AiProperties aiProperties;
     private Timer.Sample sample;
     private MultiRecallService multiRecallService;
@@ -56,10 +62,14 @@ class MultiRecallServiceTest {
         aiProperties.getRag().setSimilarityThreshold(0.66);
         aiProperties.getRag().setEnableHybridSearch(true);
         aiProperties.getRag().setHybridCorpusBm25Enabled(true);
+        aiProperties.getRag().setHybridMysqlFulltextEnabled(false);
+        aiProperties.getRag().setHybridMysqlCandidateTopK(50);
         sample = Timer.start();
         when(metricsService.startSample()).thenReturn(sample);
 
-        multiRecallService = new MultiRecallService(documentService, aiProperties, ragCacheService, metricsService, vectorStoreService);
+        multiRecallService = new MultiRecallService(
+                documentService, aiProperties, ragCacheService, metricsService, vectorStoreService,
+                lexicalSearchService, crossEncoderRerankClient, Runnable::run);
     }
 
     @Test
@@ -69,7 +79,7 @@ class MultiRecallServiceTest {
                 chunk("2", "banana apple"),
                 chunk("3", "orange pear")
         );
-        when(ragCacheService.getCachedResults("apple|topK=2|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true")).thenReturn(cached);
+        when(ragCacheService.getCachedResults("apple|topK=2|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true|mysqlFt=false|mysqlTopK=50|preserveV=1")).thenReturn(cached);
 
         List<RetrievalChunk> results = multiRecallService.search("apple", 2);
 
@@ -90,8 +100,8 @@ class MultiRecallServiceTest {
                 chunk("2", "apple pie"),
                 chunk("3", "banana smoothie")
         );
-        when(ragCacheService.getCachedResults("apple banana|topK=2|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true")).thenReturn(null);
-        when(documentService.searchSimilar("apple banana", 20, 0.66)).thenReturn(vectorResults);
+        when(ragCacheService.getCachedResults("apple banana|topK=2|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true|mysqlFt=false|mysqlTopK=50|preserveV=1")).thenReturn(null);
+        when(documentService.searchSimilar("apple banana", 50, 0.66)).thenReturn(vectorResults);
         when(vectorStoreService.fetchAllChunks(anyInt())).thenReturn(corpus);
 
         List<RetrievalChunk> results = multiRecallService.search("apple banana", 2);
@@ -100,16 +110,16 @@ class MultiRecallServiceTest {
         assertThat(results.get(0).getId()).isEqualTo("1");
         assertThat(results.get(0).getScore()).isGreaterThan(results.get(1).getScore());
         assertThat(results.get(0).getMetadata()).containsEntry("retrievalSource", "both");
-        assertThat(results.get(0).getMetadata()).containsKeys("vectorRank", "bm25Rank", "rrfScore");
-        verify(documentService).searchSimilar("apple banana", 20, 0.66);
+        assertThat(results.get(0).getMetadata()).containsKeys("vectorRank", "lexicalRank", "bm25Rank", "rrfScore");
+        verify(documentService).searchSimilar("apple banana", 50, 0.66);
         verify(vectorStoreService).fetchAllChunks(anyInt());
-        verify(ragCacheService).cacheResults(eq("apple banana|topK=2|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true"), eq(results));
+        verify(ragCacheService).cacheResults(eq("apple banana|topK=2|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true|mysqlFt=false|mysqlTopK=50|preserveV=1"), eq(results));
         verify(metricsService).recordRagSearch(false, 2, sample);
     }
 
     @Test
     void shouldReportUnavailableWhenVectorSearchFails() {
-        when(ragCacheService.getCachedResults("apple|topK=3|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true")).thenReturn(null);
+        when(ragCacheService.getCachedResults("apple|topK=3|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true|mysqlFt=false|mysqlTopK=50|preserveV=1")).thenReturn(null);
         when(documentService.searchSimilar(eq("apple"), anyInt(), eq(0.66))).thenThrow(new RuntimeException("Milvus down"));
 
         assertThatThrownBy(() -> multiRecallService.search("apple", 3))
@@ -126,8 +136,8 @@ class MultiRecallServiceTest {
                 chunk("2", "how to reset banana smoothie order"),
                 chunk("3", "banana pie recipe")
         );
-        when(ragCacheService.getCachedResults("banana smoothie|topK=2|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true")).thenReturn(null);
-        when(documentService.searchSimilar("banana smoothie", 20, 0.66)).thenReturn(List.of());
+        when(ragCacheService.getCachedResults("banana smoothie|topK=2|threshold=0.6600|hybrid=true|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=true|mysqlFt=false|mysqlTopK=50|preserveV=1")).thenReturn(null);
+        when(documentService.searchSimilar("banana smoothie", 50, 0.66)).thenReturn(List.of());
         when(vectorStoreService.fetchAllChunks(anyInt())).thenReturn(corpus);
 
         List<RetrievalChunk> results = multiRecallService.search("banana smoothie", 2);
@@ -135,7 +145,7 @@ class MultiRecallServiceTest {
         assertThat(results).hasSize(2);
         assertThat(results).extracting(c -> c.getId()).contains("2", "3");
         assertThat(results).allSatisfy(result ->
-                assertThat(result.getMetadata()).containsEntry("retrievalSource", "bm25_only"));
+                assertThat(result.getMetadata()).containsEntry("retrievalSource", "lexical_only"));
         verify(vectorStoreService).fetchAllChunks(anyInt());
     }
 
@@ -152,7 +162,7 @@ class MultiRecallServiceTest {
                 chunk("2", "shipping schedule")
         );
         String cacheKey = "refund conditions|topK=2|threshold=0.6600|hybrid=true"
-                + "|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=3|corpusBm25=true";
+                + "|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=3|corpusBm25=true|mysqlFt=false|mysqlTopK=50|preserveV=1";
         when(ragCacheService.getCachedResults(cacheKey)).thenReturn(null);
         when(documentService.searchSimilar("refund conditions", 50, 0.66)).thenReturn(vectorCandidates);
         when(vectorStoreService.fetchAllChunks(3)).thenReturn(truncatedCorpus);
@@ -193,6 +203,100 @@ class MultiRecallServiceTest {
         verify(documentService, never()).searchSimilar("unmatched keyword", 50, 0.66);
         verify(ragCacheService).cacheResults(eq("unmatched keyword|topK=2|threshold=0.6600|hybrid=false"), eq(results));
         verify(metricsService).recordRagSearch(false, 2, sample);
+    }
+
+    @Test
+    void shouldFuseIndependentMysqlLexicalCandidates() {
+        aiProperties.getRag().setHybridMysqlFulltextEnabled(true);
+        aiProperties.getRag().setHybridCorpusBm25Enabled(false);
+        aiProperties.getRag().setHybridVectorWeight(0.5);
+        aiProperties.getRag().setHybridBm25Weight(0.5);
+        List<RetrievalChunk> vectorResults = List.of(
+                chunk("vector-1", "semantic candidate"),
+                chunk("shared", "shared candidate")
+        );
+        List<RetrievalChunk> lexicalResults = List.of(
+                chunk("lexical-1", "exact keyword candidate"),
+                chunk("shared", "shared candidate")
+        );
+        String cacheKey = "exact keyword|topK=3|threshold=0.6600|hybrid=true"
+                + "|vw=0.5000|bw=0.5000|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=false|mysqlFt=true|mysqlTopK=50|preserveV=1";
+        when(ragCacheService.getCachedResults(cacheKey)).thenReturn(null);
+        when(lexicalSearchService.search("exact keyword", 50)).thenReturn(lexicalResults);
+        when(documentService.searchSimilar("exact keyword", 3, 0.66)).thenReturn(vectorResults);
+
+        List<RetrievalChunk> results = multiRecallService.search("exact keyword", 3);
+
+        assertThat(results).extracting(RetrievalChunk::getId)
+                .containsExactly("vector-1", "shared", "lexical-1");
+        assertThat(results.get(1).getMetadata()).containsEntry("retrievalSource", "both");
+        assertThat(results.get(2).getMetadata()).containsEntry("retrievalSource", "lexical_only");
+        verifyNoInteractions(vectorStoreService);
+    }
+
+    @Test
+    void shouldCrossEncoderRerankHybridCandidatesAndPreserveVectorTopOne() {
+        aiProperties.getRag().setHybridMysqlFulltextEnabled(true);
+        aiProperties.getRag().setHybridCorpusBm25Enabled(false);
+        aiProperties.getRag().setHybridCrossEncoderEnabled(true);
+        aiProperties.getRag().setHybridRerankCandidateTopK(4);
+        List<RetrievalChunk> vectorResults = List.of(
+                chunk("vector-top", "vector top"),
+                chunk("vector-second", "vector second")
+        );
+        List<RetrievalChunk> expandedVectorResults = List.of(
+                chunk("vector-top", "vector top"),
+                chunk("vector-second", "vector second"),
+                chunk("vector-expanded", "expanded semantic candidate")
+        );
+        List<RetrievalChunk> lexicalResults = List.of(
+                chunk("lexical-best", "lexical best"),
+                chunk("lexical-other", "lexical other")
+        );
+        String cacheKey = "refund|topK=3|threshold=0.6600|hybrid=true"
+                + "|vw=0.9500|bw=0.0500|rrfK=60|stopwords=true|vTopK=20|bTopK=20|bMaxDocs=5000|corpusBm25=false|mysqlFt=true|mysqlTopK=50|preserveV=1"
+                + "|cross=true|rerankTopK=4|rerankFailOpen=true";
+        when(ragCacheService.getCachedResults(cacheKey)).thenReturn(null);
+        when(documentService.searchSimilar("refund", List.of(3, 20), 0.66)).thenReturn(Map.of(
+                3, vectorResults,
+                20, expandedVectorResults));
+        when(lexicalSearchService.search("refund", 50)).thenReturn(lexicalResults);
+        when(crossEncoderRerankClient.rerank(eq("refund"), anyList())).thenReturn(List.of(
+                new CrossEncoderRerankClient.RerankScore(0, 0.40),
+                new CrossEncoderRerankClient.RerankScore(1, 0.50),
+                new CrossEncoderRerankClient.RerankScore(2, 0.98),
+                new CrossEncoderRerankClient.RerankScore(3, 0.99)
+        ));
+
+        List<RetrievalChunk> results = multiRecallService.search("refund", 3);
+
+        assertThat(results).extracting(RetrievalChunk::getId)
+                .containsExactly("vector-top", "lexical-best", "vector-expanded");
+        assertThat(results.get(1).getMetadata())
+                .containsEntry("hybridRerankProvider", "cross-encoder")
+                .containsEntry("hybridRerankScore", 0.99)
+                .containsEntry("retrievalSource", "lexical_only");
+        assertThat(results.get(2).getMetadata())
+                .containsEntry("retrievalSource", "vector_only");
+        verify(documentService).searchSimilar("refund", List.of(3, 20), 0.66);
+    }
+
+    @Test
+    void shouldFallbackToRrfWhenHybridCrossEncoderFails() {
+        aiProperties.getRag().setHybridMysqlFulltextEnabled(true);
+        aiProperties.getRag().setHybridCorpusBm25Enabled(false);
+        aiProperties.getRag().setHybridCrossEncoderEnabled(true);
+        when(ragCacheService.getCachedResults(anyString())).thenReturn(null);
+        when(documentService.searchSimilar("refund", List.of(2, 20), 0.66)).thenReturn(Map.of(
+                2, List.of(chunk("vector", "vector")),
+                20, List.of(chunk("vector", "vector"))));
+        when(lexicalSearchService.search("refund", 50)).thenReturn(List.of(chunk("lexical", "lexical")));
+        when(crossEncoderRerankClient.rerank(eq("refund"), anyList()))
+                .thenThrow(new IllegalStateException("reranker down"));
+
+        List<RetrievalChunk> results = multiRecallService.search("refund", 2);
+
+        assertThat(results).extracting(RetrievalChunk::getId).containsExactly("vector", "lexical");
     }
 
     @Test
