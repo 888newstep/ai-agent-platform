@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "1.0",
+  "implementationCommit": "721c90a351d03392b21851c3b075728452460ed1",
+  "dataset": {
+    "kind": "llm-assisted-silver",
+    "sampleCount": 120,
+    "sourceQaCount": 30,
+    "categoryCount": 6,
+    "sha256": "4ac31609d697815fc18ca69391db54b47275a8bb42f0c377de964b1c50a76a67",
+    "humanGoldLabel": false
+  },
+  "runtime": {
+    "vectorStoreMode": "qa",
+    "milvusDatabase": "cs_agent",
+    "milvusCollection": "ecommerce_qa",
+    "milvusReadOnly": true,
+    "mysqlQaRowCount": 225098
+  },
+  "candidateConfig": {
+    "similarityThreshold": 0.6,
+    "vectorCandidateTopK": 20,
+    "mysqlFulltextCandidateTopK": 20,
+    "preserveVectorTopK": 1,
+    "crossEncoderModel": "BAAI/bge-reranker-v2-m3",
+    "rerankCandidateTopK": 40,
+    "rerankFailOpen": true
+  },
+  "reports": {
+    "baselineSha256": "4b1abb8ce77b501b03b32041711a516727343eda2e840bf9f5ad8ba54bb7d828",
+    "candidateSha256": "45cef5cdb6a187d6c7112ea06d8c9d2fb722136e504974c22db450a70cb0a643"
+  },
+  "metrics": {
+    "1": {
+      "baselineRecall": 0.14166666666666666,
+      "candidateRecall": 0.14166666666666666,
+      "baselinePrecision": 0.14166666666666666,
+      "candidatePrecision": 0.14166666666666666,
+      "baselineF1": 0.14166666666666666,
+      "candidateF1": 0.14166666666666666
+    },
+    "3": {
+      "baselineRecall": 0.20833333333333334,
+      "candidateRecall": 0.25833333333333336,
+      "baselinePrecision": 0.06944444444444443,
+      "candidatePrecision": 0.0861111111111111,
+      "baselineF1": 0.10416666666666664,
+      "candidateF1": 0.12916666666666668
+    },
+    "5": {
+      "baselineRecall": 0.25,
+      "candidateRecall": 0.325,
+      "baselinePrecision": 0.05,
+      "candidatePrecision": 0.065,
+      "baselineF1": 0.08333333333333334,
+      "candidateF1": 0.10833333333333334
+    }
+  },
+  "latencyMs": {
+    "baseline": {
+      "average": 152.94166666666666,
+      "p50": 127,
+      "p95": 232,
+      "p99": 1025
+    },
+    "candidate": {
+      "average": 1373.7083333333333,
+      "p50": 661,
+      "p95": 5763,
+      "p99": 10987
+    }
+  },
+  "conclusion": {
+    "qualityGatePassed": true,
+    "latencyGatePassed": false,
+    "productionDefaultEnabled": false,
+    "scope": "This result is limited to the local LLM-assisted silver benchmark and is not online customer-service accuracy."
+  }
+}
