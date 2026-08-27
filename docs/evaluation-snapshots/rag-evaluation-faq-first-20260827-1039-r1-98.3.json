@@ -1,0 +1,1403 @@
+{
+  "summary" : "RAG Evaluation Summary\ndataset=retrieval-silver-mg.json#b0630f6fec13b7cd, size=120\nk=1 samples=120 recall=98.33% precision=98.33% f1=98.33% hit=100.00% empty=0.00% avg=140ms p50=129ms p95=181ms p99=435ms\nk=3 samples=120 recall=100.00% precision=33.33% f1=50.00% hit=100.00% empty=0.00% avg=140ms p50=129ms p95=181ms p99=435ms\nk=5 samples=120 recall=100.00% precision=20.00% f1=33.33% hit=100.00% empty=0.00% avg=140ms p50=129ms p95=181ms p99=435ms\nnote=chunkSize/chunkOverlap are snapshot-only and require re-ingestion for fair comparison",
+  "datasetSource" : "retrieval-silver-mg.json#b0630f6fec13b7cd",
+  "datasetSize" : 120,
+  "topKs" : [ 1, 3, 5 ],
+  "metrics" : {
+    "1" : {
+      "sampleCount" : 120,
+      "recall" : 0.9833333333333333,
+      "precision" : 0.9833333333333333,
+      "f1" : 0.9833333333333333,
+      "avgLatency" : 139.775,
+      "p95Latency" : 181,
+      "p99Latency" : 435,
+      "p50Latency" : 129,
+      "emptyResultCount" : 0,
+      "emptyResultRate" : 0.0,
+      "retrievalHitRate" : 1.0
+    },
+    "3" : {
+      "sampleCount" : 120,
+      "recall" : 1.0,
+      "precision" : 0.3333333333333333,
+      "f1" : 0.5,
+      "avgLatency" : 139.775,
+      "p95Latency" : 181,
+      "p99Latency" : 435,
+      "p50Latency" : 129,
+      "emptyResultCount" : 0,
+      "emptyResultRate" : 0.0,
+      "retrievalHitRate" : 1.0
+    },
+    "5" : {
+      "sampleCount" : 120,
+      "recall" : 1.0,
+      "precision" : 0.2,
+      "f1" : 0.33333333333333337,
+      "avgLatency" : 139.775,
+      "p95Latency" : 181,
+      "p99Latency" : 435,
+      "p50Latency" : 129,
+      "emptyResultCount" : 0,
+      "emptyResultRate" : 0.0,
+      "retrievalHitRate" : 1.0
+    }
+  },
+  "categoryMetrics" : {
+    "shipping_logistics" : {
+      "1" : {
+        "sampleCount" : 24,
+        "recall" : 0.9166666666666666,
+        "precision" : 0.9166666666666666,
+        "f1" : 0.9166666666666666,
+        "avgLatency" : 151.08333333333334,
+        "p95Latency" : 245,
+        "p99Latency" : 435,
+        "p50Latency" : 129,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      },
+      "3" : {
+        "sampleCount" : 24,
+        "recall" : 1.0,
+        "precision" : 0.3333333333333333,
+        "f1" : 0.5,
+        "avgLatency" : 151.08333333333334,
+        "p95Latency" : 245,
+        "p99Latency" : 435,
+        "p50Latency" : 129,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      },
+      "5" : {
+        "sampleCount" : 24,
+        "recall" : 1.0,
+        "precision" : 0.20000000000000004,
+        "f1" : 0.3333333333333334,
+        "avgLatency" : 151.08333333333334,
+        "p95Latency" : 245,
+        "p99Latency" : 435,
+        "p50Latency" : 129,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      }
+    },
+    "promotion_price" : {
+      "1" : {
+        "sampleCount" : 24,
+        "recall" : 1.0,
+        "precision" : 1.0,
+        "f1" : 1.0,
+        "avgLatency" : 147.75,
+        "p95Latency" : 254,
+        "p99Latency" : 466,
+        "p50Latency" : 126,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      },
+      "3" : {
+        "sampleCount" : 24,
+        "recall" : 1.0,
+        "precision" : 0.3333333333333333,
+        "f1" : 0.5,
+        "avgLatency" : 147.75,
+        "p95Latency" : 254,
+        "p99Latency" : 466,
+        "p50Latency" : 126,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      },
+      "5" : {
+        "sampleCount" : 24,
+        "recall" : 1.0,
+        "precision" : 0.20000000000000004,
+        "f1" : 0.3333333333333334,
+        "avgLatency" : 147.75,
+        "p95Latency" : 254,
+        "p99Latency" : 466,
+        "p50Latency" : 126,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      }
+    },
+    "product_specification" : {
+      "1" : {
+        "sampleCount" : 24,
+        "recall" : 1.0,
+        "precision" : 1.0,
+        "f1" : 1.0,
+        "avgLatency" : 136.5,
+        "p95Latency" : 166,
+        "p99Latency" : 181,
+        "p50Latency" : 130,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      },
+      "3" : {
+        "sampleCount" : 24,
+        "recall" : 1.0,
+        "precision" : 0.3333333333333333,
+        "f1" : 0.5,
+        "avgLatency" : 136.5,
+        "p95Latency" : 166,
+        "p99Latency" : 181,
+        "p50Latency" : 130,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      },
+      "5" : {
+        "sampleCount" : 24,
+        "recall" : 1.0,
+        "precision" : 0.20000000000000004,
+        "f1" : 0.3333333333333334,
+        "avgLatency" : 136.5,
+        "p95Latency" : 166,
+        "p99Latency" : 181,
+        "p50Latency" : 130,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      }
+    },
+    "after_sales_quality" : {
+      "1" : {
+        "sampleCount" : 24,
+        "recall" : 1.0,
+        "precision" : 1.0,
+        "f1" : 1.0,
+        "avgLatency" : 131.20833333333334,
+        "p95Latency" : 164,
+        "p99Latency" : 185,
+        "p50Latency" : 126,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      },
+      "3" : {
+        "sampleCount" : 24,
+        "recall" : 1.0,
+        "precision" : 0.3333333333333333,
+        "f1" : 0.5,
+        "avgLatency" : 131.20833333333334,
+        "p95Latency" : 164,
+        "p99Latency" : 185,
+        "p50Latency" : 126,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      },
+      "5" : {
+        "sampleCount" : 24,
+        "recall" : 1.0,
+        "precision" : 0.20000000000000004,
+        "f1" : 0.3333333333333334,
+        "avgLatency" : 131.20833333333334,
+        "p95Latency" : 164,
+        "p99Latency" : 185,
+        "p50Latency" : 126,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      }
+    },
+    "refund_return" : {
+      "1" : {
+        "sampleCount" : 12,
+        "recall" : 1.0,
+        "precision" : 1.0,
+        "f1" : 1.0,
+        "avgLatency" : 131.0,
+        "p95Latency" : 174,
+        "p99Latency" : 174,
+        "p50Latency" : 126,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      },
+      "3" : {
+        "sampleCount" : 12,
+        "recall" : 1.0,
+        "precision" : 0.3333333333333333,
+        "f1" : 0.5,
+        "avgLatency" : 131.0,
+        "p95Latency" : 174,
+        "p99Latency" : 174,
+        "p50Latency" : 126,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      },
+      "5" : {
+        "sampleCount" : 12,
+        "recall" : 1.0,
+        "precision" : 0.20000000000000004,
+        "f1" : 0.3333333333333334,
+        "avgLatency" : 131.0,
+        "p95Latency" : 174,
+        "p99Latency" : 174,
+        "p50Latency" : 126,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      }
+    },
+    "order_payment" : {
+      "1" : {
+        "sampleCount" : 12,
+        "recall" : 1.0,
+        "precision" : 1.0,
+        "f1" : 1.0,
+        "avgLatency" : 133.66666666666666,
+        "p95Latency" : 153,
+        "p99Latency" : 153,
+        "p50Latency" : 131,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      },
+      "3" : {
+        "sampleCount" : 12,
+        "recall" : 1.0,
+        "precision" : 0.3333333333333333,
+        "f1" : 0.5,
+        "avgLatency" : 133.66666666666666,
+        "p95Latency" : 153,
+        "p99Latency" : 153,
+        "p50Latency" : 131,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      },
+      "5" : {
+        "sampleCount" : 12,
+        "recall" : 1.0,
+        "precision" : 0.20000000000000004,
+        "f1" : 0.3333333333333334,
+        "avgLatency" : 133.66666666666666,
+        "p95Latency" : 153,
+        "p99Latency" : 153,
+        "p50Latency" : 131,
+        "emptyResultCount" : 0,
+        "emptyResultRate" : 0.0,
+        "retrievalHitRate" : 1.0
+      }
+    }
+  },
+  "diagnostics" : [ {
+    "caseHash" : "057c56bd5f9d7f6a",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "78758" ],
+    "actualDocIds" : [ "78758", "6996", "28593" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 435
+  }, {
+    "caseHash" : "e79ef180ada99941",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "78758" ],
+    "actualDocIds" : [ "78758", "6996", "28593" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 216
+  }, {
+    "caseHash" : "cfba98f2d3f387fb",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "78758" ],
+    "actualDocIds" : [ "78758", "6996", "28593" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 139
+  }, {
+    "caseHash" : "7ddec9eec85937ee",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "78758" ],
+    "actualDocIds" : [ "78758", "6996", "28593" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 150
+  }, {
+    "caseHash" : "05f887f8ee6ec3ec",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "91332" ],
+    "actualDocIds" : [ "91332", "91332", "72592" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 157
+  }, {
+    "caseHash" : "5c535a3459dd2482",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "91332" ],
+    "actualDocIds" : [ "91332", "91332", "6996" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 137
+  }, {
+    "caseHash" : "ccfc85e593b5fe87",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "91332" ],
+    "actualDocIds" : [ "91332", "72592", "18672" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 134
+  }, {
+    "caseHash" : "eebdd9b437120e70",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "91332" ],
+    "actualDocIds" : [ "91332", "91332", "18672" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 124
+  }, {
+    "caseHash" : "cc29deb69d984ff9",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "3167" ],
+    "actualDocIds" : [ "3167", "98609", "3167" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 134
+  }, {
+    "caseHash" : "7aaa8ef3d3fb7c41",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "3167" ],
+    "actualDocIds" : [ "3167", "30474", "28504" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 124
+  }, {
+    "caseHash" : "1a030ef9629982be",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "3167" ],
+    "actualDocIds" : [ "3167", "30474", "3167" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 132
+  }, {
+    "caseHash" : "91c373f0cc7c03ed",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "3167" ],
+    "actualDocIds" : [ "3167", "98609", "3167" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 126
+  }, {
+    "caseHash" : "0c9f99bc1e293777",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "15082" ],
+    "actualDocIds" : [ "15082", "15082", "91548" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 120
+  }, {
+    "caseHash" : "18cf6586f9228148",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "15082" ],
+    "actualDocIds" : [ "15082", "15082", "91548" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 137
+  }, {
+    "caseHash" : "f490611e33c64751",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "15082" ],
+    "actualDocIds" : [ "15082", "15082", "91548" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 132
+  }, {
+    "caseHash" : "ac9acde58cc4740b",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "15082" ],
+    "actualDocIds" : [ "15082", "15082", "91548" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 126
+  }, {
+    "caseHash" : "f75ffee90fe3c992",
+    "category" : "refund_return",
+    "relevantDocIds" : [ "23088" ],
+    "actualDocIds" : [ "23088", "23088", "27" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 139
+  }, {
+    "caseHash" : "011bb96cb778859e",
+    "category" : "refund_return",
+    "relevantDocIds" : [ "23088" ],
+    "actualDocIds" : [ "23088", "27", "23088" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 134
+  }, {
+    "caseHash" : "0fd49b7ce43b1920",
+    "category" : "refund_return",
+    "relevantDocIds" : [ "23088" ],
+    "actualDocIds" : [ "23088", "23088", "27" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 126
+  }, {
+    "caseHash" : "0f02255dd948b22b",
+    "category" : "refund_return",
+    "relevantDocIds" : [ "23088" ],
+    "actualDocIds" : [ "23088", "27", "23088" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 174
+  }, {
+    "caseHash" : "17e7cd7379cf2625",
+    "category" : "order_payment",
+    "relevantDocIds" : [ "19952" ],
+    "actualDocIds" : [ "19952", "19952", "6996" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 130
+  }, {
+    "caseHash" : "a728165ab729644f",
+    "category" : "order_payment",
+    "relevantDocIds" : [ "19952" ],
+    "actualDocIds" : [ "19952", "19952", "19575" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 125
+  }, {
+    "caseHash" : "db86b094b485ebc0",
+    "category" : "order_payment",
+    "relevantDocIds" : [ "19952" ],
+    "actualDocIds" : [ "19952", "19952", "6996" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 134
+  }, {
+    "caseHash" : "df9728d5c42dbabd",
+    "category" : "order_payment",
+    "relevantDocIds" : [ "19952" ],
+    "actualDocIds" : [ "19952", "19952", "68070" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 131
+  }, {
+    "caseHash" : "ffd2874a28671334",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "92915" ],
+    "actualDocIds" : [ "92915", "94492", "20725" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 123
+  }, {
+    "caseHash" : "389d1365f5f98fbc",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "92915" ],
+    "actualDocIds" : [ "92915", "20725", "94492" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 133
+  }, {
+    "caseHash" : "d0a86ff37b4b2aa0",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "92915" ],
+    "actualDocIds" : [ "92915", "94492", "94492" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 115
+  }, {
+    "caseHash" : "cd6604e8f93343df",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "92915" ],
+    "actualDocIds" : [ "92915", "20725", "92915" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 129
+  }, {
+    "caseHash" : "2683704f70c436be",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "54349" ],
+    "actualDocIds" : [ "54349", "54349", "67840" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 126
+  }, {
+    "caseHash" : "1ad9e2c08a1d6aae",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "54349" ],
+    "actualDocIds" : [ "54349", "11453", "67840" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 120
+  }, {
+    "caseHash" : "9b2bd788706f1b2e",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "54349" ],
+    "actualDocIds" : [ "54349", "54349", "67840" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 130
+  }, {
+    "caseHash" : "eabb45aa7063fb80",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "54349" ],
+    "actualDocIds" : [ "54349", "54349", "7783" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 123
+  }, {
+    "caseHash" : "dc87674e2eeb2b44",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "7447" ],
+    "actualDocIds" : [ "7447", "7447", "57669" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 160
+  }, {
+    "caseHash" : "e0b375ea9318f215",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "7447" ],
+    "actualDocIds" : [ "7447", "7447", "57669" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 131
+  }, {
+    "caseHash" : "5f5f298174ce3b18",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "7447" ],
+    "actualDocIds" : [ "7447", "7447", "57669" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 125
+  }, {
+    "caseHash" : "4920436bb54c6a39",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "7447" ],
+    "actualDocIds" : [ "7447", "7447", "16057" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 128
+  }, {
+    "caseHash" : "4c289c047435bff8",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "58817" ],
+    "actualDocIds" : [ "58817", "5686", "58284" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 125
+  }, {
+    "caseHash" : "47f2fcdbcc2c2f56",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "58817" ],
+    "actualDocIds" : [ "58817", "5686", "58284" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 123
+  }, {
+    "caseHash" : "36725519945ddb0d",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "58817" ],
+    "actualDocIds" : [ "58817", "5686", "58284" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 136
+  }, {
+    "caseHash" : "0eb5b02cd7b81877",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "58817" ],
+    "actualDocIds" : [ "58817", "91332", "5686" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 185
+  }, {
+    "caseHash" : "0a18ce599ecfa3cc",
+    "category" : "refund_return",
+    "relevantDocIds" : [ "8444" ],
+    "actualDocIds" : [ "8444", "27", "23088" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 127
+  }, {
+    "caseHash" : "6b523d793d73943b",
+    "category" : "refund_return",
+    "relevantDocIds" : [ "8444" ],
+    "actualDocIds" : [ "8444", "27", "23088" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 127
+  }, {
+    "caseHash" : "3be2d1cb85283e71",
+    "category" : "refund_return",
+    "relevantDocIds" : [ "8444" ],
+    "actualDocIds" : [ "8444", "23088", "23088" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 121
+  }, {
+    "caseHash" : "26830f5e19ae52d7",
+    "category" : "refund_return",
+    "relevantDocIds" : [ "8444" ],
+    "actualDocIds" : [ "8444", "8444", "8444" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 122
+  }, {
+    "caseHash" : "e231280a561b7a05",
+    "category" : "order_payment",
+    "relevantDocIds" : [ "29527" ],
+    "actualDocIds" : [ "29527", "29527", "47679" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 129
+  }, {
+    "caseHash" : "5b2b385be029b811",
+    "category" : "order_payment",
+    "relevantDocIds" : [ "29527" ],
+    "actualDocIds" : [ "29527", "29527", "33752" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 120
+  }, {
+    "caseHash" : "6befef3280bca73a",
+    "category" : "order_payment",
+    "relevantDocIds" : [ "29527" ],
+    "actualDocIds" : [ "29527", "29527", "47679" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 136
+  }, {
+    "caseHash" : "97d7ff18dcff06a3",
+    "category" : "order_payment",
+    "relevantDocIds" : [ "29527" ],
+    "actualDocIds" : [ "29527", "58284", "29527" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 122
+  }, {
+    "caseHash" : "6841c8eae6275d2b",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "6996" ],
+    "actualDocIds" : [ "6996", "6996", "65225" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 245
+  }, {
+    "caseHash" : "fa7d7655b46b0e0f",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "6996" ],
+    "actualDocIds" : [ "6996", "6996", "10040" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 122
+  }, {
+    "caseHash" : "142c54165d0ba2fc",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "6996" ],
+    "actualDocIds" : [ "6996", "9502", "94648" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 129
+  }, {
+    "caseHash" : "8111736c68c2bdde",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "6996" ],
+    "actualDocIds" : [ "6996", "11757", "5686" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 119
+  }, {
+    "caseHash" : "0925ac14da63a713",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "34813" ],
+    "actualDocIds" : [ "34813", "6982", "68070" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 130
+  }, {
+    "caseHash" : "5239e2f937a8f6c2",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "34813" ],
+    "actualDocIds" : [ "34813", "68070", "6982" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 118
+  }, {
+    "caseHash" : "fe90f5f16cc29e29",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "34813" ],
+    "actualDocIds" : [ "34813", "6982", "34813" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 466
+  }, {
+    "caseHash" : "245c572ecaf8d087",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "34813" ],
+    "actualDocIds" : [ "34813", "29406", "75475" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 254
+  }, {
+    "caseHash" : "963128ab00321699",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "10012" ],
+    "actualDocIds" : [ "10012", "13293", "31372" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 137
+  }, {
+    "caseHash" : "adc052f07bb213b6",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "10012" ],
+    "actualDocIds" : [ "10012", "13293", "18133" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 125
+  }, {
+    "caseHash" : "63ba2e917b6e9748",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "10012" ],
+    "actualDocIds" : [ "10012", "13293", "31372" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 129
+  }, {
+    "caseHash" : "a18861378e4999c6",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "10012" ],
+    "actualDocIds" : [ "10012", "13293", "24929" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 166
+  }, {
+    "caseHash" : "7ece03a03c8461df",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "19575" ],
+    "actualDocIds" : [ "19575", "19575", "84848" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 164
+  }, {
+    "caseHash" : "27159879845e631c",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "19575" ],
+    "actualDocIds" : [ "19575", "19575", "65614" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 118
+  }, {
+    "caseHash" : "43ce199644bf3772",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "19575" ],
+    "actualDocIds" : [ "19575", "19575", "91332" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 123
+  }, {
+    "caseHash" : "603ac97da78eb640",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "19575" ],
+    "actualDocIds" : [ "19575", "19575", "91332" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 129
+  }, {
+    "caseHash" : "ebe794d91f17c099",
+    "category" : "refund_return",
+    "relevantDocIds" : [ "27" ],
+    "actualDocIds" : [ "27", "23088", "23088" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 121
+  }, {
+    "caseHash" : "5c8164ee9ba77456",
+    "category" : "refund_return",
+    "relevantDocIds" : [ "27" ],
+    "actualDocIds" : [ "27", "23088", "23088" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 126
+  }, {
+    "caseHash" : "6d1a9159cf41a04f",
+    "category" : "refund_return",
+    "relevantDocIds" : [ "27" ],
+    "actualDocIds" : [ "27", "23088", "23088" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 129
+  }, {
+    "caseHash" : "e7ede9b2ad35b91d",
+    "category" : "refund_return",
+    "relevantDocIds" : [ "27" ],
+    "actualDocIds" : [ "27", "23088", "23088" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 126
+  }, {
+    "caseHash" : "d5bf6adb1d11e50c",
+    "category" : "order_payment",
+    "relevantDocIds" : [ "85367" ],
+    "actualDocIds" : [ "85367", "23131", "1136" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 144
+  }, {
+    "caseHash" : "a20b7f752c9cc60b",
+    "category" : "order_payment",
+    "relevantDocIds" : [ "85367" ],
+    "actualDocIds" : [ "85367", "1136", "23131" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 135
+  }, {
+    "caseHash" : "023c8ae0ca4883bc",
+    "category" : "order_payment",
+    "relevantDocIds" : [ "85367" ],
+    "actualDocIds" : [ "85367", "29527", "1136" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 145
+  }, {
+    "caseHash" : "675da700c2e5a411",
+    "category" : "order_payment",
+    "relevantDocIds" : [ "85367" ],
+    "actualDocIds" : [ "85367", "94492", "23131" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 153
+  }, {
+    "caseHash" : "be4db0ebd6a940c8",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "58284" ],
+    "actualDocIds" : [ "58284", "29527", "50342" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 118
+  }, {
+    "caseHash" : "12fcd31ef4fb6663",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "58284" ],
+    "actualDocIds" : [ "58284", "29527", "50342" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 134
+  }, {
+    "caseHash" : "540b97bc1cdc1607",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "58284" ],
+    "actualDocIds" : [ "58284", "29527", "94492" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 130
+  }, {
+    "caseHash" : "cdc34bab03f98d74",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "58284" ],
+    "actualDocIds" : [ "58284", "29527", "94492" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 140
+  }, {
+    "caseHash" : "44def96d13433151",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "35723" ],
+    "actualDocIds" : [ "35723", "35723", "68070" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 123
+  }, {
+    "caseHash" : "afd2399f25f169ee",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "35723" ],
+    "actualDocIds" : [ "35723", "35723", "68070" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 121
+  }, {
+    "caseHash" : "541deece83155e93",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "35723" ],
+    "actualDocIds" : [ "35723", "35723", "68070" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 137
+  }, {
+    "caseHash" : "febb898251e23bf7",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "35723" ],
+    "actualDocIds" : [ "35723", "35723", "68070" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 147
+  }, {
+    "caseHash" : "ec64f45b70624303",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "44462" ],
+    "actualDocIds" : [ "44462", "44462", "23042" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 181
+  }, {
+    "caseHash" : "51408a6e6db4dc62",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "44462" ],
+    "actualDocIds" : [ "44462", "44462", "23042" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 124
+  }, {
+    "caseHash" : "d63bca6d8dbce794",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "44462" ],
+    "actualDocIds" : [ "44462", "44462", "23042" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 166
+  }, {
+    "caseHash" : "d220ecf7a2f7ae1f",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "44462" ],
+    "actualDocIds" : [ "44462", "44462", "35782" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 130
+  }, {
+    "caseHash" : "379475911521c149",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "16057" ],
+    "actualDocIds" : [ "16057", "65190", "44136" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 134
+  }, {
+    "caseHash" : "3798c91435a7c449",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "16057" ],
+    "actualDocIds" : [ "16057", "65190", "44136" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 133
+  }, {
+    "caseHash" : "0a0eeab11bb0943b",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "16057" ],
+    "actualDocIds" : [ "16057", "97688", "29527" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 122
+  }, {
+    "caseHash" : "d6a31261bafec9e7",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "16057" ],
+    "actualDocIds" : [ "16057", "65190", "91521" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 143
+  }, {
+    "caseHash" : "101488ce6d2653bd",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "94492" ],
+    "actualDocIds" : [ "94492", "92915", "92915" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 127
+  }, {
+    "caseHash" : "a92463825392abf1",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "94492" ],
+    "actualDocIds" : [ "20725", "94492", "92915" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 2,
+    "maxTopK" : 5,
+    "latencyMs" : 126
+  }, {
+    "caseHash" : "b8f2db341cf93982",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "94492" ],
+    "actualDocIds" : [ "94492", "92915", "20725" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 129
+  }, {
+    "caseHash" : "1982a1a14875e9bd",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "94492" ],
+    "actualDocIds" : [ "92915", "94492", "20725" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 2,
+    "maxTopK" : 5,
+    "latencyMs" : 142
+  }, {
+    "caseHash" : "4d32c887562f20aa",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "68070" ],
+    "actualDocIds" : [ "68070", "34813", "87761" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 122
+  }, {
+    "caseHash" : "3c513d5199f061bd",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "68070" ],
+    "actualDocIds" : [ "68070", "34813", "35723" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 131
+  }, {
+    "caseHash" : "5ee5ebe1f57262e2",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "68070" ],
+    "actualDocIds" : [ "68070", "34813", "91332" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 133
+  }, {
+    "caseHash" : "eaffedfedf4be38d",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "68070" ],
+    "actualDocIds" : [ "68070", "87761", "34813" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 117
+  }, {
+    "caseHash" : "779bf350e086db07",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "43727" ],
+    "actualDocIds" : [ "43727", "7667", "31839" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 137
+  }, {
+    "caseHash" : "bea22de9ecb9427c",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "43727" ],
+    "actualDocIds" : [ "43727", "7667", "31839" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 145
+  }, {
+    "caseHash" : "5561d585056ee5fb",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "43727" ],
+    "actualDocIds" : [ "43727", "7667", "31839" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 116
+  }, {
+    "caseHash" : "d0fdbb0be9851737",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "43727" ],
+    "actualDocIds" : [ "43727", "44462", "19400" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 128
+  }, {
+    "caseHash" : "59163c9c7cdfabc3",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "5686" ],
+    "actualDocIds" : [ "5686", "58284", "20725" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 134
+  }, {
+    "caseHash" : "96334ff890c9d571",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "5686" ],
+    "actualDocIds" : [ "5686", "20725", "92915" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 118
+  }, {
+    "caseHash" : "b96c9dd16c189ccb",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "5686" ],
+    "actualDocIds" : [ "5686", "20725", "58284" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 126
+  }, {
+    "caseHash" : "267d7817a6dfcb5c",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "5686" ],
+    "actualDocIds" : [ "5686", "58817", "58284" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 125
+  }, {
+    "caseHash" : "08a72045f47b3b36",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "20725" ],
+    "actualDocIds" : [ "20725", "94492", "92915" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 140
+  }, {
+    "caseHash" : "136e3ea0f2b1c93f",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "20725" ],
+    "actualDocIds" : [ "20725", "94492", "92915" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 146
+  }, {
+    "caseHash" : "dd07cdf8038eb1c8",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "20725" ],
+    "actualDocIds" : [ "20725", "94492", "92915" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 125
+  }, {
+    "caseHash" : "da912efb461a7205",
+    "category" : "shipping_logistics",
+    "relevantDocIds" : [ "20725" ],
+    "actualDocIds" : [ "20725", "92915", "92915" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 114
+  }, {
+    "caseHash" : "bda077c8c394ced6",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "82416" ],
+    "actualDocIds" : [ "82416", "21246", "4470" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 130
+  }, {
+    "caseHash" : "b6c4093931525d5a",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "82416" ],
+    "actualDocIds" : [ "82416", "21246", "4470" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 125
+  }, {
+    "caseHash" : "3d6a013b3974670f",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "82416" ],
+    "actualDocIds" : [ "82416", "21246", "4470" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 120
+  }, {
+    "caseHash" : "b3223e0cdb891306",
+    "category" : "promotion_price",
+    "relevantDocIds" : [ "82416" ],
+    "actualDocIds" : [ "82416", "21246", "4470" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 121
+  }, {
+    "caseHash" : "c1b17849d5ef64bc",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "29250" ],
+    "actualDocIds" : [ "29250", "34318", "10568" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 117
+  }, {
+    "caseHash" : "42182c45c96f8c48",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "29250" ],
+    "actualDocIds" : [ "29250", "34318", "10568" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 160
+  }, {
+    "caseHash" : "45a73f31a626683a",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "29250" ],
+    "actualDocIds" : [ "29250", "10568", "3922" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 124
+  }, {
+    "caseHash" : "746d66ef872efff4",
+    "category" : "product_specification",
+    "relevantDocIds" : [ "29250" ],
+    "actualDocIds" : [ "29250", "10568", "34318" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 131
+  }, {
+    "caseHash" : "62b7ada62f259fa1",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "2517" ],
+    "actualDocIds" : [ "2517", "2517", "8444" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 130
+  }, {
+    "caseHash" : "66e44b18abf07e3c",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "2517" ],
+    "actualDocIds" : [ "2517", "23088", "23088" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 125
+  }, {
+    "caseHash" : "530c016c9f126310",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "2517" ],
+    "actualDocIds" : [ "2517", "2517", "2517" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 126
+  }, {
+    "caseHash" : "8d25264244775801",
+    "category" : "after_sales_quality",
+    "relevantDocIds" : [ "2517" ],
+    "actualDocIds" : [ "2517", "2517", "8444" ],
+    "retrievalSources" : [ "faq", "faq", "faq" ],
+    "firstRelevantRank" : 1,
+    "maxTopK" : 5,
+    "latencyMs" : 115
+  } ],
+  "config" : {
+    "profile" : "runtime",
+    "topK" : 5,
+    "similarityThreshold" : 0.6,
+    "hybridSearch" : true,
+    "hybridVectorWeight" : 0.9,
+    "hybridBm25Weight" : 0.1,
+    "hybridRrfK" : 60,
+    "hybridVectorCandidateTopK" : 200,
+    "hybridBm25CandidateTopK" : 200,
+    "hybridBm25CorpusMaxDocs" : 20000,
+    "hybridCorpusBm25Enabled" : false,
+    "hybridMysqlFulltextEnabled" : false,
+    "hybridMysqlCandidateTopK" : 20,
+    "hybridPreserveVectorTopK" : 1,
+    "hybridCrossEncoderEnabled" : true,
+    "hybridRerankCandidateTopK" : 200,
+    "hybridRerankFailOpen" : true,
+    "bm25StopwordEnabled" : true,
+    "evaluationRetrievalStrategy" : "single-max-top-k",
+    "chunkSize" : 500,
+    "chunkOverlap" : 50,
+    "chunkingComparable" : false,
+    "chunkingNote" : "chunkSize/chunkOverlap require re-ingestion and are snapshot-only in this report"
+  },
+  "note" : "chunkSize/chunkOverlap are snapshot-only and require re-ingestion for fair comparison",
+  "generatedAt" : "2026-08-27T02:39:21.738659700Z"
+}

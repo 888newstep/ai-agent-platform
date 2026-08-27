@@ -1,0 +1,72 @@
+{
+    "schemaVersion":  1,
+    "datasetKind":  "llm-assisted-silver",
+    "generatedAt":  "2026-08-24T13:08:32.2779286Z",
+    "seed":  "sp-silver-v2-20260824",
+    "gitRevision":  "eb14d04f7557458f8116d532be126d8ff020a762",
+    "source":  {
+                   "system":  "mysql",
+                   "database":  "ai_agent",
+                   "table":  "ecommerce_qa_pairs",
+                   "authority":  "raw_customer_service_corpus_not_approved_policy",
+                   "candidateCount":  110,
+                   "selectedSourceCount":  30
+               },
+    "models":  {
+                   "generator":  {
+                                     "provider":  "deepseek",
+                                     "model":  "deepseek-chat"
+                                 },
+                   "judges":  [
+                                  {
+                                      "provider":  "doubao",
+                                      "model":  "doubao-seed-2-0-mini-260428"
+                                  },
+                                  {
+                                      "provider":  "qwen3-flash",
+                                      "model":  "qwen3.7-flash"
+                                  }
+                              ],
+                   "consensusRule":  "all_judges_must_accept"
+               },
+    "datasets":  {
+                     "retrieval":  {
+                                       "file":  "retrieval-silver.json",
+                                       "sha256":  "4ac31609d697815fc18ca69391db54b47275a8bb42f0c377de964b1c50a76a67",
+                                       "caseCount":  120
+                                   },
+                     "evidence":  {
+                                      "file":  "evidence-silver.json",
+                                      "sha256":  "58f72fb2fe2c218bda6cc167fbb3d6255be464f0cf13c43a205012c4499ed602",
+                                      "caseCount":  60,
+                                      "hardNegativeCount":  30,
+                                      "hardNegativeRatio":  0.5
+                                  },
+                     "audit":  {
+                                   "file":  "generation-audit.json",
+                                   "sha256":  "8c846a77d79125e5a788517be09148227da03ac47220eeee78af64ea4583ff17",
+                                   "acceptedCandidateCount":  75,
+                                   "rejectedCandidateCount":  35,
+                                   "selectedCandidateCount":  30
+                               }
+                 },
+    "manualReview":  {
+                         "required":  true,
+                         "completed":  false,
+                         "minimumRecommendedCases":  20,
+                         "highRiskClaimsAllowed":  false
+                     },
+    "limitations":  [
+                        "The source is raw customer-service dialogue, not an approved policy corpus.",
+                        "LLM consensus does not establish independent human ground truth.",
+                        "Metrics from these datasets must be labelled as silver or synthetic evidence."
+                    ],
+    "categoryCounts":  {
+                           "after_sales_quality":  6,
+                           "order_payment":  3,
+                           "product_specification":  6,
+                           "promotion_price":  6,
+                           "refund_return":  3,
+                           "shipping_logistics":  6
+                       }
+}

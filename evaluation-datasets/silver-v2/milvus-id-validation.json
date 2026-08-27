@@ -1,0 +1,14 @@
+{
+    "schemaVersion":  1,
+    "generatedAt":  "2026-08-25T07:12:56.5949335Z",
+    "dataset":  "retrieval-silver.json",
+    "database":  "cs_agent",
+    "collection":  "ecommerce_qa",
+    "requested":  30,
+    "found":  30,
+    "missing":  0,
+    "missingIds":  {
+
+                   },
+    "passed":  true
+}

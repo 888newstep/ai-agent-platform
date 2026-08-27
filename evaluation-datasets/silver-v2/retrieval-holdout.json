@@ -1,0 +1,422 @@
+[
+ {
+  "question": "805包=299今天可以发货吗河北张家口几天可以到",
+  "relevantDocIds": [
+   "1034"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "包邮的话是发韵达或者邮政",
+  "relevantDocIds": [
+   "12493"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "到晋城发什么快递啊几天到",
+  "relevantDocIds": [
+   "72083"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "好的江苏徐州几天到发什么快递",
+  "relevantDocIds": [
+   "48209"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "临沂沂水几天到货",
+  "relevantDocIds": [
+   "47706"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "这个核桃是纸皮吗你们发什么快递的",
+  "relevantDocIds": [
+   "41580"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "现在还送吗买二送一石家庄几天能到今天能发吗",
+  "relevantDocIds": [
+   "64873"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "寄到安徽多少天",
+  "relevantDocIds": [
+   "55532"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "你好一般到无锡是什么快递",
+  "relevantDocIds": [
+   "22"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "那就是买2提就可以寄百事汇通嘛",
+  "relevantDocIds": [
+   "26619"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "问下119是几个粽子的价格我看图片是限购两份请问超出怎么算",
+  "relevantDocIds": [
+   "94802"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "好哒我想问一下你们店有那种500g包装的袋子吗就是包装袋有卖吗",
+  "relevantDocIds": [
+   "46935"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "青团和粽子每包多重啊我要带到国外的",
+  "relevantDocIds": [
+   "10642"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "重量是多少重一个呢粽子青团是不是买两份送一份呢",
+  "relevantDocIds": [
+   "25793"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "请问对付375克的普洱饼用大号还是小号的茶刀适合",
+  "relevantDocIds": [
+   "46911"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "大号黑檀木和大号红檀木茶刀是一样的尺寸",
+  "relevantDocIds": [
+   "6299"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "一盒有多少包小袋我想要下周四送到可以吗因为平时都不在",
+  "relevantDocIds": [
+   "855"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "请问你们各种不同规格的棉柔巾除了尺寸不同还有什么区别吗",
+  "relevantDocIds": [
+   "99242"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "茶刀茶针大号小号区别大吗大小差多少",
+  "relevantDocIds": [
+   "44136"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "请问青团是买任意两盒就送一盒吗",
+  "relevantDocIds": [
+   "66462"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "二十元优惠券怎么领付款就可以领还是确认收货才可以领我还要买一些东西",
+  "relevantDocIds": [
+   "84033"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "没看到第二件半价呀买两件一共多少钱",
+  "relevantDocIds": [
+   "50712"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "那大号的吧大号茶刀加整套多少钱可以便宜吗",
+  "relevantDocIds": [
+   "45278"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "我买1个茶刀1个茶刷包邮不",
+  "relevantDocIds": [
+   "67590"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "你家核桃买5斤有优惠吗",
+  "relevantDocIds": [
+   "99748"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "你好大号茶刀109包邮",
+  "relevantDocIds": [
+   "100134"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "生产日期是什么时间买的多还有优惠吗",
+  "relevantDocIds": [
+   "65601"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "就送30包湿巾嘛",
+  "relevantDocIds": [
+   "32440"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "可能这次也不止600我等下问问商量刻什么字好我们先谈好价格下面就好说了",
+  "relevantDocIds": [
+   "43412"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "对了问一下你家领取的优惠券怎么不能用",
+  "relevantDocIds": [
+   "91802"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "买两包送湿巾买四组呢送多少湿巾",
+  "relevantDocIds": [
+   "61700"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "嗯50块可以买多少包",
+  "relevantDocIds": [
+   "3349"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "那夏威夷果两包是多少啊",
+  "relevantDocIds": [
+   "13268"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "请问有瑕疵三层无赠品跟三层无赠品有什么区别",
+  "relevantDocIds": [
+   "18100"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "整套分茶盘是不是也有带缺口的",
+  "relevantDocIds": [
+   "71144"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "小号茶刀质量如何我要买30个",
+  "relevantDocIds": [
+   "85712"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "这2款的棉柔巾是同一个质量么",
+  "relevantDocIds": [
+   "30559"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "请问茶刀和茶针有啥区别",
+  "relevantDocIds": [
+   "48470"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "你家这个干巾可以免费试用吗质量怎么样",
+  "relevantDocIds": [
+   "24027"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "这个买两组总共多少包",
+  "relevantDocIds": [
+   "19123"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "我是刚买的昨天到货今天打开才尝了一个又打开了一个也是有点霉味怎么办能退货吗",
+  "relevantDocIds": [
+   "4962"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "拒收太复杂不知道什么时候送可以先确认收货然后申请退款吗",
+  "relevantDocIds": [
+   "48806"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "亲如果产品味道上有异味能退货吗",
+  "relevantDocIds": [
+   "2220"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "怎么申请自动收货没有退货按钮",
+  "relevantDocIds": [
+   "78594"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "运费险是干嘛的有补偿吗",
+  "relevantDocIds": [
+   "6647"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "芒果干不能退是吗",
+  "relevantDocIds": [
+   "32793"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "有的吃起来有那种放很久的味道不好吃要是不好可以退货不",
+  "relevantDocIds": [
+   "1377"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "都说现在不是我拒收问题是快递说包裹有问题不派送你们不是拒绝我退款吗",
+  "relevantDocIds": [
+   "62194"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "那你发来的时候可以给我用泡沫箱寄来吗",
+  "relevantDocIds": [
+   "39490"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "退货的运费一起返还",
+  "relevantDocIds": [
+   "41713"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "哦那我刚才取消了订单还是照常发货吗",
+  "relevantDocIds": [
+   "34701"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "我加购收藏了以后还送25片湿巾是吧",
+  "relevantDocIds": [
+   "53157"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "是购买防溢乳垫送湿巾吗",
+  "relevantDocIds": [
+   "12746"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "那我在合肥一般几天到",
+  "relevantDocIds": [
+   "38791"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "享受半价也送湿巾2包",
+  "relevantDocIds": [
+   "80082"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "茶刀木柄上能不能定做字样",
+  "relevantDocIds": [
+   "42603"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "买二送一青团可以选不同的口味吗",
+  "relevantDocIds": [
+   "66333"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "买二送一我要下两次单吗",
+  "relevantDocIds": [
+   "71112"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "青团是买一送一还是买二送一我看评论上有的人说是买一送一有的人说是买二送一",
+  "relevantDocIds": [
+   "25205"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "可以送一包25抽的湿巾吗",
+  "relevantDocIds": [
+   "28692"
+  ],
+  "category": "order_payment"
+ }
+]

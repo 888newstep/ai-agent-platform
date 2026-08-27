@@ -1,0 +1,440 @@
+[
+ {
+  "question": "到厦门几天快递是哪一家的",
+  "relevantDocIds": [
+   "86409"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "6个豆沙的那买二送一就是18个团子全是豆沙的还是还有别的口味的",
+  "relevantDocIds": [
+   "62869"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "邮政正常要几天",
+  "relevantDocIds": [
+   "6465",
+   "27808",
+   "61858",
+   "72189",
+   "90145",
+   "97324"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "好的谢谢你我这边是拍两包99发3包是吗",
+  "relevantDocIds": [
+   "85709"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "地址没有问题几天到北京呢",
+  "relevantDocIds": [
+   "6465",
+   "27808",
+   "61858",
+   "72189",
+   "90145",
+   "97324"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "现在买的话多久到南宁",
+  "relevantDocIds": [
+   "91816"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "那收不到货怎么办",
+  "relevantDocIds": [
+   "10823"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "寄到甘肃大概要几天",
+  "relevantDocIds": [
+   "14418"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "到安徽申通能发吗",
+  "relevantDocIds": [
+   "24163"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "韵达你们跟谁家快递合作么",
+  "relevantDocIds": [
+   "88077"
+  ],
+  "category": "shipping_logistics"
+ },
+ {
+  "question": "纯棉和无纺布尺寸一样大么",
+  "relevantDocIds": [
+   "13474",
+   "20772",
+   "24929",
+   "25810"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "如果1分钟内拍两份是不是有送20片湿巾再减10元呀",
+  "relevantDocIds": [
+   "100275"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "干巾这款和50多的有什么区别",
+  "relevantDocIds": [
+   "45217"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "芒果干是近期的吗一袋几片味道如何",
+  "relevantDocIds": [
+   "83994"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "236元送3带我以为多要会多送袋呢",
+  "relevantDocIds": [
+   "71421"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "拍2份减10元拍4份是不是减20元",
+  "relevantDocIds": [
+   "16071"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "榴莲干三三袋子儿净含量多少除去包装",
+  "relevantDocIds": [
+   "28989"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "买蛋黄肉和榴莲各一盒也送豆沙吗",
+  "relevantDocIds": [
+   "48696"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "亲这粽子有礼盒吧",
+  "relevantDocIds": [
+   "27698"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "直径是十六七厘米的茶饼用小的可以麽",
+  "relevantDocIds": [
+   "57669"
+  ],
+  "category": "product_specification"
+ },
+ {
+  "question": "红枣刚刚到货为什么再次购买价格更高了",
+  "relevantDocIds": [
+   "10298"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "你好原味的有优惠吗",
+  "relevantDocIds": [
+   "55625"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "问一下首页上说的满69送20元券的现在有吗",
+  "relevantDocIds": [
+   "28840",
+   "55055",
+   "55572",
+   "58873",
+   "71131",
+   "77790"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "满300减65是直接减么还是在哪儿领券呢",
+  "relevantDocIds": [
+   "47132"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "我要买三袋榴莲干三袋草莓干除了八折还有什么优惠吗",
+  "relevantDocIds": [
+   "11432"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "你好你们的茶针买多少有优惠啊",
+  "relevantDocIds": [
+   "35259"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "三包有优惠吗",
+  "relevantDocIds": [
+   "6891"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "我想多买些榴莲干和夏威夷果你看我怎么买合适",
+  "relevantDocIds": [
+   "37262"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "哦那买这两个订单超了139有抵用券5元么",
+  "relevantDocIds": [
+   "26217"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "十件优惠完多少钱啊",
+  "relevantDocIds": [
+   "20230"
+  ],
+  "category": "promotion_price"
+ },
+ {
+  "question": "你说收藏了可以送包试吃的对吧",
+  "relevantDocIds": [
+   "76035"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "80一包啊质量好的话我后面还是要买d40包左右",
+  "relevantDocIds": [
+   "8000"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "核桃质量怎么样个头小不",
+  "relevantDocIds": [
+   "8842"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "团购价多少限购吗我不开发票有优惠吗",
+  "relevantDocIds": [
+   "39144"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "运费是你的么这应该属于质量问题吧",
+  "relevantDocIds": [
+   "48846"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "茶夹子开裂了",
+  "relevantDocIds": [
+   "37725"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "这个开封后要冷藏吗",
+  "relevantDocIds": [
+   "40511"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "寄深圳多少天",
+  "relevantDocIds": [
+   "40290"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "要是有发霉的粽子我肯定会找你赔偿我拍的那些盒也要保证质量",
+  "relevantDocIds": [
+   "68179"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "买6组送多少东西",
+  "relevantDocIds": [
+   "88189"
+  ],
+  "category": "after_sales_quality"
+ },
+ {
+  "question": "退货了钱还得自己出吗什么是旺旺名",
+  "relevantDocIds": [
+   "22359"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "我直接申请退货吗我到时候把单号给你你到时候要清楚我这个已经拆了",
+  "relevantDocIds": [
+   "23417"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "那没有生产日期属于无理由退货吗",
+  "relevantDocIds": [
+   "83804"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "亲什么时候返运费险",
+  "relevantDocIds": [
+   "94794"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "而且既然都是宝宝用的东西运输什么也都要注意吧你家没有拆开の可以退吗",
+  "relevantDocIds": [
+   "60026"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "已经拆的那袋五包都没开是不能退了对吗",
+  "relevantDocIds": [
+   "60414"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "我不需要钱我既然买了就不差这一点榴莲我不要了退货可以吗",
+  "relevantDocIds": [
+   "9896"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "箱子大小是刚好的估计就是别人退货的",
+  "relevantDocIds": [
+   "65614"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "不是的好吗我之前买过你的核桃不是这样的",
+  "relevantDocIds": [
+   "7667"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "里面的吃起来是酸的对吃了两个都这样",
+  "relevantDocIds": [
+   "17011"
+  ],
+  "category": "refund_return"
+ },
+ {
+  "question": "五折送两包抽纸吧",
+  "relevantDocIds": [
+   "87626"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "那我买三包是199吗",
+  "relevantDocIds": [
+   "74243"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "没显示啊可以领的但是付款的时候没有显示出来",
+  "relevantDocIds": [
+   "81198"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "三包199元吗",
+  "relevantDocIds": [
+   "74243"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "我要两个豆沙一个蛋黄肉松我买三个豆沙你给我把另一个改了怎么买阿",
+  "relevantDocIds": [
+   "47055"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "那问下下单后什么时候能到杭州滨江",
+  "relevantDocIds": [
+   "20119"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "3袋怎么付款不是199吗",
+  "relevantDocIds": [
+   "79815"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "纸皮核桃是几号炒熟曰子新鲜吗",
+  "relevantDocIds": [
+   "65163"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "那你的订单险是什么",
+  "relevantDocIds": [
+   "11235"
+  ],
+  "category": "order_payment"
+ },
+ {
+  "question": "必须买三袋吗",
+  "relevantDocIds": [
+   "66360"
+  ],
+  "category": "order_payment"
+ }
+]

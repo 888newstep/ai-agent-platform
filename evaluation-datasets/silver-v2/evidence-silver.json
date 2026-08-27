@@ -1,0 +1,740 @@
+[
+    {
+        "question":  "申通快递可以存放几天？",
+        "evidence":  "30天的保质期呢客官可以放心日期都是这两天的客官申通只能发1kg以内的哦客官这边购买得多的话不能发申通了呢超过2盒",
+        "keywords":  [
+                         "申通",
+                         "存放",
+                         "1kg"
+                     ],
+        "expectedSupported":  true,
+        "category":  "shipping_logistics",
+        "note":  "silver positive; source qa_pair_id=156378"
+    },
+    {
+        "question":  "申通快递可以存放几天？",
+        "evidence":  "申通可以发5kg以内的包裹",
+        "keywords":  [
+                         "申通",
+                         "存放",
+                         "1kg"
+                     ],
+        "expectedSupported":  false,
+        "category":  "shipping_logistics",
+        "note":  "silver hard negative; mutation=numeric_conflict; source qa_pair_id=156378"
+    },
+    {
+        "question":  "为什么还要付快递费？不是包邮吗？",
+        "evidence":  "客官价格给您修改好了刷新一下就可以付款了哦下午4点前付款当天可以给您发出的哦",
+        "keywords":  [
+                         "包邮",
+                         "快递费",
+                         "修改价格"
+                     ],
+        "expectedSupported":  true,
+        "category":  "promotion_price",
+        "note":  "silver positive; source qa_pair_id=202979"
+    },
+    {
+        "question":  "为什么还要付快递费？不是包邮吗？",
+        "evidence":  "快递费需要您自行承担，不包邮",
+        "keywords":  [
+                         "包邮",
+                         "快递费",
+                         "修改价格"
+                     ],
+        "expectedSupported":  false,
+        "category":  "promotion_price",
+        "note":  "silver hard negative; mutation=negation_flip; source qa_pair_id=202979"
+    },
+    {
+        "question":  "五斤的产品是分几袋包装的？",
+        "evidence":  "不过运输过程看快递情况可能会有点碎5斤是一包装的",
+        "keywords":  [
+                         "五斤",
+                         "包装",
+                         "一包"
+                     ],
+        "expectedSupported":  true,
+        "category":  "product_specification",
+        "note":  "silver positive; source qa_pair_id=153471"
+    },
+    {
+        "question":  "五斤的产品是分几袋包装的？",
+        "evidence":  "五斤是分两袋包装的",
+        "keywords":  [
+                         "五斤",
+                         "包装",
+                         "一包"
+                     ],
+        "expectedSupported":  false,
+        "category":  "product_specification",
+        "note":  "silver hard negative; mutation=numeric_conflict; source qa_pair_id=153471"
+    },
+    {
+        "question":  "枣子的坏果率是多少？",
+        "evidence":  "嗯嗯是的因为枣子有坏的很容易看出来所以小店这边坏果率是控制的极低的",
+        "keywords":  [
+                         "坏果率",
+                         "枣子",
+                         "质量控制"
+                     ],
+        "expectedSupported":  true,
+        "category":  "after_sales_quality",
+        "note":  "silver positive; source qa_pair_id=120954"
+    },
+    {
+        "question":  "枣子的坏果率是多少？",
+        "evidence":  "枣子的坏果率是50%",
+        "keywords":  [
+                         "坏果率",
+                         "枣子",
+                         "质量控制"
+                     ],
+        "expectedSupported":  false,
+        "category":  "after_sales_quality",
+        "note":  "silver hard negative; mutation=numeric_conflict; source qa_pair_id=120954"
+    },
+    {
+        "question":  "退款需要什么条件？",
+        "evidence":  "客官这边是要等您把货退过来了小二收到货才可以给您退款哦您要先把货退回来哦",
+        "keywords":  [
+                         "退款",
+                         "退货",
+                         "收到货"
+                     ],
+        "expectedSupported":  true,
+        "category":  "refund_return",
+        "note":  "silver positive; source qa_pair_id=176385"
+    },
+    {
+        "question":  "退款需要什么条件？",
+        "evidence":  "退款无需退货，直接原路退回",
+        "keywords":  [
+                         "退款",
+                         "退货",
+                         "收到货"
+                     ],
+        "expectedSupported":  false,
+        "category":  "refund_return",
+        "note":  "silver hard negative; mutation=condition_removed; source qa_pair_id=176385"
+    },
+    {
+        "question":  "如果不提供抬头，默认用什么名字？",
+        "evidence":  "客官不提供抬头那我们抬头默认您的收货人名字了哦",
+        "keywords":  [
+                         "抬头",
+                         "收货人",
+                         "发票"
+                     ],
+        "expectedSupported":  true,
+        "category":  "order_payment",
+        "note":  "silver positive; source qa_pair_id=70015"
+    },
+    {
+        "question":  "如果不提供抬头，默认用什么名字？",
+        "evidence":  "默认使用店铺名称",
+        "keywords":  [
+                         "抬头",
+                         "收货人",
+                         "发票"
+                     ],
+        "expectedSupported":  false,
+        "category":  "order_payment",
+        "note":  "silver hard negative; mutation=entity_swap; source qa_pair_id=70015"
+    },
+    {
+        "question":  "今天拍下，什么时候发货？",
+        "evidence":  "活动期间48小时内发货正常付款时间在15:00之前的订单当天发货15:00之后的订单次日发货最晚不超过48小时哦亲收到商品后请先验货再签收包裹破损可直接拒收收到后有任何不满意请及时联系我们哦",
+        "keywords":  [
+                         "发货时间",
+                         "48小时",
+                         "当天发货"
+                     ],
+        "expectedSupported":  true,
+        "category":  "shipping_logistics",
+        "note":  "silver positive; source qa_pair_id=209625"
+    },
+    {
+        "question":  "今天拍下，什么时候发货？",
+        "evidence":  "活动期间72小时内发货",
+        "keywords":  [
+                         "发货时间",
+                         "48小时",
+                         "当天发货"
+                     ],
+        "expectedSupported":  false,
+        "category":  "shipping_logistics",
+        "note":  "silver hard negative; mutation=numeric_conflict; source qa_pair_id=209625"
+    },
+    {
+        "question":  "买四箱有优惠吗？",
+        "evidence":  "亲亲真的不好意思我们已经是优惠价了呢小本生意请亲谅解我们这边多送您一点小礼物可以吗",
+        "keywords":  [
+                         "优惠",
+                         "四箱",
+                         "小礼物"
+                     ],
+        "expectedSupported":  true,
+        "category":  "promotion_price",
+        "note":  "silver positive; source qa_pair_id=88505"
+    },
+    {
+        "question":  "买四箱有优惠吗？",
+        "evidence":  "买四箱可以打八折",
+        "keywords":  [
+                         "优惠",
+                         "四箱",
+                         "小礼物"
+                     ],
+        "expectedSupported":  false,
+        "category":  "promotion_price",
+        "note":  "silver hard negative; mutation=numeric_conflict; source qa_pair_id=88505"
+    },
+    {
+        "question":  "茶叶罐能放茶饼吗？",
+        "evidence":  "那客官申请下退款好了茶叶罐茶饼什么的放不了的哦",
+        "keywords":  [
+                         "茶叶罐",
+                         "茶饼",
+                         "存放"
+                     ],
+        "expectedSupported":  true,
+        "category":  "product_specification",
+        "note":  "silver positive; source qa_pair_id=7326"
+    },
+    {
+        "question":  "茶叶罐能放茶饼吗？",
+        "evidence":  "茶叶罐可以存放茶饼",
+        "keywords":  [
+                         "茶叶罐",
+                         "茶饼",
+                         "存放"
+                     ],
+        "expectedSupported":  false,
+        "category":  "product_specification",
+        "note":  "silver hard negative; mutation=negation_flip; source qa_pair_id=7326"
+    },
+    {
+        "question":  "收到的商品没有发票，可以补发吗？",
+        "evidence":  "不好意思发票用完了等有了给亲补发亲看可以吗",
+        "keywords":  [
+                         "发票",
+                         "补发",
+                         "用完了"
+                     ],
+        "expectedSupported":  true,
+        "category":  "after_sales_quality",
+        "note":  "silver positive; source qa_pair_id=99052"
+    },
+    {
+        "question":  "收到的商品没有发票，可以补发吗？",
+        "evidence":  "发票用完了，不能补发。",
+        "keywords":  [
+                         "发票",
+                         "补发",
+                         "用完了"
+                     ],
+        "expectedSupported":  false,
+        "category":  "after_sales_quality",
+        "note":  "silver hard negative; mutation=negation_flip; source qa_pair_id=99052"
+    },
+    {
+        "question":  "商品有质量问题，寄回后可以全额退款吗？",
+        "evidence":  "可能是厂家生产过程中漏印的您现在寄回几包申请的是全额退",
+        "keywords":  [
+                         "寄回",
+                         "全额退",
+                         "漏印",
+                         "说法"
+                     ],
+        "expectedSupported":  true,
+        "category":  "refund_return",
+        "note":  "silver positive; source qa_pair_id=8556"
+    },
+    {
+        "question":  "商品有质量问题，寄回后可以全额退款吗？",
+        "evidence":  "寄回商品只能部分退款，不能全额退。",
+        "keywords":  [
+                         "寄回",
+                         "全额退",
+                         "漏印",
+                         "说法"
+                     ],
+        "expectedSupported":  false,
+        "category":  "refund_return",
+        "note":  "silver hard negative; mutation=numeric_conflict; source qa_pair_id=8556"
+    },
+    {
+        "question":  "在手机端购买时，如何合并购物车中的商品以便改价？",
+        "evidence":  "那手机端下方有一个一样的按钮的呀加入购物车呢两样宝贝同时在购物车了您在下单我这里显示帮您改价您现在都是一单一单给我的两样宝贝分开系统就没有办法帮到您的呢",
+        "keywords":  [
+                         "手机端",
+                         "购物车",
+                         "改价",
+                         "合并下单"
+                     ],
+        "expectedSupported":  true,
+        "category":  "order_payment",
+        "note":  "silver positive; source qa_pair_id=90213"
+    },
+    {
+        "question":  "在手机端购买时，如何合并购物车中的商品以便改价？",
+        "evidence":  "手机端没有加入购物车的按钮，无法合并下单。",
+        "keywords":  [
+                         "手机端",
+                         "购物车",
+                         "改价",
+                         "合并下单"
+                     ],
+        "expectedSupported":  false,
+        "category":  "order_payment",
+        "note":  "silver hard negative; mutation=condition_removed; source qa_pair_id=90213"
+    },
+    {
+        "question":  "你们默认发什么快递？",
+        "evidence":  "亲爱哒客官小店默认邮政百世汇通天天快递1kg以内可以发申通快递哦",
+        "keywords":  [
+                         "快递",
+                         "申通",
+                         "邮政"
+                     ],
+        "expectedSupported":  true,
+        "category":  "shipping_logistics",
+        "note":  "silver positive; source qa_pair_id=6767"
+    },
+    {
+        "question":  "你们默认发什么快递？",
+        "evidence":  "默认发顺丰快递",
+        "keywords":  [
+                         "快递",
+                         "申通",
+                         "邮政"
+                     ],
+        "expectedSupported":  false,
+        "category":  "shipping_logistics",
+        "note":  "silver hard negative; mutation=entity_swap; source qa_pair_id=6767"
+    },
+    {
+        "question":  "请问购买5份及以上每份价格是多少？",
+        "evidence":  "5份450g哦一份266哦5份及以上每份236呢",
+        "keywords":  [
+                         "价格",
+                         "份数",
+                         "优惠"
+                     ],
+        "expectedSupported":  true,
+        "category":  "promotion_price",
+        "note":  "silver positive; source qa_pair_id=164547"
+    },
+    {
+        "question":  "请问购买5份及以上每份价格是多少？",
+        "evidence":  "购买5份及以上每份266元",
+        "keywords":  [
+                         "价格",
+                         "份数",
+                         "优惠"
+                     ],
+        "expectedSupported":  false,
+        "category":  "promotion_price",
+        "note":  "silver hard negative; mutation=numeric_conflict; source qa_pair_id=164547"
+    },
+    {
+        "question":  "请给我发一个纯棉大尺寸的链接。",
+        "evidence":  "好的亲亲稍等这款是1520的明天有活动的",
+        "keywords":  [
+                         "尺寸",
+                         "链接",
+                         "纯棉"
+                     ],
+        "expectedSupported":  true,
+        "category":  "product_specification",
+        "note":  "silver positive; source qa_pair_id=123008"
+    },
+    {
+        "question":  "请给我发一个纯棉大尺寸的链接。",
+        "evidence":  "这款是1520的，没有大尺寸",
+        "keywords":  [
+                         "尺寸",
+                         "链接",
+                         "纯棉"
+                     ],
+        "expectedSupported":  false,
+        "category":  "product_specification",
+        "note":  "silver hard negative; mutation=negation_flip; source qa_pair_id=123008"
+    },
+    {
+        "question":  "收到的包裹只有8个，是否被打开过？",
+        "evidence":  "客官您知道您收到包裹的时候有打开过的痕迹吗",
+        "keywords":  [
+                         "包裹",
+                         "打开痕迹",
+                         "数量不足"
+                     ],
+        "expectedSupported":  true,
+        "category":  "after_sales_quality",
+        "note":  "silver positive; source qa_pair_id=23704"
+    },
+    {
+        "question":  "收到的包裹只有8个，是否被打开过？",
+        "evidence":  "包裹没有打开过的痕迹，数量是完整的。",
+        "keywords":  [
+                         "包裹",
+                         "打开痕迹",
+                         "数量不足"
+                     ],
+        "expectedSupported":  false,
+        "category":  "after_sales_quality",
+        "note":  "silver hard negative; mutation=negation_flip; source qa_pair_id=23704"
+    },
+    {
+        "question":  "退货退款流程是怎样的？",
+        "evidence":  "亲寄快递的时候可以点击退款到时候填上一些信息啥的我们这边收到货后才那退款哦",
+        "keywords":  [
+                         "退款",
+                         "寄快递",
+                         "填写信息",
+                         "收到货"
+                     ],
+        "expectedSupported":  true,
+        "category":  "refund_return",
+        "note":  "silver positive; source qa_pair_id=15590"
+    },
+    {
+        "question":  "退货退款流程是怎样的？",
+        "evidence":  "寄快递后无需点击退款，直接等待退款",
+        "keywords":  [
+                         "退款",
+                         "寄快递",
+                         "填写信息",
+                         "收到货"
+                     ],
+        "expectedSupported":  false,
+        "category":  "refund_return",
+        "note":  "silver hard negative; mutation=condition_removed; source qa_pair_id=15590"
+    },
+    {
+        "question":  "未付款订单能否合并？",
+        "evidence":  "您这边付款后是可以合并订单的哦未付款订单小店系统检索不到的",
+        "keywords":  [
+                         "合并订单",
+                         "付款",
+                         "未付款",
+                         "系统"
+                     ],
+        "expectedSupported":  true,
+        "category":  "order_payment",
+        "note":  "silver positive; source qa_pair_id=179789"
+    },
+    {
+        "question":  "未付款订单能否合并？",
+        "evidence":  "未付款订单可以合并",
+        "keywords":  [
+                         "合并订单",
+                         "付款",
+                         "未付款",
+                         "系统"
+                     ],
+        "expectedSupported":  false,
+        "category":  "order_payment",
+        "note":  "silver hard negative; mutation=negation_flip; source qa_pair_id=179789"
+    },
+    {
+        "question":  "发货单打出来了还能改吗？",
+        "evidence":  "亲亲发货单已经打出来了改不了哦但是明天椒盐到货就给亲亲发呢",
+        "keywords":  [
+                         "发货单",
+                         "改不了",
+                         "椒盐味"
+                     ],
+        "expectedSupported":  true,
+        "category":  "shipping_logistics",
+        "note":  "silver positive; source qa_pair_id=97751"
+    },
+    {
+        "question":  "发货单打出来了还能改吗？",
+        "evidence":  "发货单可以修改，马上为您更改",
+        "keywords":  [
+                         "发货单",
+                         "改不了",
+                         "椒盐味"
+                     ],
+        "expectedSupported":  false,
+        "category":  "shipping_logistics",
+        "note":  "silver hard negative; mutation=negation_flip; source qa_pair_id=97751"
+    },
+    {
+        "question":  "五元无门槛优惠券怎么领取？",
+        "evidence":  "客官现在进群可以抢双十一无门槛优惠券哦群内也经常会有一些特价商品和群专属活动呢加入群聊可提前享受双十一各种优惠活动",
+        "keywords":  [
+                         "优惠券",
+                         "领取",
+                         "无门槛"
+                     ],
+        "expectedSupported":  true,
+        "category":  "promotion_price",
+        "note":  "silver positive; source qa_pair_id=49976"
+    },
+    {
+        "question":  "五元无门槛优惠券怎么领取？",
+        "evidence":  "没有无门槛优惠券",
+        "keywords":  [
+                         "优惠券",
+                         "领取",
+                         "无门槛"
+                     ],
+        "expectedSupported":  false,
+        "category":  "promotion_price",
+        "note":  "silver hard negative; mutation=negation_flip; source qa_pair_id=49976"
+    },
+    {
+        "question":  "这是今年新货吗？",
+        "evidence":  "生产日期是2016年12月的新货哦我们绝不做陈货和翻炒货日期都是新鲜的亲亲可放心购买",
+        "keywords":  [
+                         "生产日期",
+                         "新货",
+                         "陈货"
+                     ],
+        "expectedSupported":  true,
+        "category":  "product_specification",
+        "note":  "silver positive; source qa_pair_id=195724"
+    },
+    {
+        "question":  "这是今年新货吗？",
+        "evidence":  "生产日期是2015年6月的旧货",
+        "keywords":  [
+                         "生产日期",
+                         "新货",
+                         "陈货"
+                     ],
+        "expectedSupported":  false,
+        "category":  "product_specification",
+        "note":  "silver hard negative; mutation=numeric_conflict; source qa_pair_id=195724"
+    },
+    {
+        "question":  "茶刀有裂痕，可以换一支吗？",
+        "evidence":  "客官抱歉我这边看不清哪有裂痕呢能麻烦标明下吗谢谢的说QWQ",
+        "keywords":  [
+                         "茶刀",
+                         "裂痕",
+                         "换货",
+                         "质量"
+                     ],
+        "expectedSupported":  true,
+        "category":  "after_sales_quality",
+        "note":  "silver positive; source qa_pair_id=112090"
+    },
+    {
+        "question":  "茶刀有裂痕，可以换一支吗？",
+        "evidence":  "茶刀没有裂痕，不能换货。",
+        "keywords":  [
+                         "茶刀",
+                         "裂痕",
+                         "换货",
+                         "质量"
+                     ],
+        "expectedSupported":  false,
+        "category":  "after_sales_quality",
+        "note":  "silver hard negative; mutation=negation_flip; source qa_pair_id=112090"
+    },
+    {
+        "question":  "今天下单什么时候发货？",
+        "evidence":  "客官现在的订单只能明天发出了哦今天快递收件都走掉了",
+        "keywords":  [
+                         "发货",
+                         "时间",
+                         "快递"
+                     ],
+        "expectedSupported":  true,
+        "category":  "shipping_logistics",
+        "note":  "silver positive; source qa_pair_id=216471"
+    },
+    {
+        "question":  "今天下单什么时候发货？",
+        "evidence":  "今天下单可以当天发货",
+        "keywords":  [
+                         "发货",
+                         "时间",
+                         "快递"
+                     ],
+        "expectedSupported":  false,
+        "category":  "shipping_logistics",
+        "note":  "silver hard negative; mutation=negation_flip; source qa_pair_id=216471"
+    },
+    {
+        "question":  "购买5份可以包邮吗？",
+        "evidence":  "价格我会帮您改为包邮的呢亲请核对一下收货地址哦",
+        "keywords":  [
+                         "包邮",
+                         "价格",
+                         "修改"
+                     ],
+        "expectedSupported":  true,
+        "category":  "promotion_price",
+        "note":  "silver positive; source qa_pair_id=123597"
+    },
+    {
+        "question":  "购买5份可以包邮吗？",
+        "evidence":  "购买5份不包邮",
+        "keywords":  [
+                         "包邮",
+                         "价格",
+                         "修改"
+                     ],
+        "expectedSupported":  false,
+        "category":  "promotion_price",
+        "note":  "silver hard negative; mutation=negation_flip; source qa_pair_id=123597"
+    },
+    {
+        "question":  "核桃新鲜吗？送核桃夹吗？",
+        "evidence":  "客官小店没有夹核桃的大钳子哦我们都有送开果器呢我们家的核桃壳薄如纸手捏即破哦不用担心呢生产日期是2017年2月的新货哦我们绝不做陈货和翻炒货日期都是新鲜的客官可以放心购买",
+        "keywords":  [
+                         "核桃",
+                         "新鲜",
+                         "开果器",
+                         "生产日期"
+                     ],
+        "expectedSupported":  true,
+        "category":  "product_specification",
+        "note":  "silver positive; source qa_pair_id=65395"
+    },
+    {
+        "question":  "核桃新鲜吗？送核桃夹吗？",
+        "evidence":  "生产日期是2018年2月，不送开果器",
+        "keywords":  [
+                         "核桃",
+                         "新鲜",
+                         "开果器",
+                         "生产日期"
+                     ],
+        "expectedSupported":  false,
+        "category":  "product_specification",
+        "note":  "silver hard negative; mutation=numeric_conflict; source qa_pair_id=65395"
+    },
+    {
+        "question":  "收货后可以开发票吗？",
+        "evidence":  "可以的客官您收到货以后联系我们我们这里帮您在开发票",
+        "keywords":  [
+                         "发票",
+                         "收货后",
+                         "开具"
+                     ],
+        "expectedSupported":  true,
+        "category":  "after_sales_quality",
+        "note":  "silver positive; source qa_pair_id=145387"
+    },
+    {
+        "question":  "收货后可以开发票吗？",
+        "evidence":  "收货后不能开发票，需要下单前申请",
+        "keywords":  [
+                         "发票",
+                         "收货后",
+                         "开具"
+                     ],
+        "expectedSupported":  false,
+        "category":  "after_sales_quality",
+        "note":  "silver hard negative; mutation=condition_removed; source qa_pair_id=145387"
+    },
+    {
+        "question":  "现在拍下今天能发货吗？",
+        "evidence":  "客官今天16点前付款是当天发货的哦16点后付款是次日发货的呢早拍早发货哦",
+        "keywords":  [
+                         "发货",
+                         "付款时间",
+                         "当天"
+                     ],
+        "expectedSupported":  true,
+        "category":  "shipping_logistics",
+        "note":  "silver positive; source qa_pair_id=25398"
+    },
+    {
+        "question":  "现在拍下今天能发货吗？",
+        "evidence":  "今天16点后付款当天发货",
+        "keywords":  [
+                         "发货",
+                         "付款时间",
+                         "当天"
+                     ],
+        "expectedSupported":  false,
+        "category":  "shipping_logistics",
+        "note":  "silver hard negative; mutation=condition_removed; source qa_pair_id=25398"
+    },
+    {
+        "question":  "双十一活动芒果干和榴莲干的价格是多少？有什么优惠？",
+        "evidence":  "芒果干每份199榴莲干每份236还有五元无门槛优惠券和满就送送送",
+        "keywords":  [
+                         "芒果干",
+                         "榴莲干",
+                         "价格",
+                         "优惠券",
+                         "双十一"
+                     ],
+        "expectedSupported":  true,
+        "category":  "promotion_price",
+        "note":  "silver positive; source qa_pair_id=162444"
+    },
+    {
+        "question":  "双十一活动芒果干和榴莲干的价格是多少？有什么优惠？",
+        "evidence":  "芒果干每份199，榴莲干每份236，没有优惠券。",
+        "keywords":  [
+                         "芒果干",
+                         "榴莲干",
+                         "价格",
+                         "优惠券",
+                         "双十一"
+                     ],
+        "expectedSupported":  false,
+        "category":  "promotion_price",
+        "note":  "silver hard negative; mutation=condition_removed; source qa_pair_id=162444"
+    },
+    {
+        "question":  "为什么价格不一样？是因为尺寸不同吗？",
+        "evidence":  "尺寸不同的前面的1520的后面的1020的",
+        "keywords":  [
+                         "价格差异",
+                         "尺寸",
+                         "1520",
+                         "1020"
+                     ],
+        "expectedSupported":  true,
+        "category":  "product_specification",
+        "note":  "silver positive; source qa_pair_id=38618"
+    },
+    {
+        "question":  "为什么价格不一样？是因为尺寸不同吗？",
+        "evidence":  "价格不同是因为材质不同，而不是尺寸。",
+        "keywords":  [
+                         "价格差异",
+                         "尺寸",
+                         "1520",
+                         "1020"
+                     ],
+        "expectedSupported":  false,
+        "category":  "product_specification",
+        "note":  "silver hard negative; mutation=entity_swap; source qa_pair_id=38618"
+    },
+    {
+        "question":  "商品缺斤短两，可以退差价吗？",
+        "evidence":  "不好意思哈仓库这边一时打包疏忽了碧根果因为是清仓才特价的哦您看返您差价可以嘛",
+        "keywords":  [
+                         "缺斤短两",
+                         "差价",
+                         "清仓"
+                     ],
+        "expectedSupported":  true,
+        "category":  "after_sales_quality",
+        "note":  "silver positive; source qa_pair_id=131184"
+    },
+    {
+        "question":  "商品缺斤短两，可以退差价吗？",
+        "evidence":  "清仓特价商品缺斤短两，不退差价。",
+        "keywords":  [
+                         "缺斤短两",
+                         "差价",
+                         "清仓"
+                     ],
+        "expectedSupported":  false,
+        "category":  "after_sales_quality",
+        "note":  "silver hard negative; mutation=condition_removed; source qa_pair_id=131184"
+    }
+]

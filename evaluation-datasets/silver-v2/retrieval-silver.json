@@ -1,0 +1,842 @@
+[
+  {
+    "question": "申通快递可以存放几天？",
+    "relevantDocIds": [
+      "78758"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "申通能放几天？",
+    "relevantDocIds": [
+      "78758"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "那个申通快递，一般能放几天啊？",
+    "relevantDocIds": [
+      "78758"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "我买的东西发申通，快递点能放多久？",
+    "relevantDocIds": [
+      "78758"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "为什么还要付快递费？不是包邮吗？",
+    "relevantDocIds": [
+      "91332"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "怎么还有快递费？",
+    "relevantDocIds": [
+      "91332"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "那个运费，不是包邮吗？怎么还要钱？",
+    "relevantDocIds": [
+      "91332"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "我拍下后显示有快递费，但商品页写包邮，怎么处理？",
+    "relevantDocIds": [
+      "91332"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "五斤的产品是分几袋包装的？",
+    "relevantDocIds": [
+      "3167"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "五斤大概多少袋？",
+    "relevantDocIds": [
+      "3167"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "嗯那个五斤的，大概能装几袋啊？",
+    "relevantDocIds": [
+      "3167"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "我买五斤的话，是装成一袋还是分几袋？",
+    "relevantDocIds": [
+      "3167"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "枣子的坏果率是多少？",
+    "relevantDocIds": [
+      "15082"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "枣子坏的比例高吗？",
+    "relevantDocIds": [
+      "15082"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "嗯，那个枣子坏果率大概多少啊？",
+    "relevantDocIds": [
+      "15082"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "我买的枣子有坏的，你们坏果率控制得怎么样？",
+    "relevantDocIds": [
+      "15082"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "退款需要什么条件？",
+    "relevantDocIds": [
+      "23088"
+    ],
+    "category": "refund_return"
+  },
+  {
+    "question": "怎么才能退款？",
+    "relevantDocIds": [
+      "23088"
+    ],
+    "category": "refund_return"
+  },
+  {
+    "question": "那个退款，是不是要退货才行？",
+    "relevantDocIds": [
+      "23088"
+    ],
+    "category": "refund_return"
+  },
+  {
+    "question": "我申请退款，但你们说要先退货，是这样吗？",
+    "relevantDocIds": [
+      "23088"
+    ],
+    "category": "refund_return"
+  },
+  {
+    "question": "如果不提供抬头，默认用什么名字？",
+    "relevantDocIds": [
+      "19952"
+    ],
+    "category": "order_payment"
+  },
+  {
+    "question": "不写抬头的话，写谁的名字？",
+    "relevantDocIds": [
+      "19952"
+    ],
+    "category": "order_payment"
+  },
+  {
+    "question": "那个，不抬头，默认收货人名字吗？",
+    "relevantDocIds": [
+      "19952"
+    ],
+    "category": "order_payment"
+  },
+  {
+    "question": "我开10套，不提供抬头，可以吗？",
+    "relevantDocIds": [
+      "19952"
+    ],
+    "category": "order_payment"
+  },
+  {
+    "question": "今天拍下，什么时候发货？",
+    "relevantDocIds": [
+      "92915"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "今天拍明天能发吗？",
+    "relevantDocIds": [
+      "92915"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "那个我今天下单，明天能发货不？",
+    "relevantDocIds": [
+      "92915"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "我下午3点前付款，能当天发货吗？",
+    "relevantDocIds": [
+      "92915"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "买四箱有优惠吗？",
+    "relevantDocIds": [
+      "54349"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "买四箱能便宜点不？",
+    "relevantDocIds": [
+      "54349"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "那个我买四箱，能不能优惠点？",
+    "relevantDocIds": [
+      "54349"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "我买四箱，你们能送点东西吗？",
+    "relevantDocIds": [
+      "54349"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "茶叶罐能放茶饼吗？",
+    "relevantDocIds": [
+      "7447"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "茶叶罐能装茶饼不？",
+    "relevantDocIds": [
+      "7447"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "那个茶叶罐，放茶饼行不行？",
+    "relevantDocIds": [
+      "7447"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "我买了茶叶罐，但茶饼放不进去，怎么办？",
+    "relevantDocIds": [
+      "7447"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "收到的商品没有发票，可以补发吗？",
+    "relevantDocIds": [
+      "58817"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "东西到了没发票，能补吗？",
+    "relevantDocIds": [
+      "58817"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "亲，东西收到了，怎么没有发票？以后能补发吗？",
+    "relevantDocIds": [
+      "58817"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "我收到的包裹里没有发票，你们能补寄吗？",
+    "relevantDocIds": [
+      "58817"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "商品有质量问题，寄回后可以全额退款吗？",
+    "relevantDocIds": [
+      "8444"
+    ],
+    "category": "refund_return"
+  },
+  {
+    "question": "东西有问题，寄回去能全退吗？",
+    "relevantDocIds": [
+      "8444"
+    ],
+    "category": "refund_return"
+  },
+  {
+    "question": "那个，我寄回去，是不是就完了？能全额退吗？",
+    "relevantDocIds": [
+      "8444"
+    ],
+    "category": "refund_return"
+  },
+  {
+    "question": "你们说可能是漏印，那我寄回几包，能全额退款吗？",
+    "relevantDocIds": [
+      "8444"
+    ],
+    "category": "refund_return"
+  },
+  {
+    "question": "在手机端购买时，如何合并购物车中的商品以便改价？",
+    "relevantDocIds": [
+      "29527"
+    ],
+    "category": "order_payment"
+  },
+  {
+    "question": "手机上买东西，怎么把两个东西放一起下单改价？",
+    "relevantDocIds": [
+      "29527"
+    ],
+    "category": "order_payment"
+  },
+  {
+    "question": "我在手机上买，怎么加入购物车？两个宝贝要一起下单才能改价吗？",
+    "relevantDocIds": [
+      "29527"
+    ],
+    "category": "order_payment"
+  },
+  {
+    "question": "我分开下单了，能帮我改价吗？应该怎么操作？",
+    "relevantDocIds": [
+      "29527"
+    ],
+    "category": "order_payment"
+  },
+  {
+    "question": "你们默认发什么快递？",
+    "relevantDocIds": [
+      "6996"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "发什么快递啊？",
+    "relevantDocIds": [
+      "6996"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "那个，你们一般用什么快递？",
+    "relevantDocIds": [
+      "6996"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "我买的东西能发申通吗？",
+    "relevantDocIds": [
+      "6996"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "请问购买5份及以上每份价格是多少？",
+    "relevantDocIds": [
+      "34813"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "买5份以上单价能便宜点不？",
+    "relevantDocIds": [
+      "34813"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "嗯那个，就是，5份以上，每份多少钱来着？",
+    "relevantDocIds": [
+      "34813"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "我打算买5份，单价能按236算吗？",
+    "relevantDocIds": [
+      "34813"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "请给我发一个纯棉大尺寸的链接。",
+    "relevantDocIds": [
+      "10012"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "有纯棉大号的链接吗？",
+    "relevantDocIds": [
+      "10012"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "那个，纯棉的，大尺寸，链接发我一下。",
+    "relevantDocIds": [
+      "10012"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "我想要个纯棉的，尺寸大点的，有链接吗？",
+    "relevantDocIds": [
+      "10012"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "收到的包裹只有8个，是否被打开过？",
+    "relevantDocIds": [
+      "19575"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "包裹里只有8个，是不是被人拆过？",
+    "relevantDocIds": [
+      "19575"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "我寄回老家，打开只有8个，有没有打开过的痕迹？",
+    "relevantDocIds": [
+      "19575"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "我收到的包裹数量不对，怎么确认是否被拆封？",
+    "relevantDocIds": [
+      "19575"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "退货退款流程是怎样的？",
+    "relevantDocIds": [
+      "27"
+    ],
+    "category": "refund_return"
+  },
+  {
+    "question": "退货怎么弄？",
+    "relevantDocIds": [
+      "27"
+    ],
+    "category": "refund_return"
+  },
+  {
+    "question": "那个，退货退款，要填啥？",
+    "relevantDocIds": [
+      "27"
+    ],
+    "category": "refund_return"
+  },
+  {
+    "question": "我寄快递退货，需要先点击退款吗？",
+    "relevantDocIds": [
+      "27"
+    ],
+    "category": "refund_return"
+  },
+  {
+    "question": "未付款订单能否合并？",
+    "relevantDocIds": [
+      "85367"
+    ],
+    "category": "order_payment"
+  },
+  {
+    "question": "没付款能合并订单吗？",
+    "relevantDocIds": [
+      "85367"
+    ],
+    "category": "order_payment"
+  },
+  {
+    "question": "那个，我还没付款，能合并吗？",
+    "relevantDocIds": [
+      "85367"
+    ],
+    "category": "order_payment"
+  },
+  {
+    "question": "我下单了但没付款，可以合并订单吗？",
+    "relevantDocIds": [
+      "85367"
+    ],
+    "category": "order_payment"
+  },
+  {
+    "question": "发货单打出来了还能改吗？",
+    "relevantDocIds": [
+      "58284"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "发货单能改吗？",
+    "relevantDocIds": [
+      "58284"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "那个发货单已经打了，还能改不？",
+    "relevantDocIds": [
+      "58284"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "我要求改口味，但你们说发货单已出，怎么办？",
+    "relevantDocIds": [
+      "58284"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "五元无门槛优惠券怎么领取？",
+    "relevantDocIds": [
+      "35723"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "五元无门槛券在哪领？",
+    "relevantDocIds": [
+      "35723"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "那个，五元无门槛的券，怎么领啊？",
+    "relevantDocIds": [
+      "35723"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "我想领五元无门槛券，怎么操作？",
+    "relevantDocIds": [
+      "35723"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "这是今年新货吗？",
+    "relevantDocIds": [
+      "44462"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "是今年的新货不？",
+    "relevantDocIds": [
+      "44462"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "请问这是今年新货吗？",
+    "relevantDocIds": [
+      "44462"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "我担心买到陈货，这是今年新货吗？",
+    "relevantDocIds": [
+      "44462"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "茶刀有裂痕，可以换一支吗？",
+    "relevantDocIds": [
+      "16057"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "茶刀有裂痕，能换不？",
+    "relevantDocIds": [
+      "16057"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "那个，上次买的很好，这次刀有裂痕，能换吗？",
+    "relevantDocIds": [
+      "16057"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "我上次买的茶刀很完美，这次有裂痕，你们能换一支吗？",
+    "relevantDocIds": [
+      "16057"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "今天下单什么时候发货？",
+    "relevantDocIds": [
+      "94492"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "现在拍下今天能发吗？",
+    "relevantDocIds": [
+      "94492"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "那个，我今天下单，能今天发货不？",
+    "relevantDocIds": [
+      "94492"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "我着急要，今天能发货吗？",
+    "relevantDocIds": [
+      "94492"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "购买5份可以包邮吗？",
+    "relevantDocIds": [
+      "68070"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "买5份能免邮不？",
+    "relevantDocIds": [
+      "68070"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "那个，我买5份，能包邮吗？",
+    "relevantDocIds": [
+      "68070"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "我上次买5份，这次也5份，能包邮吗？",
+    "relevantDocIds": [
+      "68070"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "核桃新鲜吗？送核桃夹吗？",
+    "relevantDocIds": [
+      "43727"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "核桃新不新鲜？送夹子吗？",
+    "relevantDocIds": [
+      "43727"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "新鲜吗送核桃夹吗？",
+    "relevantDocIds": [
+      "43727"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "我想买核桃，请问是今年的新货吗？有送开果器吗？",
+    "relevantDocIds": [
+      "43727"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "收货后可以开发票吗？",
+    "relevantDocIds": [
+      "5686"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "收到货能开发票不？",
+    "relevantDocIds": [
+      "5686"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "那个，我问一下，收货以后能不能开发票呢？",
+    "relevantDocIds": [
+      "5686"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "我打算买这个，但需要发票，收货后联系你们开可以吗？",
+    "relevantDocIds": [
+      "5686"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "现在拍下今天能发货吗？",
+    "relevantDocIds": [
+      "20725"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "现在买今天能发吗？",
+    "relevantDocIds": [
+      "20725"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "那个，我现在拍，今天能发货吗？",
+    "relevantDocIds": [
+      "20725"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "我下午4点前付款，今天能发货吗？",
+    "relevantDocIds": [
+      "20725"
+    ],
+    "category": "shipping_logistics"
+  },
+  {
+    "question": "双十一活动芒果干和榴莲干的价格是多少？有什么优惠？",
+    "relevantDocIds": [
+      "82416"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "双十一芒果干和榴莲干多少钱？有优惠券吗？",
+    "relevantDocIds": [
+      "82416"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "那个双十一活动，芒果干和榴莲干，价格分别是多少？有没有优惠券？",
+    "relevantDocIds": [
+      "82416"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "我在看双十一活动，芒果干和榴莲干的价格和优惠是什么？",
+    "relevantDocIds": [
+      "82416"
+    ],
+    "category": "promotion_price"
+  },
+  {
+    "question": "为什么价格不一样？是因为尺寸不同吗？",
+    "relevantDocIds": [
+      "29250"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "价格咋不一样？尺寸不一样吗？",
+    "relevantDocIds": [
+      "29250"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "为什么价格不一样的？前面的1520后面的1020，是尺寸问题吗？",
+    "relevantDocIds": [
+      "29250"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "我看到两个商品价格不同，是因为尺寸不同吗？",
+    "relevantDocIds": [
+      "29250"
+    ],
+    "category": "product_specification"
+  },
+  {
+    "question": "商品缺斤短两，可以退差价吗？",
+    "relevantDocIds": [
+      "2517"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "少称了，能退钱不？",
+    "relevantDocIds": [
+      "2517"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "我拍的是360克碧根果，结果差了150克，客服说返差价，真的吗？",
+    "relevantDocIds": [
+      "2517"
+    ],
+    "category": "after_sales_quality"
+  },
+  {
+    "question": "清仓特价商品缺斤短两，商家承诺退差价，是否有效？",
+    "relevantDocIds": [
+      "2517"
+    ],
+    "category": "after_sales_quality"
+  }
+]
