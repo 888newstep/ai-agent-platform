@@ -46,7 +46,7 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
     private static final String EMBEDDING_FIELD = "embedding";
     private static final long CORPUS_FETCH_LIMIT = 1000;
     private static final List<String> OUTPUT_FIELDS = List.of(
-            "id", "question", "answer", "qa_text", "qa_pair_id", "category", "ts");
+            "id", "question", "answer", "qa_text", "qa_pair_id", "category", "source_file", "ts");
 
     private final AiProperties aiProperties;
     private final MilvusClientV2 milvusClient;
@@ -145,15 +145,31 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
                     ? fallbackStore.search(queryEmbedding, topK, minScore)
                     : List.of();
         }
+        return searchInCollection(collectionName(), queryEmbedding, topK, minScore);
+    }
 
+    @Override
+    public List<EmbeddingMatch<TextSegment>> searchFaq(Embedding queryEmbedding, int topK, double minScore) {
+        if (queryEmbedding == null || topK <= 0 || !available) {
+            return List.of();
+        }
+        return searchInCollection(faqCollectionName(), queryEmbedding, topK, minScore);
+    }
+
+    private List<EmbeddingMatch<TextSegment>> searchInCollection(String targetCollection,
+                                                                 Embedding queryEmbedding,
+                                                                 int topK,
+                                                                 double minScore) {
+        // HNSW 要求 ef >= topK，候选池扩容时动态放大 ef（上限 1024 控制开销）
+        int ef = Math.max(64, Math.min(topK * 4, 1024));
         SearchReq request = SearchReq.builder()
-                .collectionName(collectionName())
+                .collectionName(targetCollection)
                 .data(List.of(new FloatVec(queryEmbedding.vector())))
                 .annsField(EMBEDDING_FIELD)
                 .metricType(IndexParam.MetricType.COSINE)
                 .topK(topK)
                 .outputFields(OUTPUT_FIELDS)
-                .searchParams(Map.of("ef", 64))
+                .searchParams(Map.of("ef", ef))
                 .build();
 
         SearchResp response = milvusClient.search(request);
@@ -323,6 +339,10 @@ public class MilvusQaVectorStoreService implements VectorStoreService {
 
     private String collectionName() {
         return aiProperties.getVectorStore().getMilvus().getCollectionName();
+    }
+
+    private String faqCollectionName() {
+        return aiProperties.getVectorStore().getMilvus().getFaqCollectionName();
     }
 
     private String fallbackMode() {

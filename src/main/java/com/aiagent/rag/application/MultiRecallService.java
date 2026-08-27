@@ -100,6 +100,27 @@ public class MultiRecallService {
                 }
             }
 
+            // === FAQ 优先级联检索（级联第一层）===
+            // FAQ 标准问题命中直接返回（无需混合检索/raw 回退）；未命中继续走 raw 库检索。
+            AiProperties.Milvus milvusConfig = aiProperties.getVectorStore().getMilvus();
+            if (milvusConfig.isFaqFirstEnabled()) {
+                List<RetrievalChunk> faqHits = documentService.searchFaqFirst(
+                        query,
+                        positiveOrDefault(options.getTopK(), 5),
+                        positiveOrDefault(milvusConfig.getFaqTopK(), 3),
+                        milvusConfig.getFaqHitThreshold());
+                if (!faqHits.isEmpty()) {
+                    resultCount = faqHits.size();
+                    log.info("FAQ-first hit: query={} hits={} topScore={}",
+                            query, faqHits.size(), faqHits.get(0).getScore());
+                    if (options.isCacheEnabled()) {
+                        ragCacheService.cacheResults(cacheKeyMaterial, faqHits);
+                    }
+                    return faqHits;
+                }
+                log.debug("FAQ-first miss for query={}, falling back to raw retrieval", query);
+            }
+
             List<RetrievalChunk> finalResults;
             if (options.isHybridSearch()) {
                 AiProperties.Rag ragConfig = aiProperties.getRag();

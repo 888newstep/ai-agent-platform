@@ -204,6 +204,12 @@ public class MilvusInitConfig {
                     .description("Category")
                     .build());
             schema.addField(AddFieldReq.builder()
+                    .fieldName("source_file")
+                    .dataType(DataType.VarChar)
+                    .maxLength(255)
+                    .description("Source training file name")
+                    .build());
+            schema.addField(AddFieldReq.builder()
                     .fieldName("embedding")
                     .dataType(DataType.FloatVector)
                     .dimension(dimension)

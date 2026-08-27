@@ -27,6 +27,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -307,6 +308,50 @@ public class DocumentService {
 
     public List<RetrievalChunk> searchSimilar(String query, int topK, double threshold) {
         return searchSimilar(query, List.of(topK), threshold).getOrDefault(topK, List.of());
+    }
+
+    /**
+     * FAQ 优先级联检索（级联第一层）：
+     * 先在精选 FAQ 库检索，若 top1 相似度达到 faqHitThreshold 则视为标准问题直接命中并返回 FAQ 结果；
+     * 否则返回空列表，由调用方继续回退 raw 库检索。
+     */
+    public List<RetrievalChunk> searchFaqFirst(String query, int topK,
+                                               int faqTopK, double faqHitThreshold) {
+        if (!StringUtils.hasText(query) || topK <= 0) {
+            return List.of();
+        }
+        if (!vectorStoreService.isAvailable()) {
+            return List.of();
+        }
+        var queryEmbedding = embeddingModel.embed(query).content();
+        if (queryEmbedding == null) {
+            return List.of();
+        }
+        List<dev.langchain4j.store.embedding.EmbeddingMatch<TextSegment>> faqMatches =
+                vectorStoreService.searchFaq(queryEmbedding, faqTopK, 0.0);
+        if (faqMatches == null || faqMatches.isEmpty()) {
+            return List.of();
+        }
+        if (faqMatches.get(0).score() == null || faqMatches.get(0).score() < faqHitThreshold) {
+            return List.of();
+        }
+        List<RetrievalChunk> chunks = toRetrievalChunks(
+                faqMatches.stream().limit(topK).toList());
+        return chunks.stream()
+                .map(chunk -> {
+                    Map<String, Object> meta = new HashMap<>();
+                    if (chunk.getMetadata() != null) {
+                        meta.putAll(chunk.getMetadata());
+                    }
+                    meta.put("retrievalSource", "faq");
+                    return RetrievalChunk.builder()
+                            .id(chunk.getId())
+                            .content(chunk.getContent())
+                            .score(chunk.getScore())
+                            .metadata(meta)
+                            .build();
+                })
+                .toList();
     }
 
     public Map<Integer, List<RetrievalChunk>> searchSimilar(String query,

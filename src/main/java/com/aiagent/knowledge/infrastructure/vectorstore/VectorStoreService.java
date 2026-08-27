@@ -19,6 +19,15 @@ public interface VectorStoreService {
     void add(String id, Embedding embedding);
     List<String> addAll(List<Embedding> embeddings, List<TextSegment> segments);
     List<EmbeddingMatch<TextSegment>> search(Embedding queryEmbedding, int topK, double minScore);
+
+    /**
+     * 在精选 FAQ 库中检索（级联检索第一层）。
+     * 默认实现不检索 FAQ 库，由支持 FAQ collection 的向量服务覆盖。
+     */
+    default List<EmbeddingMatch<TextSegment>> searchFaq(Embedding queryEmbedding, int topK, double minScore) {
+        return List.of();
+    }
+
     List<RetrievalChunk> fetchAllChunks(int maxDocs);
     void remove(String id);
     void removeAll();

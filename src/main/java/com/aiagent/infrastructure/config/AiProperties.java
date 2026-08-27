@@ -120,6 +120,14 @@ public class AiProperties {
         private int port = 19530;
         private String databaseName = "cs_agent";
         private String collectionName = "ai_agent_documents";
+        /** 精选 FAQ collection（级联检索第一层：FAQ 优先命中，未命中回退 raw 库）。 */
+        private String faqCollectionName = "ecommerce_faq";
+        /** FAQ 命中阈值：top1 cosine 相似度达到该值才认为 FAQ 直接命中。 */
+        private double faqHitThreshold = 0.75;
+        /** FAQ 检索返回条数。 */
+        private int faqTopK = 3;
+        /** FAQ 优先级联检索总开关（FAQ 命中优先，未命中回退 raw 库）。 */
+        private boolean faqFirstEnabled = false;
         private int dimension = 1024;
         private int connectionTimeoutMs = 2000;
         private boolean readOnly = false;

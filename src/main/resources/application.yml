@@ -119,6 +119,11 @@ ai:
       port: ${MILVUS_PORT:19530}
       database-name: ${MILVUS_DATABASE_NAME:cs_agent}
       collection-name: ${MILVUS_COLLECTION_NAME:ai_agent_documents}
+      # FAQ 级联检索：FAQ 库优先命中，未命中回退 raw 库
+      faq-collection-name: ${MILVUS_FAQ_COLLECTION_NAME:ecommerce_faq}
+      faq-hit-threshold: ${MILVUS_FAQ_HIT_THRESHOLD:0.75}
+      faq-top-k: ${MILVUS_FAQ_TOP_K:3}
+      faq-first-enabled: ${MILVUS_FAQ_FIRST_ENABLED:false}
       dimension: 1024
       connection-timeout-ms: ${MILVUS_CONNECTION_TIMEOUT_MS:2000}
       read-only: ${MILVUS_READ_ONLY:false}
@@ -271,16 +276,26 @@ management:
 # 电商客服知识库导入配置
 # =============================================
 ecommerce:
-  ollama:
-    host: http://localhost:11434
-    model: bge-m3
-    dimension: 1024
   milvus:
     collection: ecommerce_qa
     dimension: 1024
-  import:
-    batch-size: 18
-    batch-interval-ms: 200
+  import-config:
+    # 每个批次处理的记录数（embedding 批量 + DB 批量）
+    batch-size: 64
+    # 批次间隔毫秒，0 表示不等待
+    batch-interval-ms: 0
+    # 内容哈希去重（record_hash 唯一索引兜底，支持断点续传）
+    deduplicate: true
+    # 意图分类器（关键词规则，对齐 silver-v2 六类意图）
+    classifier:
+      enabled: true
+      keywords:
+        shipping_logistics: ["快递","发货","物流","申通","韵达","顺丰","邮政","签收","运单","几天能到","邮费","送到","寄到","发货单"]
+        refund_return: ["退款","退货","退钱","退换","拒收","全额退","寄回","退货运费","能退","退吗","退回来"]
+        order_payment: ["付款","支付","下单","改价","订单","抬头","拍下","结算","购买","合并付款","一起付款"]
+        promotion_price: ["包邮","优惠","券","折扣","活动","价格","多少钱","满减","免邮","降价","便宜","几折","有活动"]
+        product_specification: ["规格","尺寸","斤","袋","包装","颜色","材质","大号","小号","克","毫升","粒","盒","份","几袋"]
+        after_sales_quality: ["坏","裂","破","少","缺","质量","售后","补发","换货","变质","发霉","过期","掉渣","瑕疵"]
   generator:
     # 每个类别生成的目标 QA 对数量（100x 提升，预算 3.0 元可支撑 ~8100 条）
     target-per-category: 500

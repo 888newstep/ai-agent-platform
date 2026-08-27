@@ -116,6 +116,32 @@ flowchart LR
 
 ---
 
+## 项目数据（Data Sources）
+
+本项目电商客服智能问答 / RAG 演示数据来源于开源公开数据集，声明如下：
+
+| 项 | 说明 |
+|------|------|
+| 数据集 | 电商客服_单轮对话（E_commerce_Customer_Service） |
+| 托管平台 | ModelScope 魔搭社区（阿里系开源平台，非 GitHub） |
+| 数据集链接 | https://modelscope.cn/datasets/modelscope_mp_677764216/E_commerce_Customer_Service |
+| 开源协议 | Apache License 2.0 |
+| 数据格式 | ShareGPT 格式 JSONL（`messages`：system / user / assistant 三元组，单轮客服问答） |
+| 数据规模 | `train_clean_v2_small.jsonl` 226,600 行（104.66MB）<br>`dev_clean_v2.jsonl` 16,205 行（7.45MB）<br>`test_clean_v2.jsonl` 3,320 行（1.53MB） |
+| 数据内容 | 电商客服真实聊天记录（覆盖商品咨询、物流、售后、价格等场景） |
+| 入库规模 | 清洗去重 + 统一向量化后共 **100,349 条唯一有效 QA 对**（Milvus `ecommerce_qa` + MySQL `ecommerce_qa_pairs`） |
+
+> 说明：原始语料含大量重复与噪音，项目仅保留可复现的数据引用与清洗结果；数据集版权归原提供方所有，商用请遵守 Apache 2.0 及提供方条款。
+>
+> 获取数据集：
+>
+> ```bash
+> git lfs install
+> git clone https://www.modelscope.cn/datasets/modelscope_mp_677764216/E_commerce_Customer_Service.git
+> ```
+
+---
+
 ## 快速开始
 
 ### 前置条件
