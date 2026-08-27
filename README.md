@@ -15,7 +15,7 @@ The platform supports **dynamic multi-model routing** across DeepSeek, Qianwen (
 
 Production observability is first-class: **Prometheus** metrics, **Grafana** dashboards, **Micrometer** custom timers/counters for chat latency, RAG search latency, and document ingestion throughput — all exposed through Spring Boot Actuator. The security layer includes **JWT stateless authentication**, **Admin API Key** for privileged endpoints, **Redis-based fixed-window rate limiting** (30 req/min), and a **token cost budget** system that estimates and caps per-request and per-minute token consumption.
 
-The project ships with **193 unit & integration tests** enforced by a **JaCoCo 45% line-coverage gate**, a full **GitHub Actions CI/CD pipeline** (build → test → coverage check → Docker image), and a **Docker Compose** stack that orchestrates MySQL 8.0, Redis 7, Milvus 2.4, the application, Prometheus, and Grafana in a single `docker compose up -d` command.
+The project ships with **372 unit & integration tests** enforced by a **JaCoCo 64% line-coverage gate** (gate 45%), a full **GitHub Actions CI/CD pipeline** (build → test → coverage check → Docker image), and a **Docker Compose** stack that orchestrates MySQL 8.0, Redis 7, Milvus 2.4, the application, Prometheus, and Grafana in a single `docker compose up -d` command.
 
 ---
 
@@ -549,7 +549,7 @@ Thanks to the people who have contributed to this project:
 
 - **ReAct Agent Loop** — Thought → Action → Observation → Final Answer reasoning cycle with triple safety guards: max 10 iterations, 3-minute timeout, and automatic termination after 3 consecutive identical observations.
 - **Adaptive RAG** — Query Router with configurable thresholds (`verification: 0.18`, `multi-hop: 0.28`, `direct: 0.45`), query rewriting, multi-round retrieval, and self-verification of retrieval results.
-- **Multi-Recall RAG** — Milvus vector search + BM25 keyword search + RRF (Reciprocal Rank Fusion, k=60) score merging, with per-route top-20 candidate retrieval and BM25 candidate pool of 50.
+- **Multi-Recall RAG** — Milvus vector search + BM25 keyword search + RRF (Reciprocal Rank Fusion, k=60) score merging, with per-route top-200 candidate retrieval and BM25 candidate pool of 200.
 - **Multi-Agent Orchestration** — Supervisor + Worker collaboration pattern with `WorkStealingPool`, per-Worker `orTimeout` degradation, and index-ordered result assembly for deterministic output.
 - **Semantic Cache** — Cosine-similarity-based caching (threshold 0.92, 24h TTL) that automatically caches answers for similar questions, significantly reducing LLM API costs.
 - **Tool Calling Framework** — Unified `ToolService` registry with automatic discovery, supporting `query_database` (whitelisted tables only) and `call_external_api` (host allowlist + private IP rejection).
@@ -573,8 +573,8 @@ Thanks to the people who have contributed to this project:
 
 - **Prometheus + Grafana** — Pre-configured dashboards for AI Agent Platform overview; Micrometer custom metrics (`ai.chat.latency`, `ai.rag.search.latency`, `ai.document.ingestion.latency`) with histogram distribution.
 - **RAG Evaluation** — Built-in evaluation service producing recall, precision, F1, avg latency, and P99 latency per category; supports multiple topK values, profile comparison, and historical report export.
-- **CI/CD** — GitHub Actions pipeline: build → 193 tests → JaCoCo 45% line-coverage gate → Docker image build.
-- **Testing** — 193 unit and integration tests (JUnit 5 + Mockito + MockMvc), H2 in-memory database for test isolation, Flyway schema migration validation.
+- **CI/CD** — GitHub Actions pipeline: build → 372 tests → JaCoCo 64% line-coverage gate → Docker image build.
+- **Testing** — 372 unit and integration tests (JUnit 5 + Mockito + MockMvc), H2 in-memory database for test isolation, Flyway schema migration validation.
 
 #### Infrastructure & Deployment
 
