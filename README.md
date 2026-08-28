@@ -1,45 +1,37 @@
 # AI Agent Platform
 
-基于 Spring Boot 3 + LangChain4j 构建的企业级 AI Agent 平台，集成 ReAct 推理循环、多路召回 RAG、语义缓存和工具调用框架。
+基于 **Spring Boot 3.5 + LangChain4j 0.34** 构建的 AI Agent 服务端框架，内置 ReAct 推理循环、多路召回 RAG、语义缓存与工具调用，开箱即用、可观测、可评测，适合作为企业级智能问答 / 客服系统的后端底座。
 
 [![CI/CD Pipeline](https://github.com/888newstep/ai-agent-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/888newstep/ai-agent-platform/actions/workflows/ci.yml)
 [![JDK 17](https://img.shields.io/badge/JDK-17-blue.svg)](https://adoptium.net/)
 [![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.5-green.svg)](https://spring.io/projects/spring-boot)
 [![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](LICENSE)
 
-## Introduction
-
-An enterprise-grade **AI Agent Platform** built on **Spring Boot 3.5** and **LangChain4j 0.34**, designed as a production-ready foundation for building intelligent conversational systems. The platform provides a self-implemented **ReAct reasoning loop** with built-in safety guards (max-step limit, timeout control, and repeated-observation circuit breaker), an **adaptive multi-recall RAG pipeline** that combines Milvus vector search, BM25 keyword retrieval, and RRF (Reciprocal Rank Fusion) ranking, **semantic caching** that reduces redundant LLM API calls via embedding cosine similarity (threshold 0.92, 24h TTL), and a **pluggable tool-calling framework** supporting database queries and external API invocation through a unified registry.
-
-The platform supports **dynamic multi-model routing** across DeepSeek, Qianwen (通义千问), Doubao (豆包), Qwen3-Flash, and local Ollama models via `@ConditionalOnProperty`-driven strategy switching, with automatic degradation to the local model when the primary provider fails. On the resilience front, **Resilience4j** wraps all LLM calls with a CircuitBreaker (50% failure-rate threshold, 30s open-state wait) and a Retry policy (3 attempts, 2s interval) to ensure graceful degradation under LLM service instability.
-
-Production observability is first-class: **Prometheus** metrics, **Grafana** dashboards, **Micrometer** custom timers/counters for chat latency, RAG search latency, and document ingestion throughput — all exposed through Spring Boot Actuator. The security layer includes **JWT stateless authentication**, **Admin API Key** for privileged endpoints, **Redis-based fixed-window rate limiting** (30 req/min), and a **token cost budget** system that estimates and caps per-request and per-minute token consumption.
-
-The project ships with **372 unit & integration tests** enforced by a **JaCoCo 64% line-coverage gate** (gate 45%), a full **GitHub Actions CI/CD pipeline** (build → test → coverage check → Docker image), and a **Docker Compose** stack that orchestrates MySQL 8.0, Redis 7, Milvus 2.4, the application, Prometheus, and Grafana in a single `docker compose up -d` command.
-
 ---
 
-## 为什么选择 AI Agent Platform？
+## 它解决什么问题
 
-与 Spring AI、低代码平台、普通 CRUD Demo 相比，这个项目的独特组合是 **面试导向 + 企业级可观测 + 语义缓存降本**：
+构建一个生产可用的 Agent 服务，通常会卡在几个地方：**召回不准**（答非所问）、**成本失控**（每次请求都调一次大模型）、**不可观测**（出了问题不知道哪一环挂了）、**难以验证**（上线前不知道效果到底怎么样）。本项目把这几件事做成了开箱即用的工程能力：
 
-| 对比对象 | 差异化优势 |
-|---------|-----------|
-| Spring AI / Spring AI Alibaba | 自研 ReAct 推理循环、Adaptive RAG、多路召回 RRF 融合、会话摘要压缩；源码即可当作面试题解 |
-| Dify / 扣子等低代码平台 | 面向开发者而非业务人员：可扩展的工具注册表、可观测（Prometheus/Grafana）、可复现 RAG 评测 |
-| 普通 CRUD / Demo 项目 | 语义缓存降低 API 成本、JMeter 压测、质量基线度量，是一套可量化的工程实践 |
+- **答得准**：多路召回（向量 + 关键词）+ RRF 融合 + 证据门禁，回答必须有知识库证据支撑
+- **省成本**：语义缓存 + 多模型路由 + 本地模型降级，相似问题直接命中缓存不再重复调用
+- **看得见**：Prometheus / Grafana 观测整条链路，每个环节都有指标
+- **可验证**：内置 RAG 评测服务，用独立数据集量化召回率 / 准确率 / 延迟
 
-> **🎯 适用人群**
-> - 正在准备大厂 Java / AI 岗位面试的求职者（覆盖高频面试考点）
-> - 需要快速搭建 AI 客服系统的中小企业或独立开发者
-> - 想学习 RAG + Agent 完整落地实践的技术爱好者
-> - 需要可扩展 AI Agent 框架的产品开发者
+## 核心能力
 
----
+| 能力 | 做了什么 | 效果 |
+|------|---------|------|
+| **ReAct 推理循环** | Thought → Action → Observation → Answer，带死循环 / 超时 / 步数三重防护 | 复杂问题可拆解执行，稳定收敛 |
+| **Adaptive RAG** | 查询路由 + 改写 + 多轮检索 + 结果自验证 | FAQ 域内 R@1 达到 **98.3%**（multi-gold，120 例） |
+| **多路召回** | Milvus 向量 + BM25 关键词 + RRF(k=60) 融合 | 单 gold 基线 R@1 47.5% → R@5 62.5% |
+| **语义缓存** | embedding 余弦相似度（0.92 阈值，24h TTL） | 相似问题命中缓存，显著降低 API 成本 |
+| **证据门禁** | 回答前校验检索证据等级，证据不足转人工 | 客服场景避免模型"编造"答案 |
+| **多模型路由** | DeepSeek / 通义千问 / 豆包 / Qwen3-Flash / Ollama 策略切换 | 主模型故障自动降级本地模型 |
+| **工具调用** | 统一注册表：查库（白名单表）+ 外部 API（域名白名单） | Agent 具备执行动作能力 |
+| **可观测** | Micrometer 自定义指标 + Prometheus + Grafana | 聊天 / 检索 / 入库延迟一目了然 |
 
 ## 架构总览
-
-> 完整架构设计请参阅 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -67,87 +59,14 @@ The project ships with **372 unit & integration tests** enforced by a **JaCoCo 6
 
 **核心链路**：请求进入 → 语义缓存命中直接返回（降本）→ 未命中走 ReAct / Adaptive RAG（向量 + BM25 + RRF，工具调用）→ 长会话由 LongContextManager 滑动窗口 + 摘要压缩 → 结果回写缓存并流式（SSE）返回。
 
-### 架构图（Mermaid）
-
-```mermaid
-flowchart LR
-    Client[客户端] -->|SSE 流式| API[Chat/ReAct/Document API]
-    API --> Cache{SemanticCache<br/>余弦相似度命中?}
-    Cache -- 命中 --> Client
-    Cache -- 未命中 --> Agent[ReAct Agent 循环]
-    Agent --> RAG[MultiRecall<br/>Vector+BM25+RRF]
-    Agent --> Tools[ToolService<br/>查库/外部API]
-    RAG --> Session[(Redis<br/>会话+摘要)]
-    Agent --> Session
-    Session --> Models[AI Models<br/>DeepSeek/千问/豆包/Ollama]
-    RAG --> Milvus[(Milvus<br/>向量库)]
-    Agent -.指标.-> Observe[Prometheus/Grafana]
-```
-
----
-
-## 功能特性
-
-- **ReAct Agent 循环** — Thought → Action → Observation → Final Answer 推理循环，含死循环防护和超时控制
-- **Adaptive RAG** — Query Router、查询改写、自适应多轮检索与 Self-RAG 结果验证
-- **多路召回 RAG** — 向量检索（Milvus）+ BM25 关键词检索 + RRF 融合排序
-- **语义缓存** — 基于 embedding 余弦相似度，自动缓存相似问题回答，降低 API 成本
-- **API 保护** — Redis 分布式固定窗口限流 + 估算 Token 预算，按认证主体/IP 隔离高成本请求
-- **多模型支持** — 策略模式动态切换（DeepSeek / 通义千问 / 豆包 / Qwen3-Flash / Ollama 本地）
-- **工具调用框架** — 数据库查询、外部 API 调用，注册表模式自动发现
-- **流式输出** — SSE 实时推送，5 分钟超时保护
-- **会话管理** — Redis 存储会话上下文，24 小时 TTL 自动过期
-- **Docker 一键部署** — 核心 4 个服务编排（MySQL + Redis + Milvus + App），Prometheus/Grafana 可选
-
----
-
-## 技术栈
-
-| 层级 | 技术 |
-|------|------|
-| 框架 | Spring Boot 3.5, LangChain4j 0.34 |
-| 语言 | Java 17 |
-| 数据库 | MySQL 8.0, Redis 7, Milvus 2.4 |
-| AI 模型 | DeepSeek, 通义千问, 豆包, Qwen3-Flash, Ollama |
-| 嵌入模型 | BGE-M3 (SiliconFlow API) |
-| 部署 | Docker, Docker Compose |
-| 压测与观测 | JMeter 5.6, Prometheus, Grafana |
-| CI/CD | GitHub Actions |
-
----
-
-## 项目数据（Data Sources）
-
-本项目电商客服智能问答 / RAG 演示数据来源于开源公开数据集，声明如下：
-
-| 项 | 说明 |
-|------|------|
-| 数据集 | 电商客服_单轮对话（E_commerce_Customer_Service） |
-| 托管平台 | ModelScope 魔搭社区（阿里系开源平台，非 GitHub） |
-| 数据集链接 | https://modelscope.cn/datasets/modelscope_mp_677764216/E_commerce_Customer_Service |
-| 开源协议 | Apache License 2.0 |
-| 数据格式 | ShareGPT 格式 JSONL（`messages`：system / user / assistant 三元组，单轮客服问答） |
-| 数据规模 | `train_clean_v2_small.jsonl` 226,600 行（104.66MB）<br>`dev_clean_v2.jsonl` 16,205 行（7.45MB）<br>`test_clean_v2.jsonl` 3,320 行（1.53MB） |
-| 数据内容 | 电商客服真实聊天记录（覆盖商品咨询、物流、售后、价格等场景） |
-| 入库规模 | 清洗去重 + 统一向量化后共 **100,349 条唯一有效 QA 对**（Milvus `ecommerce_qa` + MySQL `ecommerce_qa_pairs`） |
-
-> 说明：原始语料含大量重复与噪音，项目仅保留可复现的数据引用与清洗结果；数据集版权归原提供方所有，商用请遵守 Apache 2.0 及提供方条款。
->
-> 获取数据集：
->
-> ```bash
-> git lfs install
-> git clone https://www.modelscope.cn/datasets/modelscope_mp_677764216/E_commerce_Customer_Service.git
-> ```
-
----
+> 完整架构设计请参阅 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## 快速开始
 
 ### 前置条件
 
 - JDK 17+
-- Docker & Docker Compose (推荐)
+- Docker & Docker Compose（推荐）
 - Maven 3.9+
 
 ### 1. 克隆项目
@@ -161,34 +80,22 @@ cd ai-agent-platform
 
 ```bash
 cp .env.example .env
-# 编辑 .env 填入你的 API 密钥
+# 编辑 .env 填入你的 API 密钥（模型 / 嵌入 / Milvus 等）
 ```
 
-### 当前混合部署拓扑
+### 3. 启动
 
-本项目支持本地应用 + 云端向量库的开发方式：本地 Win11 运行 MySQL `localhost:3306` 和 Redis `localhost:6379`，云服务器运行 Milvus `19530`；通过 `MILVUS_HOST`、`MILVUS_DATABASE_NAME` 和 `MILVUS_COLLECTION_NAME` 指定目标。复用已有云端 collection 做评测时，建议设置 `MILVUS_READ_ONLY=true`，避免启动或导入流程修改线上数据。RabbitMQ 当前未进入 `newagent` 的代码依赖和运行链路，端口可达不代表项目已经接入该组件。
-
-启动应用或运行评测前，可先执行混合部署预检：
-
-```powershell
-$env:MILVUS_HOST = "your-cloud-milvus-host"
-$env:RABBITMQ_HOST = "your-cloud-rabbitmq-host"
-.\scripts\check-infrastructure.ps1
-```
-
-脚本默认检查本机 `MYSQL_HOST/MYSQL_PORT`、`REDIS_HOST/REDIS_PORT` 和 Milvus `MILVUS_*` 配置；RabbitMQ 仅在设置 `RABBITMQ_HOST` 或传入 `-RabbitHost` 时检查。脚本不读取 `.env` 文件、不输出密码、不查询或修改 collection 数据，只验证 TCP 可达性以及 Milvus database/collection 名称是否配置。
-
-### 3. 启动方式
-
-混合部署时，应用可以在本机 IDE 或 Maven 中启动；确保启动配置中已经注入 `.env` 中的环境变量，并将 `MILVUS_HOST` 指向云端地址。复用已有云端 collection 做只读评测时，再设置 `MILVUS_READ_ONLY=true`。不要同时依赖 Docker Compose 启动的本地 Milvus。
-
-如果希望使用全本地依赖，再使用下面的 Docker Compose 方式：
+全本地依赖（一条命令启动 MySQL + Redis + Milvus + 应用）：
 
 ```bash
 docker compose up -d
 ```
 
-该命令会启动本地 MySQL、Redis、Milvus 和应用容器，属于独立的全本地拓扑；它不会验证或使用云端 Milvus/RabbitMQ。
+也支持**混合拓扑**：本机跑应用 + MySQL + Redis，Milvus 用云端实例（通过 `MILVUS_HOST` 等环境变量指定）。启动前可先跑预检脚本确认依赖可达：
+
+```powershell
+.\scripts\check-infrastructure.ps1
+```
 
 ### 4. 验证
 
@@ -197,53 +104,35 @@ curl http://localhost:8081/api/v1/agent/health
 # 返回: {"status":"UP","service":"AI Customer Service Agent","version":"1.0.0"}
 ```
 
----
+## 使用示例
 
-## API 使用示例
-
-### 创建会话
+创建会话并聊天：
 
 ```bash
 curl -X POST http://localhost:8081/api/v1/agent/session
-```
 
-### 普通聊天
-
-```bash
 curl -X POST "http://localhost:8081/api/v1/agent/chat?sessionId={sessionId}&question=你好&useRag=true"
 ```
 
-### ReAct 模式聊天（推理 + 工具调用）
+ReAct 模式（推理 + 工具调用）：
 
 ```bash
 curl -X POST "http://localhost:8081/api/v1/agent/react/chat?sessionId={sessionId}&question=查询数据库中的用户数量&useRag=true"
 ```
 
-### 流式聊天
+流式聊天（SSE）：
 
 ```bash
 curl -N "http://localhost:8081/api/v1/agent/chat/stream?sessionId={sessionId}&question=请详细介绍RAG技术"
 ```
 
-### 上传文档
+上传文档建知识库：
 
 ```bash
 curl -X POST -F "file=@文档.pdf" http://localhost:8081/api/v1/agent/document/upload
 ```
 
-### 缓存管理
-
-[`DELETE /api/v1/agent/cache`](src/main/java/com/aiagent/agent/api/AiAgentController.java:161) 清除全部语义缓存。
-
-### 文档搜索
-
-[`POST /api/v1/agent/document/search`](src/main/java/com/aiagent/agent/api/AiAgentController.java:148) 按向量检索上传的文档切片，支持自定义 topK 和阈值参数。
-
-### 客服问答与反馈
-
-客服入口强制使用知识库证据。只有验证等级达到 `CS_MINIMUM_VERIFICATION_LEVEL`（默认 `HIGH`），且所有 `qa_pair_id` 在 MySQL 中仍为启用状态时才调用模型；证据不足时返回固定转人工结果，Milvus 或 Embedding 故障返回 `503`。
-
-客服 QA collection 使用 `AI_VECTOR_STORE_MODE=qa`，并包含 `qa_pair_id/question/answer/qa_text/category` 字段。文件知识库使用 `AI_VECTOR_STORE_MODE=langchain`；升级后需重新摄取旧文档，使向量元数据包含 `documentId`，否则客服入口会把无法追溯到 MySQL 的旧证据视为不可靠并转人工。
+客服问答（强制证据门禁，需 JWT）：
 
 ```bash
 curl -X POST "http://localhost:8081/api/v1/customer-support/chat" \
@@ -251,202 +140,51 @@ curl -X POST "http://localhost:8081/api/v1/customer-support/chat" \
   -H "Idempotency-Key: cs-chat-001" \
   -H "Content-Type: application/json" \
   -d '{"sessionId":"{sessionId}","question":"订单如何申请退款？"}'
-
-curl -X POST "http://localhost:8081/api/v1/customer-support/sessions/{sessionId}/messages/{messageId}/feedback" \
-  -H "Authorization: Bearer ${JWT_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '{"rating":5,"feedbackText":"回答准确"}'
 ```
 
-聊天响应中的 `messageId` 用于提交反馈。相同反馈重复提交会返回原记录，不同内容重复提交返回 `409`。数据库迁移 `V8__add_customer_support_feedback_constraints.sql` 会为 `(session_id, message_id)` 建立唯一约束，并在消息删除时级联清理反馈。
+## 评测与质量
 
-### 评测报告历史
+项目内置一套可复现的 RAG 评测体系，用独立数据集量化检索与回答质量，避免"感觉还行"：
 
-评测接口需要管理员凭证。导出报告后，可以列出最近报告并比较两次评测的指标变化：
+- **FAQ 检索（multi-gold）**：120 例、6 类别，R@1 **98.3%**、六类均 ≥ 91.67%，P95 181ms
+- **单 gold 基线**：R@1 47.5%、R@5 62.5%（用于版本间回归对比）
+- **测试**：372 个单元 / 集成测试，JaCoCo 行覆盖率 **64%**（门禁 45%）
+- **压测**：JMeter 参数化压测计划，可量化吞吐与延迟分布
 
-```bash
-curl -H "X-Admin-Api-Key: ${ADMIN_API_KEY}" \
-  "http://localhost:8081/api/v1/agent/evaluate/history?limit=20"
-
-curl -H "X-Admin-Api-Key: ${ADMIN_API_KEY}" \
-  "http://localhost:8081/api/v1/agent/evaluate/history/compare?baseline={fileName}&candidate={fileName}"
-```
-
-比较结果中的 `metricDeltas` 使用 `candidate - baseline`，并在数据集来源、样本数或 `topKs` 不一致时标记为不可直接比较。
-
-### 可复现 RAG 评测
-
-仓库提供最小示例数据集 `examples/evaluation-datasets/rag-sample.json`，默认配置已指向该目录。详细的双配置真实评测流程见 `docs/RAG_BENCHMARK.md`，运行脚本为 `scripts/run-rag-evaluation.ps1`。数据集中的 `relevantDocIds` 必须对应目标 vector store 的 ID：通用文档模式使用 chunk ID，QA 模式使用 `qa_pair_id`；只有先确认这些 ID 已存在，召回率和准确率才具有业务意义。若复用已有 QA collection（包括当前云端的 `cs_agent.ai_agent_documents` 或 `ecommerce_qa`），必须设置 `AI_VECTOR_STORE_MODE=qa`、对应的 `MILVUS_COLLECTION_NAME` 和 `MILVUS_READ_ONLY=true`；这些 collection 不能使用默认的 LangChain4j 通用文档 schema。真实数据请通过 `AI_EVALUATION_DATASET_DIRECTORY` 指向本地私有目录，避免提交到 GitHub。
+详细评测方法与复现步骤见 [docs/RAG_BENCHMARK.md](docs/RAG_BENCHMARK.md)、[docs/EVIDENCE_VERIFICATION.md](docs/EVIDENCE_VERIFICATION.md)，运行脚本 `scripts/run-rag-evaluation.ps1`。
 
 ```bash
+# 用最小示例集跑一次评测（topK=1,3,5）
 curl -X POST \
   -H "X-Admin-Api-Key: ${ADMIN_API_KEY}" \
   "http://localhost:8081/api/v1/agent/evaluate/export?datasetPath=examples/evaluation-datasets/rag-sample.json&topKs=1,3,5"
 ```
 
-### 证据重排与支持性评测
+> 正式评测请使用独立人工标注数据集（`independent-human-labeled`），不要用公开样例或 smoke 数据冒充业务基线。
 
-默认使用现有 Embedding 模型完成二阶段语义重排。生产环境可切换到标准 `/v1/rerank` cross-encoder 服务：
+## 安全设计
 
-```powershell
-$env:AI_RAG_RERANK_PROVIDER = "cross-encoder"
-$env:AI_RAG_RERANK_API_KEY = "your-reranker-api-key"
-$env:AI_RAG_RERANK_MODEL = "BAAI/bge-reranker-v2-m3"
-$env:AI_RAG_RERANK_MIN_SCORE = "0.55"
-$env:AI_RAG_RERANK_FALLBACK_TO_EMBEDDING = "false"
+| 层 | 措施 |
+|----|------|
+| 认证 | JWT 无状态鉴权（BCrypt 存储）、`X-Admin-Api-Key` 管理端密钥 |
+| 限流 | Redis 固定窗口限流（默认 30 req/min），按 IP 隔离 |
+| 预算 | 单请求 Token 估算上限 + 每分钟预算，超限 fail-open |
+| 工具安全 | 数据库白名单表、外部 API 域名白名单 + 拒绝私网地址 |
+| 证据门禁 | 客服回答必须通过证据等级校验，否则转人工 |
+
+## 配置说明
+
+模型切换（`application.yml`）：
+
+```yaml
+ai:
+  model:
+    provider: deepseek   # 可选: deepseek, qianwen, doubao, qwen3-flash, local
+  embedding:
+    provider: siliconflow # 可选: local, local-qwen3, siliconflow
 ```
 
-启用 cross-encoder 后，超时、非 2xx、缺失分数、重复索引和非法分数默认都会关闭证据放行。只有显式设置 `AI_RAG_RERANK_FALLBACK_TO_EMBEDDING=true` 才允许退回 embedding 重排。
-
-管理员可运行人工标注证据集评测。`liveRerank=false` 用冻结分数做稳定回归；`liveRerank=true` 调用当前真实 reranker，用于阈值校准：
-
-```powershell
-Invoke-RestMethod -Method Post `
-  -Headers @{ "X-Admin-Api-Key" = $env:ADMIN_API_KEY } `
-  -Uri "http://localhost:8081/api/v1/agent/evaluate/evidence?datasetPath=examples/evaluation-datasets/evidence-verification-sample.json&liveRerank=false"
-```
-
-报告包含混淆矩阵、Accuracy、Precision、Recall、F1 和 `falsePositiveRate`。生产阈值调整应优先压低误放率，并使用至少 100 条独立人工标注的客服困难负样本；详细流程见 `docs/EVIDENCE_VERIFICATION.md`。
----
-
-正式评测不要直接复用公开样例或由向量 Top-K 自动生成的 smoke 数据。先在本地私有目录完成结构校验，再将数据集类型标记为 `independent-human-labeled`：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/validate-rag-dataset.ps1 `
-  -DatasetPath 'C:\private\rag-datasets\customer-faq.json' `
-  -DatasetKind independent-human-labeled `
-  -MinCases 30 `
-  -MinCategories 3 `
-  -RequireCategory
-
-powershell -ExecutionPolicy Bypass -File scripts/run-rag-evaluation.ps1 `
-  -DatasetPath 'C:\private\rag-datasets\customer-faq.json' `
-  -DatasetKind independent-human-labeled `
-  -VectorStoreMode qa `
-  -MilvusCollection ecommerce_qa `
-  -MilvusReadOnly true
-```
-
-`validate-rag-dataset.ps1` 只检查文件结构、重复问题、类别和 `relevantDocIds` 是否非空，不会验证 ID 是否存在于 Milvus，也不能替代人工复核。`datasetKind` 会写入本地评测汇总报告，避免把 sample/smoke 结果误当成正式业务基准。
-
-### Adaptive RAG 批量回放
-
-使用公开样例或本地私有 query 文件批量调用 `/api/v1/agent/rag/debug`，输出 routeType、verificationLevel、endReason、检索轮次和客户端延迟分布，并标记 `evidenceStatus` 与 `benchmarkReady`。当 `benchmarkReady=false` 或证据状态为 `empty` 时，只能用于诊断数据链路，不能当作有效 RAG 基线。脚本默认不保存原始问题和答案上下文；需要本地诊断时再显式传入 `-IncludeQuestions`。报告写入 `evaluation-reports/`，不会提交到 GitHub。
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/replay-adaptive-rag.ps1 `
-  -AdminApiKey $env:ADMIN_API_KEY
-```
-
-输入文件可以是现有评测 JSON 数组，也可以是包含 `queries` 数组的 JSON 对象；每项至少包含 `question` 字段，可选 `category` 字段。该回放脚本用于分析 Agent 决策链，不等价于带 `relevantDocIds` 的检索质量评测。
-
-### JMeter 并发压测
-
-仓库提供参数化的 JMeter 非 GUI 测试计划，详细边界、参数和结果解释见 [`docs/JMETER_LOAD_TEST.md`](docs/JMETER_LOAD_TEST.md)。默认只压测公开健康接口；只读文档搜索场景会真实访问 Embedding/Milvus，但不会上传或修改文档。
-
-```powershell
-.\scripts\run-jmeter-smoke.ps1 `
-  -Scenario health `
-  -Threads 5 `
-  -RampUpSeconds 5 `
-  -DurationSeconds 30 `
-  -FailOnErrors
-```
-
-当前混合拓扑中，JMeter 在本地 Win11 运行并访问本地应用；应用再连接本地 MySQL/Redis 和云端 Milvus。RabbitMQ 当前仅做可选连通性预检，不能把其端口可达写成项目已接入。
-## 架构设计
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    AI Agent Platform                         │
-├─────────────────────────────────────────────────────────────┤
-│  Controller Layer                                           │
-│  ┌─────────────┐ ┌──────────────┐ ┌──────────────────┐     │
-│  │ Chat API     │ │ ReAct API    │ │ Document API     │     │
-│  └──────┬───────┘ └──────┬───────┘ └────────┬─────────┘     │
-├─────────┼────────────────┼──────────────────┼───────────────┤
-│  Service Layer           │                  │               │
-│  ┌──────┴────────┐ ┌─────┴──────┐ ┌────────┴──────────┐    │
-│  │ AiAgentService│ │ ReActAgent  │ │ DocumentService   │    │
-│  └──────┬────────┘ └─────┬──────┘ └────────┬──────────┘    │
-│         │                │                  │               │
-│  ┌──────┴────────────────┴──────────────────┴──────────┐    │
-│  │              SemanticCacheService                    │    │
-│  └──────────────────────┬──────────────────────────────┘    │
-├─────────────────────────┼──────────────────────────────────┤
-│  Retrieval Layer        │                                   │
-│  ┌──────────────────────┴──────────────────────────────┐    │
-│  │              MultiRecallService                     │    │
-│  │  ┌────────────────┐  ┌──────────────────────────┐   │    │
-│  │  │ Vector Search  │  │  BM25 Keyword Search     │   │    │
-│  │  │ (Milvus)       │  │  (Bm25Search)            │   │    │
-│  │  └────────┬───────┘  └──────────┬───────────────┘   │    │
-│  │           └──────────┬──────────┘                    │    │
-│  │                  RRF Fusion                          │    │
-│  └──────────────────────────────────────────────────────┘    │
-├──────────────────────────────────────────────────────────────┤
-│  Tool Layer                                                   │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │  ToolService (query_database / call_external_api)    │    │
-│  └──────────────────────────────────────────────────────┘    │
-├──────────────────────────────────────────────────────────────┤
-│  Infrastructure Layer                                        │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐    │
-│  │  MySQL   │ │  Redis   │ │  Milvus  │ │  AI Models   │    │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────────┘    │
-└──────────────────────────────────────────────────────────────┘
-```
-
-> 详细架构设计请参阅 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-
----
-
-## ReAct Agent 详解
-
-### 核心循环
-
-```
-Thought: 分析问题，决定下一步行动
-    ↓
-Action: 选择工具（query_database / call_external_api）
-    ↓
-Action Input: 工具参数
-    ↓
-Observation: 工具执行结果
-    ↓
-（重复以上步骤，直到得到足够信息）
-    ↓
-Final Answer: 给出最终回答
-```
-
-### 安全机制
-
-| 机制 | 说明 |
-|------|------|
-| 最大迭代步数 | 默认 10 步，防止无限循环 |
-| 超时控制 | 整体任务 3 分钟超时 |
-| 死循环检测 | 相同 Observation 连续出现 3 次则终止 |
-| 异常捕获 | LLM 调用或工具执行失败时优雅降级 |
-
----
-
-## 多路召回 RAG
-
-### 召回流程
-
-1. **向量检索** — Milvus 语义相似度检索，捕获语义相近的文档
-2. **BM25 关键词检索** — 关键词精确匹配，捕获包含特定术语的文档
-3. **RRF 融合** — 倒数排名融合算法，合并两路结果
-
-### RRF 公式
-
-```
-score(d) = Σ 1/(k + rank_i(d))
-```
-
-其中 `k=60`，`rank_i(d)` 是文档 d 在第 i 路检索中的排名。
-
----
+所有敏感配置通过环境变量注入（参考 `.env.example`）。**生产环境务必设置 `JWT_SECRET` 和 `ADMIN_API_KEY`。**
 
 ## 项目结构
 
@@ -467,129 +205,29 @@ src/main/java/com/aiagent/
 ├── chat/                            # 会话与 SSE 流式响应
 └── shared/                          # 公共响应体与异常处理
 ```
----
 
-## 配置说明
+## 数据来源
 
-> 安全提示：启动前必须通过环境变量设置 `JWT_SECRET` 和 `ADMIN_API_KEY`。仓库中的 `.env.example` 仅是占位模板，不要直接用于生产环境。
+项目内的电商客服问答演示数据来自 [ModelScope 开源数据集 E_commerce_Customer_Service](https://modelscope.cn/datasets/modelscope_mp_677764216/E_commerce_Customer_Service)（Apache 2.0），清洗去重后入库 **100,349 条**唯一有效 QA 对（Milvus + MySQL）。版权归原提供方所有，商用请遵守 Apache 2.0 条款。
 
-### 模型切换
+## 更新日志
 
-在 `application.yml` 中修改 `ai.model.provider`：
+### [v1.0.0] — 2026-08-17（首个正式版）
 
-```yaml
-ai:
-  model:
-    provider: deepseek   # 可选: deepseek, qianwen, doubao, qwen3-flash, local
-```
+- **Agent 核心**：ReAct 推理循环（最大 10 步 / 3 分钟超时 / 连续 3 次相同观测自动终止）；Supervisor + Worker 多智能体编排（WorkStealingPool、按序聚合输出）
+- **RAG**：Adaptive RAG（查询路由阈值可配、改写、多轮检索、自验证）；多路召回（Milvus 向量 + BM25 + RRF k=60，候选池 top-200）
+- **成本控制**：语义缓存（0.92 阈值 / 24h TTL）；多模型路由 + 故障自动降级本地模型
+- **长上下文**：滑动窗口（size 10）+ 周期摘要压缩（每 5 条消息），控制在模型上下文内
+- **安全**：JWT + Admin API Key + Redis 限流 + Token 预算 + 工具白名单
+- **可观测**：Prometheus / Grafana 预置看板；`ai.chat.latency` / `ai.rag.search.latency` 等自定义指标
+- **工程**：372 测试 + JaCoCo 64% 门禁 + GitHub Actions CI（build → test → coverage → Docker）；Docker Compose 一键编排 6 服务（MySQL / Redis / Milvus / App / Prometheus / Grafana）；Flyway 版本化迁移
+- **领域模块**：电商知识批量导入（batch=18 适配 8192 token 嵌入限制，Milvus + MySQL 双写）；客服数据导入（断点续跑）；文档管理（PDF/Word/Markdown/TXT 解析，500 字分块 + 50 重叠）
 
-### 嵌入模型切换
+## 贡献
 
-```yaml
-ai:
-  embedding:
-    provider: siliconflow  # 可选: local, local-qwen3, siliconflow
-```
+欢迎任何形式的贡献——提 Issue、修 Bug、补文档、加功能都行。请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-### 环境变量
-
-参考 `.env.example` 文件，所有敏感配置通过环境变量注入。
-
----
-
-## 面试价值
-
-该项目适用于以下面试场景：
-
-### Java 后端岗
-
-| 知识点 | 项目体现 |
-|--------|---------|
-| Spring Boot 启动流程 | AiModelConfig 自动配置、@ConditionalOnProperty |
-| 策略模式 | 多模型动态切换 |
-| Redis 缓存 | 会话管理、语义缓存 |
-| 数据库优化 | JPA + 连接池配置 |
-| Docker 部署 | 4 服务编排、健康检查 |
-
-### AI 应用岗
-
-| 知识点 | 项目体现 |
-|--------|---------|
-| ReAct Agent | 完整推理循环、死循环防护、超时控制 |
-| 长上下文管理 (Q174) | 滑动窗口 + 摘要压缩 + 历史检索 |
-| RAG 效果评估 (Q173) | 召回率/准确率/F1/延迟量化评估 |
-| RAG 优化 | 多路召回 + RRF 融合 |
-| 成本控制 | 语义缓存、本地模型降级 |
-| Embedding | SiliconFlow BGE-M3 接入 |
-| 向量数据库 | Milvus 集合创建、索引构建 |
-| 多智能体 (Q147) | Supervisor + Worker 协作模式 |
-| SSE 流式输出 (Q151-153) | 心跳机制 + 虚拟线程管理 |
-
----
-
-## Contributors
-
-Thanks to the people who have contributed to this project:
-
-<a href="https://github.com/codeAnqiang-ma">
-  <img src="https://github.com/codeAnqiang-ma.png" width="40px" alt="codeAnqiang-ma" />
-</a>
-
-> Want to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md). All contributions are welcome!
-
----
-
-## Release Notes
-
-### [v1.0.0] — 2026-08-17
-
-> Initial public release
-
-#### Core Capabilities
-
-- **ReAct Agent Loop** — Thought → Action → Observation → Final Answer reasoning cycle with triple safety guards: max 10 iterations, 3-minute timeout, and automatic termination after 3 consecutive identical observations.
-- **Adaptive RAG** — Query Router with configurable thresholds (`verification: 0.18`, `multi-hop: 0.28`, `direct: 0.45`), query rewriting, multi-round retrieval, and self-verification of retrieval results.
-- **Multi-Recall RAG** — Milvus vector search + BM25 keyword search + RRF (Reciprocal Rank Fusion, k=60) score merging, with per-route top-200 candidate retrieval and BM25 candidate pool of 200.
-- **Multi-Agent Orchestration** — Supervisor + Worker collaboration pattern with `WorkStealingPool`, per-Worker `orTimeout` degradation, and index-ordered result assembly for deterministic output.
-- **Semantic Cache** — Cosine-similarity-based caching (threshold 0.92, 24h TTL) that automatically caches answers for similar questions, significantly reducing LLM API costs.
-- **Tool Calling Framework** — Unified `ToolService` registry with automatic discovery, supporting `query_database` (whitelisted tables only) and `call_external_api` (host allowlist + private IP rejection).
-
-#### Model & Resilience
-
-- **Dynamic Model Routing** — 5 providers via `@ConditionalOnProperty`: DeepSeek, Qianwen, Doubao, Qwen3-Flash, and local Ollama; automatic degradation to the local model on primary provider failure.
-- **Resilience4j Protection** — CircuitBreaker (50% failure-rate threshold, 30s wait in open state, 3 calls in half-open) + Retry (3 attempts, 2s interval) wrapping all LLM calls; unified `LlmServiceUnavailableException`.
-- **Long Context Management** — Sliding window (size 10) with periodic summary compression (every 5 messages) to keep conversation history within model context limits.
-
-#### Security & Protection
-
-- **JWT Authentication** — Stateless token-based auth with configurable expiration (default 24h), BCrypt password storage.
-- **Admin API Key** — Privileged header (`X-Admin-Api-Key`) for evaluation endpoints, cache management, and knowledge import.
-- **Rate Limiting** — Redis-based fixed-window rate limiting (configurable, default 30 req/min) with IP-level isolation.
-- **Token Cost Budget** — Per-request token estimation (max 4,000 tokens) and per-minute budget (max 12,000 tokens) with fail-open fallback.
-- **CORS** — Fully configurable via environment variables (`AI_CORS_ALLOWED_ORIGINS`, `AI_CORS_ALLOWED_METHODS`, etc.).
-- **Public Metrics Toggle** — Actuator metrics exposure controlled via `AI_ACTUATOR_PUBLIC_METRICS` (default: private).
-
-#### Observability & Testing
-
-- **Prometheus + Grafana** — Pre-configured dashboards for AI Agent Platform overview; Micrometer custom metrics (`ai.chat.latency`, `ai.rag.search.latency`, `ai.document.ingestion.latency`) with histogram distribution.
-- **RAG Evaluation** — Built-in evaluation service producing recall, precision, F1, avg latency, and P99 latency per category; supports multiple topK values, profile comparison, and historical report export.
-- **CI/CD** — GitHub Actions pipeline: build → 372 tests → JaCoCo 64% line-coverage gate → Docker image build.
-- **Testing** — 372 unit and integration tests (JUnit 5 + Mockito + MockMvc), H2 in-memory database for test isolation, Flyway schema migration validation.
-
-#### Infrastructure & Deployment
-
-- **Docker Compose** — Single-command orchestration of 6 services: MySQL 8.0, Redis 7, Milvus 2.4, Spring Boot app, Prometheus, Grafana.
-- **Hybrid Deployment** — Supports local app + cloud Milvus topology via environment variables (`MILVUS_HOST`, `MILVUS_DATABASE_NAME`, `MILVUS_READ_ONLY`).
-- **Flyway Migrations** — Versioned database schema management with baseline-on-migrate support.
-- **SSE Streaming** — Real-time response push with 5-minute timeout protection and 15-second heartbeat to prevent Nginx proxy timeout.
-
-#### Domain Modules
-
-- **E-Commerce Knowledge Import** — JSONL batch processing pipeline (batch=18, tuned for 8192 token embedding limit) with Milvus vector storage + MySQL source-of-truth persistence, batch embedding via Ollama bge-m3 with per-item fallback.
-- **Customer Support Data Import** — Training data ingestion with checkpoint-based resume, QA pair embedding pipeline.
-- **Document Management** — PDF / Word / Markdown / TXT multi-format parsing, chunk-based splitting (500 chars, 50 overlap), vector store ingestion.
-
----
+特别感谢 [codeAnqiang-ma](https://github.com/codeAnqiang-ma) 修复了 LongContextManager 会话摘要触发逻辑并提交 PR（详见 [PR #2](https://github.com/888newstep/ai-agent-platform/pull/2)）。
 
 ## License
 
