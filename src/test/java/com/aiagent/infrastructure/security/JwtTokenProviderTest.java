@@ -52,4 +52,22 @@ class JwtTokenProviderTest {
     @Test void shouldExposeExpiration() {
         assertNotNull(jwtTokenProvider.getExpiration(jwtTokenProvider.generateToken("user")));
     }
+
+    @Test void shouldEmbedIssuerAndAudience() throws Exception {
+        String token = jwtTokenProvider.generateToken("testuser");
+        String[] parts = token.split("\\.");
+        String payloadJson = new String(java.util.Base64.getUrlDecoder().decode(parts[1]), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(payloadJson.contains("\"iss\":\"newagent\""));
+        assertTrue(payloadJson.contains("\"aud\":[\"newagent-api\"]"));
+    }
+
+    @Test void shouldRejectTokenWithWrongIssuer() throws Exception {
+        AiProperties props = new AiProperties();
+        props.getSecurity().getJwt().setSecret("test-secret-key-for-jwt-must-be-at-least-32-chars-long");
+        props.getSecurity().getJwt().setExpiration(86400000);
+        props.getSecurity().getJwt().setIssuer("attacker");
+        JwtTokenProvider attackerProvider = new JwtTokenProvider(props);
+        String forgedToken = attackerProvider.generateToken("testuser");
+        assertFalse(jwtTokenProvider.validateToken(forgedToken));
+    }
 }

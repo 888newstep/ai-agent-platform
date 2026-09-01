@@ -29,6 +29,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.HexFormat;
+import java.util.concurrent.Semaphore;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -52,8 +53,36 @@ public class RagEvaluationService {
     private final MultiRecallService multiRecallService;
     private final AiProperties aiProperties;
 
-    @Value("${ai.evaluation.dataset-directory:}")
+    @Value("${ai.evaluation.dataset-directory:./evaluation-datasets}")
     private String datasetDirectory;
+
+    @Value("${ai.evaluation.max-dataset-bytes:20971520}")
+    private long maxDatasetBytes = 20L * 1024 * 1024;
+
+    @Value("${ai.evaluation.max-cases:10000}")
+    private int maxDatasetCases = 10000;
+
+    @Value("${ai.evaluation.max-concurrent-runs:2}")
+    private int maxConcurrentRuns = 2;
+
+    private volatile Semaphore evaluationPermits;
+
+    private static final int MAX_TOP_K = 100;
+
+    private Semaphore evaluationPermits() {
+        Semaphore current = evaluationPermits;
+        if (current == null) {
+            synchronized (this) {
+                current = evaluationPermits;
+                if (current == null) {
+                    current = new Semaphore(Math.max(1, maxConcurrentRuns));
+                    evaluationPermits = current;
+                }
+            }
+        }
+        return current;
+    }
+    private static final int MAX_TOP_K_VALUES = 10;
 
     public EvaluationReport evaluate(Map<String, List<String>> testDataset, List<Integer> topKs) {
         return evaluate(toDataset(testDataset), sanitizeTopKs(topKs), defaultProfile());
@@ -107,6 +136,20 @@ public class RagEvaluationService {
     private EvaluationReport evaluate(EvaluationDataset dataset,
                                       List<Integer> topKs,
                                       EvaluationProfile profile) {
+        Semaphore permits = evaluationPermits();
+        if (!permits.tryAcquire()) {
+            throw new IllegalStateException("Too many concurrent evaluation runs (max " + maxConcurrentRuns + "); please retry later");
+        }
+        try {
+            return doEvaluate(dataset, topKs, profile);
+        } finally {
+            permits.release();
+        }
+    }
+
+    private EvaluationReport doEvaluate(EvaluationDataset dataset,
+                                         List<Integer> topKs,
+                                         EvaluationProfile profile) {
         log.debug("开始 RAG 评估: dataset={}, size={}, topKs={}, profile={}",
                 dataset.getSource(), dataset.getCases().size(), topKs, profile.getName());
 
@@ -220,30 +263,47 @@ public class RagEvaluationService {
             throw new IllegalArgumentException("datasetPath must not be blank");
         }
 
-        Path path = Path.of(datasetPath.trim()).toAbsolutePath().normalize();
-        if (!Files.exists(path) || !Files.isRegularFile(path)) {
-            throw new IllegalArgumentException("Dataset file not found: " + datasetPath);
+        if (!StringUtils.hasText(datasetDirectory)) {
+            throw new IllegalStateException("Evaluation dataset directory must be configured");
         }
 
         try {
-            Path realPath = path.toRealPath();
-            if (StringUtils.hasText(datasetDirectory)) {
-                Path allowedDirectory = Path.of(datasetDirectory).toAbsolutePath().normalize().toRealPath();
-                if (!realPath.startsWith(allowedDirectory)) {
-                    throw new IllegalArgumentException("Dataset path is outside the configured directory");
-                }
+            Path allowedDirectory = Path.of(datasetDirectory).toAbsolutePath().normalize().toRealPath();
+            Path requestedPath = Path.of(datasetPath.trim());
+            Path candidate = requestedPath.isAbsolute()
+                    ? requestedPath.normalize()
+                    : allowedDirectory.resolve(requestedPath).normalize();
+            if (!candidate.startsWith(allowedDirectory)) {
+                throw new IllegalArgumentException("Dataset path is outside the configured directory");
             }
-            path = realPath;
+            if (!Files.exists(candidate) || !Files.isRegularFile(candidate)) {
+                throw new IllegalArgumentException("Dataset file not found");
+            }
+
+            Path path = candidate.toRealPath();
+            if (!path.startsWith(allowedDirectory)) {
+                throw new IllegalArgumentException("Dataset path is outside the configured directory");
+            }
+            long fileSize = Files.size(path);
+            if (fileSize <= 0 || fileSize > maxDatasetBytes) {
+                throw new IllegalArgumentException("Dataset file size must be between 1 and " + maxDatasetBytes + " bytes");
+            }
+
             String fileName = path.getFileName().toString().toLowerCase(Locale.ROOT);
+            EvaluationDataset dataset;
             if (fileName.endsWith(".json")) {
-                return loadJsonDataset(path);
+                dataset = loadJsonDataset(path);
+            } else if (fileName.endsWith(".csv")) {
+                dataset = loadCsvDataset(path);
+            } else {
+                throw new IllegalArgumentException("Unsupported dataset format: " + fileName + " (supported: .json, .csv)");
             }
-            if (fileName.endsWith(".csv")) {
-                return loadCsvDataset(path);
+            if (dataset.getCases().size() > maxDatasetCases) {
+                throw new IllegalArgumentException("Dataset contains more than " + maxDatasetCases + " cases");
             }
-            throw new IllegalArgumentException("Unsupported dataset format: " + fileName + " (supported: .json, .csv)");
+            return dataset;
         } catch (IOException e) {
-            throw new IllegalArgumentException("Failed to read dataset: " + e.getMessage(), e);
+            throw new IllegalArgumentException("Failed to read dataset", e);
         }
     }
 
@@ -479,12 +539,19 @@ public class RagEvaluationService {
     }
 
     private List<Integer> sanitizeTopKs(List<Integer> topKs) {
-        List<Integer> source = topKs == null || topKs.isEmpty() ? List.of(aiProperties.getRag().getTopK()) : topKs;
+        List<Integer> source = topKs == null || topKs.isEmpty()
+                ? List.of(aiProperties.getRag().getTopK())
+                : topKs;
+        if (source.size() > MAX_TOP_K_VALUES) {
+            throw new IllegalArgumentException("topKs must contain at most " + MAX_TOP_K_VALUES + " values");
+        }
         List<Integer> sanitized = source.stream()
-                .filter(value -> value != null && value > 0)
+                .filter(value -> value != null && value >= 1 && value <= MAX_TOP_K)
                 .distinct()
+                .sorted()
                 .toList();
-        return sanitized.isEmpty() ? List.of(aiProperties.getRag().getTopK()) : sanitized;
+        int fallback = Math.max(1, Math.min(MAX_TOP_K, aiProperties.getRag().getTopK()));
+        return sanitized.isEmpty() ? List.of(fallback) : sanitized;
     }
 
     private double average(List<Double> values) {

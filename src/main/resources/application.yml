@@ -59,8 +59,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 100MB
-      max-request-size: 100MB
+      max-file-size: ${AI_UPLOAD_MAX_FILE_SIZE:20MB}
+      max-request-size: ${AI_UPLOAD_MAX_REQUEST_SIZE:20MB}
       enabled: true
 
 ai:
@@ -136,6 +136,7 @@ ai:
     ingestion-core-size: ${AI_DOCUMENT_INGESTION_CORE_SIZE:2}
     ingestion-max-size: ${AI_DOCUMENT_INGESTION_MAX_SIZE:4}
     ingestion-queue-capacity: ${AI_DOCUMENT_INGESTION_QUEUE_CAPACITY:100}
+    max-upload-bytes: ${AI_DOCUMENT_MAX_UPLOAD_BYTES:20971520}
 
   rag:
     top-k: 5
@@ -183,6 +184,9 @@ ai:
 
   evaluation:
     dataset-directory: ${AI_EVALUATION_DATASET_DIRECTORY:./examples/evaluation-datasets}
+    max-dataset-bytes: ${AI_EVALUATION_MAX_DATASET_BYTES:20971520}
+    max-cases: ${AI_EVALUATION_MAX_CASES:10000}
+    max-concurrent-runs: ${AI_EVALUATION_MAX_CONCURRENT_RUNS:2}
     report-directory: ${AI_EVALUATION_REPORT_DIRECTORY:./evaluation-reports}
   protection:
     rate-limit:
@@ -225,6 +229,8 @@ ai:
     jwt:
       secret: ${JWT_SECRET:}
       expiration: 86400000
+      issuer: ${JWT_ISSUER:newagent}
+      audience: ${JWT_AUDIENCE:newagent-api}
     cors:
       allowed-origins: ${AI_CORS_ALLOWED_ORIGINS:http://localhost:8081}
       allowed-methods: ${AI_CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}

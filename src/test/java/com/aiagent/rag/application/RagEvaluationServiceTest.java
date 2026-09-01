@@ -50,6 +50,7 @@ class RagEvaluationServiceTest {
         aiProperties.getDocument().setChunkSize(400);
         aiProperties.getDocument().setChunkOverlap(80);
         ragEvaluationService = new RagEvaluationService(multiRecallService, aiProperties);
+        ReflectionTestUtils.setField(ragEvaluationService, "datasetDirectory", tempDir.toString());
     }
 
     @Test

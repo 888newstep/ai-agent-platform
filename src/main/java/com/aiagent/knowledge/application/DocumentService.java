@@ -84,8 +84,10 @@ public class DocumentService {
     }
 
     public Document uploadDocument(MultipartFile file) {
+        validateUploadSize(file);
         String fileName = resolveFileName(file);
         validateSupportedFormat(fileName);
+        validateContentSignature(file, fileName);
         StagedDocument stagedDocument = stagingStorage.stage(file);
         StagingLease lease = new StagingLease(stagedDocument);
         try {
@@ -96,8 +98,10 @@ public class DocumentService {
     }
 
     public Document uploadDocument(MultipartFile file, String idempotencyKey) {
+        validateUploadSize(file);
         String fileName = resolveFileName(file);
         validateSupportedFormat(fileName);
+        validateContentSignature(file, fileName);
         StagedDocument stagedDocument = stagingStorage.stage(file);
         StagingLease lease = new StagingLease(stagedDocument);
         String contentHash = stagedDocument.contentHash();
@@ -125,6 +129,16 @@ public class DocumentService {
                     () -> createDocument(fileName, contentType, lease));
         } finally {
             lease.cleanupIfUnretained(stagingStorage);
+        }
+    }
+
+    private void validateUploadSize(MultipartFile file) {
+        if (file == null || file.isEmpty() || file.getSize() <= 0) {
+            throw new IllegalArgumentException("Uploaded document must not be empty");
+        }
+        long maxBytes = aiProperties.getDocument().getMaxUploadBytes();
+        if (maxBytes > 0 && file.getSize() > maxBytes) {
+            throw new IllegalArgumentException("Uploaded document exceeds the configured size limit");
         }
     }
 
@@ -190,6 +204,29 @@ public class DocumentService {
             return null;
         }
         return contentType.length() <= 255 ? contentType : contentType.substring(0, 255);
+    }
+
+    private void validateContentSignature(MultipartFile file, String fileName) {
+        String lowerName = fileName.toLowerCase();
+        // 仅对具有明确魔数的强格式做内容签名校验；纯文本格式（txt/md）不做魔数限制。
+        if (!lowerName.endsWith(".pdf") && !lowerName.endsWith(".docx")) {
+            return;
+        }
+        byte[] expectedMagic;
+        if (lowerName.endsWith(".pdf")) {
+            expectedMagic = new byte[]{(byte) '%', (byte) 'P', (byte) 'D', (byte) 'F'};
+        } else {
+            // docx 是 ZIP 容器，头部为 PK\x03\x04
+            expectedMagic = new byte[]{(byte) 0x50, (byte) 0x4B, (byte) 0x03, (byte) 0x04};
+        }
+        try (var in = file.getInputStream()) {
+            byte[] header = in.readNBytes(expectedMagic.length);
+            if (!java.util.Arrays.equals(header, expectedMagic)) {
+                throw new IllegalArgumentException("Uploaded document content does not match its file type: " + fileName);
+            }
+        } catch (java.io.IOException ex) {
+            throw new IllegalArgumentException("Failed to inspect uploaded document content", ex);
+        }
     }
 
     private void validateSupportedFormat(String fileName) {

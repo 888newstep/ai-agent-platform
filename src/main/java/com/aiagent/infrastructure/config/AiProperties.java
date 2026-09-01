@@ -144,6 +144,7 @@ public class AiProperties {
         private int ingestionCoreSize = 2;
         private int ingestionMaxSize = 4;
         private int ingestionQueueCapacity = 100;
+        private long maxUploadBytes = 20L * 1024 * 1024;
     }
 
     /** Retrieval settings shared by classic and adaptive RAG. */
@@ -315,6 +316,8 @@ public class AiProperties {
     public static class Jwt {
         private String secret;
         private long expiration = 86400000;
+        private String issuer = "newagent";
+        private String audience = "newagent-api";
     }
 
     @Data

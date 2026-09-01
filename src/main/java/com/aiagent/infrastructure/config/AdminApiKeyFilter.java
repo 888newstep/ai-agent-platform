@@ -13,6 +13,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 
 @Component
@@ -30,7 +32,9 @@ public class AdminApiKeyFilter extends OncePerRequestFilter {
 
         if (StringUtils.hasText(configuredApiKey) && StringUtils.hasText(headerName)) {
             String providedApiKey = request.getHeader(headerName);
-            if (configuredApiKey.equals(providedApiKey)) {
+            if (StringUtils.hasText(providedApiKey)
+                    && providedApiKey.length() <= 512
+                    && constantTimeEquals(configuredApiKey, providedApiKey)) {
                 UsernamePasswordAuthenticationToken authentication =
                         UsernamePasswordAuthenticationToken.authenticated(
                                 "admin-api-key",
@@ -42,5 +46,10 @@ public class AdminApiKeyFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+    private boolean constantTimeEquals(String expected, String provided) {
+        return MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8),
+                provided.getBytes(StandardCharsets.UTF_8));
     }
 }
