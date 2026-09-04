@@ -63,6 +63,11 @@ public class EcommerceDataGeneratorService {
     // =============================================
 
     /** 输出目录 */
+    private static final String GENERATOR_MODEL_NAME = "doubao-seed-2-0-mini";
+    private static final DateTimeFormatter OUTPUT_TIMESTAMP =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final long REQUEST_INTERVAL_MS = 500L;
+
     private static final String OUTPUT_DIR = "generated_data";
 
     /** 输出文件名 */
@@ -241,7 +246,7 @@ public class EcommerceDataGeneratorService {
     private void logBanner(String format, String description, int categoryCount) {
         log.info("╔══════════════════════════════════════════════════════╗");
         log.info("║     {} 生成: {}", format, description);
-        log.info("║ 模型: doubao-seed-2-0-mini");
+        log.info("║ 模型: {}", GENERATOR_MODEL_NAME);
         log.info("║ 类别: {} 个", categoryCount);
         log.info("╚══════════════════════════════════════════════════════╝");
     }
@@ -266,7 +271,7 @@ public class EcommerceDataGeneratorService {
         log.info("╔══════════════════════════════════════════════════════╗");
         log.info("║     电商客服训练数据生成器启动（全量）                  ");
         log.info("╠══════════════════════════════════════════════════════╣");
-        log.info("║ 模型: doubao-seed-2-0-mini");
+        log.info("║ 模型: {}", GENERATOR_MODEL_NAME);
         log.info("║ 总预算: ¥{} (约 {} tokens)", BUDGET + CONVERSATION_EXTRA_BUDGET, (long)((BUDGET + CONVERSATION_EXTRA_BUDGET) / COST_PER_MILLION_TOKENS * 1_000_000));
         log.info("║ 其中对话模块额外分配: ¥{}", CONVERSATION_EXTRA_BUDGET);
         log.info("║ 类别: {} 个", categories.size());
@@ -317,9 +322,9 @@ public class EcommerceDataGeneratorService {
         try (BufferedWriter writer = Files.newBufferedWriter(
                 filePath, StandardCharsets.UTF_8)) {
             writer.write("=== 生成时间: " +
-                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) +
+                    LocalDateTime.now().format(OUTPUT_TIMESTAMP) +
                     " ===\n");
-            writer.write("=== 生成模型: doubao-seed-2-0-mini ===\n");
+            writer.write("=== 生成模型: " + GENERATOR_MODEL_NAME + " ===\n");
             writer.write("=== 条目数: " + entries.size() + " (中间结果) ===\n\n");
             for (String line : entries) {
                 writer.write(line);
@@ -376,7 +381,7 @@ public class EcommerceDataGeneratorService {
                     log.info("[{}][{}] 生成 {} {}, 累计 {} {}", format.label, category,
                             parsedEntries.size(), format.unit, format.dataCount(entries), format.unit);
                     appendIntermediate(outputPath, parsedEntries);
-                    Thread.sleep(500);
+                    Thread.sleep(REQUEST_INTERVAL_MS);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     log.warn("[{}][{}] 生成任务已中断", format.label, category);
@@ -669,9 +674,9 @@ public class EcommerceDataGeneratorService {
                 filePath, StandardCharsets.UTF_8)) {
             // 写入文件头
             writer.write("=== 生成时间: " +
-                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) +
+                    LocalDateTime.now().format(OUTPUT_TIMESTAMP) +
                     " ===\n");
-            writer.write("=== 生成模型: doubao-seed-2-0-mini ===\n");
+            writer.write("=== 生成模型: " + GENERATOR_MODEL_NAME + " ===\n");
             writer.write("=== 条目数: " + content.size() + " ===\n\n");
 
             for (String line : content) {

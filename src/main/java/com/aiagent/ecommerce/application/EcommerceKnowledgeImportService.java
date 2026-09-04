@@ -34,7 +34,9 @@ import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -276,63 +278,80 @@ public class EcommerceKnowledgeImportService {
 
     /** 处理一个批次：去重 → embedding → MySQL → Milvus。 */
     private void processBatch(List<QaRecord> batch, ImportResult result) {
-        List<QaRecord> toImport = batch;
-
-        // 去重（record_hash 预查）
-        if (ecommerceProperties.getImportConfig().isDeduplicate()) {
-            List<String> hashes = batch.stream().map(QaRecord::getRecordHash).toList();
-            Set<String> existing = qaPairRepository.findAllByRecordHashIn(hashes).stream()
-                    .map(EcommerceQaPair::getRecordHash)
-                    .collect(Collectors.toSet());
-            toImport = batch.stream()
-                    .filter(r -> !existing.contains(r.getRecordHash()))
-                    .toList();
-            int skipped = batch.size() - toImport.size();
-            if (skipped > 0) {
-                result.dedupSkipped += skipped;
-                log.info("批次去重跳过 {} 条", skipped);
-            }
-        }
+        List<QaRecord> toImport = filterExistingRecords(batch, result);
         if (toImport.isEmpty()) {
             return;
         }
 
-        // Embedding
-        List<String> texts = toImport.stream().map(QaRecord::getQaText).toList();
-        List<List<Float>> embeddings = batchGenerateEmbedding(texts);
-        if (embeddings.size() != toImport.size()) {
-            throw new IllegalStateException("embedding 返回数量不一致: " + embeddings.size() + " vs " + toImport.size());
-        }
-
-        // 存 MySQL（saveAll 每批独立事务提交）
+        Map<String, List<Float>> embeddingsByHash = generateEmbeddingsByHash(toImport);
         List<EcommerceQaPair> savedPairs = savePairsWithConflictSkip(toImport);
-
-        // 存 Milvus
-        if (!savedPairs.isEmpty()) {
-            long ts = System.currentTimeMillis() / 1000;
-            List<JsonObject> rows = new ArrayList<>();
-            for (int j = 0; j < savedPairs.size(); j++) {
-                EcommerceQaPair pair = savedPairs.get(j);
-                List<Float> embedding = embeddings.get(j);
-                if (embedding == null) {
-                    continue;
-                }
-                JsonObject row = new JsonObject();
-                row.addProperty("question", pair.getQuestion());
-                row.addProperty("answer", pair.getAnswer());
-                row.addProperty("qa_text", pair.getQaText());
-                row.addProperty("qa_pair_id", pair.getId());
-                row.addProperty("category", pair.getCategory());
-                row.addProperty("source_file", pair.getSourceFile());
-                row.add("embedding", toJsonArray(embedding));
-                row.addProperty("ts", ts);
-                rows.add(row);
-            }
-            milvusClient.insert(InsertReq.builder().collectionName(COLLECTION_NAME).data(rows).build());
-        }
+        writePairsToMilvus(savedPairs, embeddingsByHash);
 
         result.storedRecords += savedPairs.size();
         log.info("批次完成: {} 条已存 (累计: {})", savedPairs.size(), result.storedRecords);
+    }
+
+    private List<QaRecord> filterExistingRecords(List<QaRecord> batch, ImportResult result) {
+        if (!ecommerceProperties.getImportConfig().isDeduplicate()) {
+            return batch;
+        }
+        List<String> hashes = batch.stream().map(QaRecord::getRecordHash).toList();
+        Set<String> existing = qaPairRepository.findAllByRecordHashIn(hashes).stream()
+                .map(EcommerceQaPair::getRecordHash)
+                .collect(Collectors.toSet());
+        List<QaRecord> filtered = batch.stream()
+                .filter(record -> !existing.contains(record.getRecordHash()))
+                .toList();
+        int skipped = batch.size() - filtered.size();
+        if (skipped > 0) {
+            result.dedupSkipped += skipped;
+            log.info("批次去重跳过 {} 条", skipped);
+        }
+        return filtered;
+    }
+
+    private Map<String, List<Float>> generateEmbeddingsByHash(List<QaRecord> records) {
+        List<List<Float>> embeddings = batchGenerateEmbedding(
+                records.stream().map(QaRecord::getQaText).toList());
+        if (embeddings.size() != records.size()) {
+            throw new IllegalStateException("embedding 返回数量不一致: " + embeddings.size() + " vs " + records.size());
+        }
+        Map<String, List<Float>> byHash = new HashMap<>();
+        for (int i = 0; i < records.size(); i++) {
+            byHash.put(records.get(i).getRecordHash(), embeddings.get(i));
+        }
+        return byHash;
+    }
+
+    private void writePairsToMilvus(List<EcommerceQaPair> savedPairs,
+                                    Map<String, List<Float>> embeddingsByHash) {
+        if (savedPairs.isEmpty()) {
+            return;
+        }
+        long timestamp = System.currentTimeMillis() / 1000;
+        List<JsonObject> rows = savedPairs.stream()
+                .map(pair -> toMilvusRow(pair, embeddingsByHash.get(pair.getRecordHash()), timestamp))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (!rows.isEmpty()) {
+            milvusClient.insert(InsertReq.builder().collectionName(COLLECTION_NAME).data(rows).build());
+        }
+    }
+
+    private JsonObject toMilvusRow(EcommerceQaPair pair, List<Float> embedding, long timestamp) {
+        if (embedding == null) {
+            return null;
+        }
+        JsonObject row = new JsonObject();
+        row.addProperty("question", pair.getQuestion());
+        row.addProperty("answer", pair.getAnswer());
+        row.addProperty("qa_text", pair.getQaText());
+        row.addProperty("qa_pair_id", pair.getId());
+        row.addProperty("category", pair.getCategory());
+        row.addProperty("source_file", pair.getSourceFile());
+        row.add("embedding", toJsonArray(embedding));
+        row.addProperty("ts", timestamp);
+        return row;
     }
 
     /** 保存 QA 对到 MySQL；遇到唯一键冲突（并发/重复）逐条跳过冲突记录。 */
