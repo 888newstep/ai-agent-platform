@@ -4,8 +4,12 @@
 
 [![CI/CD Pipeline](https://github.com/888newstep/ai-agent-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/888newstep/ai-agent-platform/actions/workflows/ci.yml)
 [![JDK 17](https://img.shields.io/badge/JDK-17-blue.svg)](https://adoptium.net/)
-[![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.5-green.svg)](https://spring.io/projects/spring-boot)
-[![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](LICENSE)
+[![Spring Boot 3.5](https://img.shields.io/badge/Spring%20Boot-3.5-6DB33F.svg?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![LangChain4j 0.34](https://img.shields.io/badge/LangChain4j-0.34-1C3C3C.svg)](https://docs.langchain4j.dev/)
+[![Jetty 12](https://img.shields.io/badge/Jetty-12-FC390E.svg)](https://eclipse.dev/jetty/)
+[![GitHub Stars](https://img.shields.io/github/stars/888newstep/ai-agent-platform?style=flat)](https://github.com/888newstep/ai-agent-platform/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/888newstep/ai-agent-platform)](https://github.com/888newstep/ai-agent-platform/commits/main)
+[![License](https://img.shields.io/github/license/888newstep/ai-agent-platform)](LICENSE)
 
 ---
 
