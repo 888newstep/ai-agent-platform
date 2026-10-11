@@ -23,7 +23,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <langchain4j.version>0.34.0</langchain4j.version>
-        <jackson-bom.version>2.21.6</jackson-bom.version>
+        <jackson-bom.version>2.21.7</jackson-bom.version>
         <jetty.version>12.0.36</jetty.version>
         <logback.version>1.5.34</logback.version>
         <micrometer.version>1.15.12</micrometer.version>
@@ -283,7 +283,7 @@
             <dependency>
                 <groupId>org.jsoup</groupId>
                 <artifactId>jsoup</artifactId>
-                <version>1.23.1</version>
+                <version>1.23.2</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.opennlp</groupId>
