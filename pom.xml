@@ -23,7 +23,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <langchain4j.version>0.34.0</langchain4j.version>
-        <jackson-bom.version>2.21.5</jackson-bom.version>
+        <jackson-bom.version>2.21.6</jackson-bom.version>
         <jetty.version>12.0.36</jetty.version>
         <logback.version>1.5.34</logback.version>
         <micrometer.version>1.15.12</micrometer.version>
@@ -145,7 +145,7 @@
             <version>${milvus-sdk.version}</version>
             <exclusions>
                 <!-- 排除 hadoop-client 传递的 bcprov-jdk15on 1.70（无修复版本，多条 moderate 漏洞），
-                     项目已直接依赖 bcprov-jdk18on 1.84（同一 provider 类的新 artifact 名） -->
+                     项目已直接依赖 bcprov-jdk18on 1.85（同一 provider 类的新 artifact 名） -->
                 <exclusion>
                     <groupId>org.bouncycastle</groupId>
                     <artifactId>bcprov-jdk15on</artifactId>
@@ -308,7 +308,7 @@
             <dependency>
                 <groupId>org.bouncycastle</groupId>
                 <artifactId>bcprov-jdk18on</artifactId>
-                <version>1.84</version>
+                <version>1.85</version>
             </dependency>
             <dependency>
                 <groupId>com.nimbusds</groupId>

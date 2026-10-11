@@ -105,3 +105,6 @@ cookies/
 __pycache__/
 *.pyc
 export_cookies.py
+
+# Local secrets - never commit
+.github_token.env
