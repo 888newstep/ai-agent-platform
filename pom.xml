@@ -46,6 +46,7 @@
         <commons-compress.version>1.26.2</commons-compress.version>
         <log4j2.version>2.25.5</log4j2.version>
         <snappy-java.version>1.1.10.9</snappy-java.version>
+        <guava.version>33.7.2-jre</guava.version>
         <mysql-connector-j.version>8.2.0</mysql-connector-j.version>
     </properties>
 
@@ -229,6 +230,12 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Guava 安全版本（milvus-sdk 传递依赖带入 33.3.1-android，CVE-2026-102554） -->
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
