@@ -254,15 +254,38 @@
     <div class="layout">
         <aside class="sidebar">
             <div class="sidebar-card">
-                <div class="sidebar-card-title">访问凭证</div>
+                <template v-if="!authToken">
+                    <div class="sidebar-card-title">登录 / 注册</div>
+                    <el-input v-model="loginUsername" placeholder="用户名" size="small" style="margin-bottom:8px;" @keyup.enter="doLogin" />
+                    <el-input v-model="loginPassword" type="password" show-password placeholder="密码" size="small" style="margin-bottom:8px;" @keyup.enter="doLogin" />
+                    <div style="display:flex; gap:8px;">
+                        <el-button type="primary" size="small" :loading="authLoading" style="flex:1;" @click="doLogin">登录</el-button>
+                        <el-button size="small" plain :loading="authLoading" style="flex:1;" @click="doRegister">注册</el-button>
+                    </div>
+                    <div v-if="authMessage" class="muted" style="margin-top:8px; color:var(--red); font-size:11.5px;">{{ authMessage }}</div>
+                    <div class="muted" style="margin-top:6px; font-size:11px;">登录后才能使用对话与检索功能。</div>
+                </template>
+                <template v-else>
+                    <div class="sidebar-card-title">当前用户</div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                        <div class="logo-mark" style="width:26px; height:26px; font-size:12px; background:linear-gradient(135deg, var(--green), var(--accent));">{{ authUsername.slice(0,1).toUpperCase() }}</div>
+                        <strong style="font-size:13.5px;">{{ authUsername }}</strong>
+                        <el-tag size="small" type="success" effect="plain" style="margin-left:auto;">已登录</el-tag>
+                    </div>
+                    <el-button size="small" plain style="width:100%;" @click="doLogout">退出登录</el-button>
+                </template>
+            </div>
+
+            <div class="sidebar-card">
+                <div class="sidebar-card-title">ADMIN_API_KEY</div>
                 <el-input
                     v-model="adminApiKey"
                     type="password"
                     show-password
-                    placeholder="输入 ADMIN_API_KEY"
+                    placeholder="运行评测时需要"
+                    size="small"
                     @change="persistAdminApiKey"
                 />
-                <div class="muted" style="margin-top:8px; font-size:11.5px;">仅保存在当前浏览器，用于受保护的管理接口。</div>
             </div>
 
             <el-menu :default-active="activeMenu" @select="handleMenuSelect">
@@ -481,6 +504,8 @@
     const ADMIN_KEY_STORAGE = 'ai-agent-admin-api-key';
     const DOCUMENT_IDS_STORAGE = 'ai-agent-document-ids';
     const ADMIN_HEADER = 'X-Admin-Api-Key';
+    const JWT_STORAGE = 'ai-agent-jwt';
+    const AUTH_BASE = '/api/v1/auth';
     const MAX_BAR = 500; // 指标迷你条形图的相对上限
 
     createApp({
@@ -488,6 +513,12 @@
             const activeMenu = ref('chat');
             const healthStatus = ref('DOWN');
             const adminApiKey = ref(localStorage.getItem(ADMIN_KEY_STORAGE) || '');
+            const authToken = ref(localStorage.getItem(JWT_STORAGE) || '');
+            const authUsername = ref(localStorage.getItem('ai-agent-username') || '');
+            const loginUsername = ref('');
+            const loginPassword = ref('');
+            const authLoading = ref(false);
+            const authMessage = ref('');
             const sessionId = ref('');
             const question = ref('');
             const useRag = ref(true);
@@ -551,10 +582,91 @@
                 localStorage.setItem(ADMIN_KEY_STORAGE, adminApiKey.value || '');
             };
 
+
+
             const getAuthHeaders = () => {
                 const headers = {};
+                if (authToken.value) headers['Authorization'] = `Bearer ${authToken.value}`;
                 if (adminApiKey.value) headers[ADMIN_HEADER] = adminApiKey.value;
                 return headers;
+            };
+
+            const persistAuth = () => {
+                localStorage.setItem(JWT_STORAGE, authToken.value || '');
+                localStorage.setItem('ai-agent-username', authUsername.value || '');
+            };
+
+            const doLogin = async () => {
+                if (!loginUsername.value.trim() || !loginPassword.value) {
+                    authMessage.value = '请输入用户名和密码';
+                    return;
+                }
+                authLoading.value = true;
+                authMessage.value = '';
+                try {
+                    const res = await fetch(`${AUTH_BASE}/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: loginUsername.value.trim(), password: loginPassword.value })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.message || data.error || '登录失败');
+                    authToken.value = data.token || data.accessToken || data.jwt || '';
+                    authUsername.value = loginUsername.value.trim();
+                    persistAuth();
+                    ElementPlus.ElMessage.success(`欢迎，${authUsername.value}`);
+                    loginPassword.value = '';
+                    sessionId.value = '';
+                    messages.value = [];
+                    await createSession();
+                    loadMetrics();
+                } catch (error) {
+                    authMessage.value = error.message;
+                } finally {
+                    authLoading.value = false;
+                }
+            };
+
+            const doRegister = async () => {
+                if (!loginUsername.value.trim() || !loginPassword.value) {
+                    authMessage.value = '请输入用户名和密码';
+                    return;
+                }
+                authLoading.value = true;
+                authMessage.value = '';
+                try {
+                    const res = await fetch(`${AUTH_BASE}/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: loginUsername.value.trim(), password: loginPassword.value })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.message || data.error || '注册失败');
+                    ElementPlus.ElMessage.success('注册成功，已自动登录');
+                    if (data.token || data.accessToken || data.jwt) {
+                        authToken.value = data.token || data.accessToken || data.jwt;
+                        authUsername.value = loginUsername.value.trim();
+                        persistAuth();
+                        loginPassword.value = '';
+                        await createSession();
+                        loadMetrics();
+                    } else {
+                        authMessage.value = '注册成功，请登录';
+                    }
+                } catch (error) {
+                    authMessage.value = error.message;
+                } finally {
+                    authLoading.value = false;
+                }
+            };
+
+            const doLogout = () => {
+                authToken.value = '';
+                authUsername.value = '';
+                persistAuth();
+                sessionId.value = '';
+                messages.value = [];
+                ElementPlus.ElMessage.info('已退出登录');
             };
 
             const getStoredDocumentIds = () => {
@@ -605,7 +717,7 @@
             const streamChat = async (q) => {
                 const url = `${API_BASE}/chat/stream?sessionId=${encodeURIComponent(sessionId.value)}&question=${encodeURIComponent(q)}&useRag=${useRag.value}`;
                 streamAbort = new AbortController();
-                const res = await fetch(url, { signal: streamAbort.signal });
+                const res = await fetch(url, { signal: streamAbort.signal, headers: getAuthHeaders() });
                 if (!res.ok || !res.body) throw new Error('SSE unavailable (' + res.status + ')');
 
                 const msg = appendMessage('assistant', '', { streaming: true });
@@ -652,6 +764,11 @@
             const sendMessage = async () => {
                 const q = question.value.trim();
                 if (!q || loading.value) return;
+                if (!authToken.value) {
+                    appendMessage('system', '请先在左侧登录后再发起对话');
+                    scrollToBottom();
+                    return;
+                }
                 if (!sessionId.value) { await createSession(); if (!sessionId.value) return; }
 
                 appendMessage('user', q);
@@ -672,7 +789,7 @@
                         await sendByRest(q);
                     }
                 } catch (error) {
-                    appendMessage('system', '请求失败：' + error.message);
+                    appendMessage('system', String(error.message).includes('401') ? '登录已过期，请重新登录' : '请求失败：' + error.message);
                 } finally {
                     loading.value = false;
                     streamAbort = null;
@@ -869,6 +986,7 @@
             onMounted(() => {
                 checkHealth();
                 refreshDocumentStatuses();
+                if (authToken.value) loadMetrics();
                 healthTimer = setInterval(checkHealth, 15000);
                 documentTimer = setInterval(pollActiveDocumentStatuses, 10000);
             });
@@ -884,6 +1002,15 @@
                 healthStatus,
                 adminApiKey,
                 sessionId,
+                authToken,
+                authUsername,
+                loginUsername,
+                loginPassword,
+                authLoading,
+                authMessage,
+                doLogin,
+                doRegister,
+                doLogout,
                 question,
                 useRag,
                 useStream,
