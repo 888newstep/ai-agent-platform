@@ -330,7 +330,7 @@
                                     type="textarea"
                                     :rows="3"
                                     resize="none"
-                                    placeholder="输入问题，Enter 发送，Shift+Enter 换行"
+                                    placeholder="输入你的问题…"
                                     @keydown.enter.prevent="handleChatEnter"
                                 />
                                 <el-button type="primary" :loading="loading" @click="sendMessage">发送</el-button>
