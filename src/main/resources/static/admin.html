@@ -1,226 +1,233 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Agent Platform - 管理台</title>
+    <title>AI Agent Platform - 控制台</title>
     <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/theme-chalk/dark/css-vars.css">
     <style>
+        :root {
+            --bg: #0d1117;
+            --panel: #161b22;
+            --panel-2: #1c2129;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+            --accent-2: #1f6feb;
+            --green: #3fb950;
+            --red: #f85149;
+            --yellow: #d29922;
+            --radius: 12px;
+        }
         * { box-sizing: border-box; }
         body {
             margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
-            color: #303133;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
         }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(600px 300px at 15% -5%, rgba(88,166,255,0.08), transparent),
+                radial-gradient(600px 300px at 85% 105%, rgba(63,185,80,0.05), transparent);
+            pointer-events: none;
+            z-index: 0;
+        }
+        #app { position: relative; z-index: 1; }
+
         .app-header {
-            height: 64px;
+            height: 60px;
             padding: 0 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: linear-gradient(135deg, #409eff, #337ecc);
-            color: #fff;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+            background: rgba(22,27,34,0.85);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
-        .app-header h1 {
-            margin: 0;
-            font-size: 20px;
-            font-weight: 600;
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .logo-mark {
+            width: 30px; height: 30px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, var(--accent), #bc8cff);
+            display: grid; place-items: center;
+            font-weight: 800; color: #0d1117; font-size: 15px;
         }
+        .app-header h1 { margin: 0; font-size: 17px; font-weight: 650; }
         .subtitle {
-            margin-left: 12px;
-            font-size: 13px;
-            opacity: 0.88;
+            margin-left: 4px; font-size: 12px; color: var(--muted);
+            border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px;
         }
-        .header-left,
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+        .header-right { display: flex; align-items: center; gap: 12px; }
         .status-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255,255,255,0.14);
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
             border-radius: 999px;
-            padding: 6px 12px;
-            font-size: 13px;
+            padding: 5px 12px; font-size: 12.5px; color: var(--text);
         }
         .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #67c23a;
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 0 0 rgba(63,185,80,0.55);
+            animation: breathe 2s ease-out infinite;
         }
-        .status-dot.down {
-            background: #f56c6c;
+        .status-dot.down { background: var(--red); box-shadow: none; animation: none; }
+        @keyframes breathe {
+            0% { box-shadow: 0 0 0 0 rgba(63,185,80,0.55); }
+            70% { box-shadow: 0 0 0 7px rgba(63,185,80,0); }
+            100% { box-shadow: 0 0 0 0 rgba(63,185,80,0); }
         }
-        .layout {
-            display: flex;
-            min-height: calc(100vh - 64px);
-        }
+
+        .layout { display: flex; min-height: calc(100vh - 60px); }
         .sidebar {
-            width: 260px;
-            background: #fff;
-            border-right: 1px solid #e4e7ed;
-            padding: 16px;
+            width: 250px; flex-shrink: 0;
+            background: rgba(22,27,34,0.6);
+            border-right: 1px solid var(--border);
+            padding: 16px 14px;
+            display: flex; flex-direction: column; gap: 14px;
         }
         .sidebar-card {
-            margin-bottom: 16px;
-            border: 1px solid #ebeef5;
-            border-radius: 12px;
-            padding: 14px;
-            background: #fafafa;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 13px;
+            background: var(--panel);
         }
-        .sidebar-card-title {
-            font-size: 13px;
-            color: #606266;
-            margin-bottom: 10px;
-            font-weight: 600;
+        .sidebar-card-title { font-size: 12.5px; color: var(--muted); margin-bottom: 9px; font-weight: 600; letter-spacing: 0.4px; }
+        .sidebar .el-menu { border-right: none; background: transparent; }
+        .sidebar .el-menu-item {
+            border-radius: 9px; margin-bottom: 4px; color: var(--text); height: 42px;
         }
-        .main {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-        }
+        .sidebar .el-menu-item.is-active { background: rgba(88,166,255,0.14); color: var(--accent); }
+        .sidebar-footer { margin-top: auto; font-size: 11.5px; color: var(--muted); padding: 8px 4px 0; border-top: 1px solid var(--border); }
+
+        .main { flex: 1; padding: 20px 24px; overflow-y: auto; max-width: 1080px; }
         .panel {
-            background: #fff;
+            background: var(--panel);
+            border: 1px solid var(--border);
             border-radius: 14px;
-            box-shadow: 0 4px 18px rgba(0,0,0,0.06);
             padding: 20px;
-        }
-        .panel + .panel {
-            margin-top: 16px;
-        }
-        .panel-title {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             margin-bottom: 16px;
         }
-        .panel-title h2,
-        .panel-title h3 {
-            margin: 0;
-            font-size: 18px;
-        }
-        .chat-shell {
-            display: grid;
-            grid-template-rows: 1fr auto;
-            gap: 16px;
-            min-height: 540px;
-        }
+        .panel-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+        .panel-title h2, .panel-title h3 { margin: 0; font-size: 16.5px; font-weight: 650; }
+
+        .chat-shell { display: grid; grid-template-rows: 1fr auto; gap: 14px; min-height: 540px; }
         .chat-box {
-            background: #f8fafc;
-            border: 1px solid #ebeef5;
-            border-radius: 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             padding: 16px;
             overflow-y: auto;
         }
-        .message {
-            display: flex;
-            flex-direction: column;
-            margin-bottom: 14px;
-        }
+        .message { display: flex; flex-direction: column; margin-bottom: 16px; }
         .message.user { align-items: flex-end; }
         .message.assistant { align-items: flex-start; }
         .message.system { align-items: center; }
-        .message-label {
-            font-size: 12px;
-            color: #909399;
-            margin-bottom: 4px;
-        }
+        .message-label { font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
         .bubble {
             max-width: 84%;
             padding: 10px 14px;
             border-radius: 12px;
-            line-height: 1.6;
+            line-height: 1.65;
             font-size: 14px;
             white-space: pre-wrap;
             word-break: break-word;
         }
         .message.user .bubble {
-            color: #fff;
-            background: #409eff;
+            color: #eaf2ff;
+            background: linear-gradient(135deg, var(--accent-2), #388bfd);
             border-bottom-right-radius: 4px;
         }
         .message.assistant .bubble {
-            color: #303133;
-            background: #fff;
-            border: 1px solid #e4e7ed;
+            color: var(--text);
+            background: var(--panel-2);
+            border: 1px solid var(--border);
             border-bottom-left-radius: 4px;
         }
-        .message.system .bubble {
-            background: #f0f9eb;
-            color: #67c23a;
-            font-size: 12px;
-            padding: 6px 12px;
+        .message.assistant .bubble.streaming::after {
+            content: '▍';
+            color: var(--accent);
+            animation: caret 0.9s steps(1) infinite;
         }
-        .chat-actions {
-            display: flex;
-            gap: 10px;
-            align-items: flex-start;
+        @keyframes caret { 50% { opacity: 0; } }
+        .message.system .bubble { background: rgba(63,185,80,0.08); color: var(--green); font-size: 12px; padding: 6px 12px; }
+
+        .mode-pills { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 3px; gap: 2px; }
+        .mode-pills .pill {
+            border: none; background: transparent; color: var(--muted);
+            font-size: 12.5px; padding: 6px 14px; border-radius: 999px; cursor: pointer;
+            transition: all 0.15s;
         }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-        .stat-card {
-            border: 1px solid #ebeef5;
-            border-radius: 12px;
-            padding: 16px;
-            background: #fff;
-        }
-        .stat-label {
-            font-size: 13px;
-            color: #909399;
-            margin-bottom: 8px;
-        }
-        .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #409eff;
-        }
-        .stat-sub {
+        .mode-pills .pill.active { background: rgba(88,166,255,0.16); color: var(--accent); font-weight: 600; }
+
+        .chat-actions { display: flex; gap: 10px; align-items: flex-start; }
+        .steps-card {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--panel-2);
+            padding: 10px 14px;
             margin-top: 8px;
-            font-size: 12px;
-            color: #909399;
+            font-size: 12.5px;
+            max-width: 84%;
         }
-        .doc-layout {
-            display: grid;
-            grid-template-columns: minmax(320px, 420px) 1fr;
-            gap: 16px;
+        .steps-card summary { cursor: pointer; color: var(--accent); font-size: 12.5px; }
+        .steps-card pre { margin: 8px 0 0; white-space: pre-wrap; word-break: break-word; color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 4px; }
+        .stat-card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            background: linear-gradient(180deg, var(--panel-2), var(--panel));
+            position: relative; overflow: hidden;
         }
+        .stat-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, var(--accent), transparent);
+        }
+        .stat-label { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+        .stat-value { font-size: 30px; font-weight: 750; color: var(--accent); font-variant-numeric: tabular-nums; }
+        .stat-sub { margin-top: 6px; font-size: 11.5px; color: var(--muted); }
+        .stat-bar { margin-top: 10px; height: 4px; background: var(--bg); border-radius: 2px; overflow: hidden; }
+        .stat-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent-2), var(--accent)); border-radius: 2px; transition: width 0.6s ease; }
+
+        .doc-layout { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 16px; }
         .search-result {
-            border: 1px solid #ebeef5;
+            border: 1px solid var(--border);
             border-radius: 10px;
             padding: 12px;
             margin-bottom: 10px;
-            background: #fafafa;
+            background: var(--panel-2);
         }
-        .muted {
-            color: #909399;
-            font-size: 13px;
+        .score-chip {
+            display: inline-block; font-size: 11.5px; color: var(--green);
+            background: rgba(63,185,80,0.1); border-radius: 6px; padding: 1px 8px;
         }
-        .toolbar {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .metrics-link {
-            font-size: 13px;
-        }
-        @media (max-width: 1100px) {
-            .doc-layout { grid-template-columns: 1fr; }
-        }
+        .muted { color: var(--muted); font-size: 12.5px; }
+        .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .metrics-link { font-size: 12.5px; color: var(--accent); text-decoration: none; }
+
+        .skeleton-block { height: 60px; border-radius: 10px; background: linear-gradient(90deg, var(--panel-2) 25%, var(--border) 50%, var(--panel-2) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        .el-table { --el-table-bg-color: var(--panel-2); --el-table-tr-bg-color: var(--panel-2); --el-table-border-color: var(--border); --el-table-header-bg-color: var(--panel); }
+        .eval-row-good td { color: var(--green) !important; }
+
+        @media (max-width: 1100px) { .doc-layout { grid-template-columns: 1fr; } }
         @media (max-width: 840px) {
             .sidebar { display: none; }
             .main { padding: 12px; }
-            .app-header { padding: 0 16px; }
+            .app-header { padding: 0 14px; }
             .subtitle { display: none; }
         }
     </style>
@@ -229,15 +236,16 @@
 <div id="app">
     <header class="app-header">
         <div class="header-left">
+            <div class="logo-mark">AI</div>
             <h1>AI Agent Platform</h1>
-            <span class="subtitle">v1.0.0 · 管理控制台</span>
+            <span class="subtitle">v1.0.0 · 控制台</span>
         </div>
         <div class="header-right">
             <span class="status-chip">
                 <span class="status-dot" :class="healthStatus === 'UP' ? '' : 'down'"></span>
-                <span>{{ healthStatus === 'UP' ? '在线' : '离线' }}</span>
+                <span>{{ healthStatus === 'UP' ? '服务在线' : '服务离线' }}</span>
             </span>
-            <el-button size="small" plain @click="refreshAll">刷新</el-button>
+            <el-button size="small" @click="refreshAll">刷新</el-button>
         </div>
     </header>
 
@@ -252,7 +260,7 @@
                     placeholder="输入 ADMIN_API_KEY"
                     @change="persistAdminApiKey"
                 />
-                <div class="muted" style="margin-top:8px;">用于访问受保护的管理接口，密钥仅保存在当前浏览器。</div>
+                <div class="muted" style="margin-top:8px; font-size:11.5px;">仅保存在当前浏览器，用于受保护的管理接口。</div>
             </div>
 
             <el-menu :default-active="activeMenu" @select="handleMenuSelect">
@@ -269,161 +277,175 @@
                     <span>运行指标</span>
                 </el-menu-item>
             </el-menu>
+
+            <div class="sidebar-footer">Spring Boot 3.5 · LangChain4j<br>Java 17 · Milvus · Redis</div>
         </aside>
 
         <main class="main">
-            <section v-show="activeMenu === 'chat'" class="panel">
-                <div class="panel-title">
-                    <h2>AI 对话</h2>
-                    <div class="toolbar">
-                        <el-tag type="info">Session: {{ sessionId || '-' }}</el-tag>
-                        <el-button size="small" @click="createSession">新建会话</el-button>
-                    </div>
-                </div>
-
-                <div class="chat-shell">
-                    <div ref="chatBox" class="chat-box">
-                        <template v-if="messages.length">
-                            <div v-for="(message, index) in messages" :key="index" class="message" :class="message.role">
-                                <div class="message-label">{{ message.label }}</div>
-                                <div class="bubble">{{ message.content }}</div>
-                            </div>
-                        </template>
-                        <el-empty v-else description="暂无消息"></el-empty>
-                    </div>
-
-                    <div>
-                        <div class="toolbar" style="margin-bottom:12px;">
-                            <el-select v-model="chatMode" style="width: 180px;">
-                                <el-option label="普通对话" value="normal" />
-                                <el-option label="ReAct 推理" value="react" />
-                                <el-option label="Multi-Agent" value="multi-agent" />
-                            </el-select>
-                            <el-switch v-model="useRag" active-text="启用 RAG" />
-                        </div>
-                        <div class="chat-actions">
-                            <el-input
-                                v-model="question"
-                                type="textarea"
-                                :rows="4"
-                                resize="none"
-                                placeholder="输入问题，Enter 发送，Shift+Enter 换行"
-                                @keydown.enter.prevent="handleChatEnter"
-                            />
-                            <el-button type="primary" :loading="loading" @click="sendMessage">发送</el-button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section v-show="activeMenu === 'documents'" class="panel">
-                <div class="panel-title">
-                    <h2>文档管理</h2>
-                    <div class="toolbar">
-                        <el-button size="small" @click="refreshDocumentStatuses">刷新状态</el-button>
-                        <el-button size="small" type="warning" :loading="cacheLoading" @click="clearCache">清空缓存</el-button>
-                    </div>
-                </div>
-
-                <div class="doc-layout">
-                    <div>
-                        <div class="panel" style="padding:16px; margin-top:0;">
-                            <div class="panel-title">
-                                <h3>上传文档</h3>
-                            </div>
-                            <el-upload
-                                drag
-                                :show-file-list="false"
-                                :http-request="uploadDocument"
-                                accept=".pdf,.doc,.docx,.md,.txt"
-                            >
-                                <el-icon style="font-size:32px;color:#409eff;"><UploadFilled /></el-icon>
-                                <div class="el-upload__text">拖拽文件到此处，或 <em>点击上传</em></div>
-                                <template #tip>
-                                    <div class="el-upload__tip">支持 PDF、DOC、DOCX、MD、TXT 文件</div>
-                                </template>
-                            </el-upload>
-                        </div>
-
-                        <div class="panel" style="padding:16px; margin-top:16px;">
-                            <div class="panel-title">
-                                <h3>检索文档</h3>
-                            </div>
-                            <div class="toolbar" style="margin-bottom:12px;">
-                                <el-input v-model="searchQuery" placeholder="输入检索问题" @keyup.enter="searchDocuments" />
-                                <el-button type="primary" :loading="searchLoading" @click="searchDocuments">检索</el-button>
-                            </div>
-                            <div v-if="searchResults.length">
-                                <div v-for="(item, index) in searchResults" :key="index" class="search-result">
-                                    <div><strong>#{{ index + 1 }}</strong> · score: {{ formatScore(item.score) }}</div>
-                                    <div style="margin-top:8px; line-height:1.7; white-space:pre-wrap;">{{ item.content }}</div>
-                                </div>
-                            </div>
-                            <el-empty v-else description="暂无检索结果"></el-empty>
-                        </div>
-                    </div>
-
-                    <div>
-                        <div class="panel" style="padding:16px; margin-top:0;">
-                            <div class="panel-title">
-                                <h3>任务状态</h3>
-                                <span class="muted">最近 20 条任务</span>
-                            </div>
-                            <el-table :data="uploadJobs" border stripe empty-text="暂无任务">
-                                <el-table-column prop="documentId" label="文档 ID" width="92" />
-                                <el-table-column prop="fileName" label="文件名" min-width="180" show-overflow-tooltip />
-                                <el-table-column label="状态" width="120">
-                                    <template #default="scope">
-                                        <el-tag :type="statusTagType(scope.row.status)">{{ scope.row.status || '-' }}</el-tag>
-                                    </template>
-                                </el-table-column>
-                                <el-table-column prop="chunkCount" label="Chunks" width="90" />
-                                <el-table-column label="更新时间" min-width="168">
-                                    <template #default="scope">{{ formatDateTime(scope.row.updatedAt || scope.row.processingCompletedAt || scope.row.processingStartedAt) }}</template>
-                                </el-table-column>
-                                <el-table-column label="错误信息" min-width="180" show-overflow-tooltip>
-                                    <template #default="scope">{{ scope.row.errorMessage || '-' }}</template>
-                                </el-table-column>
-                            </el-table>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section v-show="activeMenu === 'metrics'" class="panel">
-                <div class="panel-title">
-                    <h2>Metrics & RAG Evaluation</h2>
-                    <div class="toolbar">
-                        <el-button size="small" @click="loadMetrics">Refresh Metrics</el-button>
-                        <a class="metrics-link" href="/actuator/prometheus" target="_blank">Open Prometheus Export</a>
-                    </div>
-                </div>
-
-                <div class="stats-grid">
-                    <div class="stat-card" v-for="item in metricCards" :key="item.key">
-                        <div class="stat-label">{{ item.label }}</div>
-                        <div class="stat-value">{{ item.value }}</div>
-                        <div class="stat-sub">{{ item.subtext }}</div>
-                    </div>
-                </div>
-
-                <div class="panel" style="padding:16px; margin-top:0;">
+            <section v-show="activeMenu === 'chat'">
+                <div class="panel">
                     <div class="panel-title">
-                        <h3>Run RAG Evaluation</h3>
-                        <span class="muted">Protected by ADMIN_API_KEY</span>
+                        <h2>AI 对话</h2>
+                        <div class="toolbar">
+                            <el-tag type="info" effect="plain" size="small">Session: {{ sessionId ? sessionId.slice(0, 8) + '…' : '-' }}</el-tag>
+                            <el-button size="small" @click="createSession">新建会话</el-button>
+                        </div>
+                    </div>
+
+                    <div class="chat-shell">
+                        <div ref="chatBox" class="chat-box">
+                            <template v-if="messages.length">
+                                <div v-for="(message, index) in messages" :key="index" class="message" :class="message.role">
+                                    <div class="message-label">{{ message.label }}</div>
+                                    <div class="bubble" :class="{ streaming: message.streaming }">{{ message.content }}<template v-if="message.streaming"></template></div>
+                                    <details v-if="message.trace" class="steps-card">
+                                        <summary>查看执行轨迹（Thought / Action / Observation）</summary>
+                                        <pre>{{ message.trace }}</pre>
+                                    </details>
+                                </div>
+                            </template>
+                            <div v-else-if="healthStatus !== 'UP'" style="padding:12px;">
+                                <div class="skeleton-block"></div>
+                                <div class="muted" style="margin-top:10px;">服务未连接：请确认后端已启动（默认 http://localhost:8081）</div>
+                            </div>
+                            <el-empty v-else description="开始你的第一次对话"></el-empty>
+                        </div>
+
+                        <div>
+                            <div class="toolbar" style="margin-bottom:12px;">
+                                <div class="mode-pills">
+                                    <button class="pill" :class="{ active: chatMode === 'normal' }" @click="chatMode = 'normal'">普通对话</button>
+                                    <button class="pill" :class="{ active: chatMode === 'react' }" @click="chatMode = 'react'">ReAct 推理</button>
+                                    <button class="pill" :class="{ active: chatMode === 'multi-agent' }" @click="chatMode = 'multi-agent'">Multi-Agent</button>
+                                </div>
+                                <el-switch v-model="useRag" active-text="RAG" size="small" />
+                                <el-switch v-model="useStream" active-text="流式" size="small" />
+                            </div>
+                            <div class="chat-actions">
+                                <el-input
+                                    v-model="question"
+                                    type="textarea"
+                                    :rows="4"
+                                    resize="none"
+                                    placeholder="输入问题，Enter 发送，Shift+Enter 换行"
+                                    @keydown.enter.prevent="handleChatEnter"
+                                />
+                                <el-button type="primary" :loading="loading" @click="sendMessage">发送</el-button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section v-show="activeMenu === 'documents'">
+                <div class="panel">
+                    <div class="panel-title">
+                        <h2>文档管理</h2>
+                        <div class="toolbar">
+                            <el-button size="small" @click="refreshDocumentStatuses">刷新状态</el-button>
+                            <el-button size="small" type="warning" plain :loading="cacheLoading" @click="clearCache">清空缓存</el-button>
+                        </div>
+                    </div>
+
+                    <div class="doc-layout">
+                        <div>
+                            <div class="panel" style="padding:16px; margin-bottom:16px;">
+                                <div class="panel-title"><h3>上传文档</h3></div>
+                                <el-upload
+                                    drag
+                                    :show-file-list="false"
+                                    :http-request="uploadDocument"
+                                    accept=".pdf,.doc,.docx,.md,.txt"
+                                >
+                                    <el-icon style="font-size:32px;color:var(--accent);"><UploadFilled /></el-icon>
+                                    <div class="el-upload__text">拖拽文件到此处，或 <em>点击上传</em></div>
+                                    <template #tip>
+                                        <div class="el-upload__tip">支持 PDF、DOC、DOCX、MD、TXT 文件</div>
+                                    </template>
+                                </el-upload>
+                            </div>
+
+                            <div class="panel" style="padding:16px;">
+                                <div class="panel-title"><h3>检索文档</h3></div>
+                                <div class="toolbar" style="margin-bottom:12px;">
+                                    <el-input v-model="searchQuery" placeholder="输入检索问题" @keyup.enter="searchDocuments" />
+                                    <el-button type="primary" :loading="searchLoading" @click="searchDocuments">检索</el-button>
+                                </div>
+                                <div v-if="searchResults.length">
+                                    <div v-for="(item, index) in searchResults" :key="index" class="search-result">
+                                        <div><strong>#{{ index + 1 }}</strong> · <span class="score-chip">score {{ formatScore(item.score) }}</span></div>
+                                        <div style="margin-top:8px; line-height:1.7; white-space:pre-wrap;">{{ item.content }}</div>
+                                    </div>
+                                </div>
+                                <el-empty v-else description="暂无检索结果"></el-empty>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="panel" style="padding:16px;">
+                                <div class="panel-title">
+                                    <h3>任务状态</h3>
+                                    <span class="muted">最近 20 条任务</span>
+                                </div>
+                                <el-table :data="uploadJobs" size="small" empty-text="暂无任务">
+                                    <el-table-column prop="documentId" label="文档 ID" width="92" />
+                                    <el-table-column prop="fileName" label="文件名" min-width="180" show-overflow-tooltip />
+                                    <el-table-column label="状态" width="120">
+                                        <template #default="scope">
+                                            <el-tag size="small" :type="statusTagType(scope.row.status)">{{ scope.row.status || '-' }}</el-tag>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column prop="chunkCount" label="Chunks" width="90" />
+                                    <el-table-column label="更新时间" min-width="168">
+                                        <template #default="scope">{{ formatDateTime(scope.row.updatedAt || scope.row.processingCompletedAt || scope.row.processingStartedAt) }}</template>
+                                    </el-table-column>
+                                    <el-table-column label="错误信息" min-width="180" show-overflow-tooltip>
+                                        <template #default="scope">{{ scope.row.errorMessage || '-' }}</template>
+                                    </el-table-column>
+                                </el-table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section v-show="activeMenu === 'metrics'">
+                <div class="panel">
+                    <div class="panel-title">
+                        <h2>运行指标</h2>
+                        <div class="toolbar">
+                            <el-button size="small" @click="loadMetrics">刷新指标</el-button>
+                            <a class="metrics-link" href="/actuator/prometheus" target="_blank">Prometheus Export ↗</a>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card" v-for="item in metricCards" :key="item.key">
+                            <div class="stat-label">{{ item.label }}</div>
+                            <div class="stat-value">{{ item.value }}</div>
+                            <div class="stat-sub">{{ item.subtext }}</div>
+                            <div class="stat-bar"><i :style="{ width: item.bar + '%' }"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title">
+                        <h3>RAG 评测</h3>
+                        <span class="muted">受 ADMIN_API_KEY 保护</span>
                     </div>
                     <div class="toolbar" style="margin-bottom:12px;">
                         <el-input v-model="ragEvalTopKs" placeholder="TopKs, e.g. 1,3,5,10" style="max-width: 220px;" />
-                        <el-button type="primary" :loading="ragEvalLoading" @click="runRagEvaluation">Run Evaluation</el-button>
+                        <el-button type="primary" :loading="ragEvalLoading" @click="runRagEvaluation">运行评测</el-button>
                     </div>
                     <el-input
                         v-model="ragEvalSummary"
                         type="textarea"
-                        :rows="8"
+                        :rows="7"
                         readonly
-                        placeholder="Evaluation summary will appear here"
+                        placeholder="评测摘要将显示在这里"
                     />
-                    <el-table v-if="ragEvalRows.length" :data="ragEvalRows" border stripe style="margin-top:16px;">
+                    <el-table v-if="ragEvalRows.length" :data="ragEvalRows" size="small" style="margin-top:14px;" :row-class-name="evalRowClass">
                         <el-table-column prop="topK" label="TopK" width="90" />
                         <el-table-column prop="recall" label="Recall" width="120" />
                         <el-table-column prop="precision" label="Precision" width="120" />
@@ -433,11 +455,9 @@
                     </el-table>
                 </div>
 
-                <div class="panel" style="padding:16px; margin-top:16px;">
-                    <div class="panel-title">
-                        <h3>Raw Metrics</h3>
-                    </div>
-                    <el-table :data="metricRows" border stripe>
+                <div class="panel">
+                    <div class="panel-title"><h3>原始指标</h3></div>
+                    <el-table :data="metricRows" size="small">
                         <el-table-column prop="name" label="Metric" min-width="240" />
                         <el-table-column prop="value" label="Value" width="140" />
                         <el-table-column prop="baseUnit" label="Unit" width="120" />
@@ -458,6 +478,7 @@
     const ADMIN_KEY_STORAGE = 'ai-agent-admin-api-key';
     const DOCUMENT_IDS_STORAGE = 'ai-agent-document-ids';
     const ADMIN_HEADER = 'X-Admin-Api-Key';
+    const MAX_BAR = 500; // 指标迷你条形图的相对上限
 
     createApp({
         setup() {
@@ -467,6 +488,7 @@
             const sessionId = ref('');
             const question = ref('');
             const useRag = ref(true);
+            const useStream = ref(true);
             const chatMode = ref('normal');
             const loading = ref(false);
             const messages = ref([]);
@@ -485,34 +507,24 @@
 
             let healthTimer = null;
             let documentTimer = null;
+            let streamAbort = null;
 
             const metricCards = computed(() => {
                 const map = Object.fromEntries(metricRows.value.map(item => [item.name, item]));
+                const card = (key, label, name, subtext) => {
+                    const raw = Number(map[name]?.value);
+                    return {
+                        key, label,
+                        value: Number.isFinite(raw) ? formatNumber(raw) : '-',
+                        subtext,
+                        bar: Number.isFinite(raw) ? Math.min(100, (raw / MAX_BAR) * 100) : 0
+                    };
+                };
                 return [
-                    {
-                        key: 'chat',
-                        label: '对话请求',
-                        value: map['ai.chat.requests.total']?.value ?? '-',
-                        subtext: '普通/ReAct/Multi-Agent'
-                    },
-                    {
-                        key: 'rag',
-                        label: 'RAG 检索',
-                        value: map['ai.rag.search.total']?.value ?? '-',
-                        subtext: '向量与混合召回次数'
-                    },
-                    {
-                        key: 'doc',
-                        label: '文档处理',
-                        value: map['ai.document.ingestion.total']?.value ?? '-',
-                        subtext: '成功/失败任务数'
-                    },
-                    {
-                        key: 'chunks',
-                        label: '文档 Chunk 数',
-                        value: map['ai.document.chunk.count']?.value ?? '-',
-                        subtext: '已切分的知识片段数量'
-                    }
+                    card('chat', '对话请求', 'ai.chat.requests.total', '普通 / ReAct / Multi-Agent'),
+                    card('rag', 'RAG 检索', 'ai.rag.search.total', '向量与混合召回次数'),
+                    card('doc', '文档处理', 'ai.document.ingestion.total', '成功 / 失败任务数'),
+                    card('chunks', '文档 Chunk 数', 'ai.document.chunk.count', '已切分的知识片段数量')
                 ];
             });
 
@@ -527,24 +539,24 @@
                 }));
             });
 
+            const evalRowClass = ({ row }) => {
+                const v = parseFloat(row.recall);
+                return Number.isFinite(v) && v >= 80 ? 'eval-row-good' : '';
+            };
+
             const persistAdminApiKey = () => {
                 localStorage.setItem(ADMIN_KEY_STORAGE, adminApiKey.value || '');
             };
 
             const getAuthHeaders = () => {
                 const headers = {};
-                if (adminApiKey.value) {
-                    headers[ADMIN_HEADER] = adminApiKey.value;
-                }
+                if (adminApiKey.value) headers[ADMIN_HEADER] = adminApiKey.value;
                 return headers;
             };
 
             const getStoredDocumentIds = () => {
-                try {
-                    return JSON.parse(localStorage.getItem(DOCUMENT_IDS_STORAGE) || '[]');
-                } catch {
-                    return [];
-                }
+                try { return JSON.parse(localStorage.getItem(DOCUMENT_IDS_STORAGE) || '[]'); }
+                catch { return []; }
             };
 
             const setStoredDocumentIds = (ids) => {
@@ -557,16 +569,15 @@
                 setStoredDocumentIds(nextIds);
             };
 
-            const appendMessage = (role, content) => {
+            const appendMessage = (role, content, extra = {}) => {
                 const labelMap = { user: '用户', assistant: '助手', system: '系统' };
-                messages.value.push({ role, content, label: labelMap[role] || role });
+                messages.value.push({ role, content, label: labelMap[role] || role, ...extra });
+                return messages.value[messages.value.length - 1];
             };
 
             const scrollToBottom = async () => {
                 await nextTick();
-                if (chatBox.value) {
-                    chatBox.value.scrollTop = chatBox.value.scrollHeight;
-                }
+                if (chatBox.value) chatBox.value.scrollTop = chatBox.value.scrollHeight;
             };
 
             const createSession = async () => {
@@ -587,9 +598,58 @@
                 sendMessage();
             };
 
+            // SSE 流式对话：GET /chat/stream（text/event-stream），失败自动降级为普通 POST
+            const streamChat = async (q) => {
+                const url = `${API_BASE}/chat/stream?sessionId=${encodeURIComponent(sessionId.value)}&question=${encodeURIComponent(q)}&useRag=${useRag.value}`;
+                streamAbort = new AbortController();
+                const res = await fetch(url, { signal: streamAbort.signal });
+                if (!res.ok || !res.body) throw new Error('SSE unavailable (' + res.status + ')');
+
+                const msg = appendMessage('assistant', '', { streaming: true });
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const events = buffer.split('\n');
+                    buffer = events.pop();
+                    for (const line of events) {
+                        const trimmed = line.trim();
+                        if (!trimmed.startsWith('data:')) continue;
+                        let payload = trimmed.slice(5).trim();
+                        if (payload === '[DONE]') continue;
+                        try {
+                            const parsed = JSON.parse(payload);
+                            payload = parsed.content ?? parsed.answer ?? payload;
+                        } catch { /* 纯文本 token 直接追加 */ }
+                        msg.content += payload;
+                        scrollToBottom();
+                    }
+                }
+                msg.streaming = false;
+                if (!msg.content) msg.content = '（空响应）';
+            };
+
+            const sendByRest = async (q) => {
+                let url = `${API_BASE}/chat?sessionId=${encodeURIComponent(sessionId.value)}&question=${encodeURIComponent(q)}&useRag=${useRag.value}`;
+                if (chatMode.value === 'react') {
+                    url = `${API_BASE}/react/chat?sessionId=${encodeURIComponent(sessionId.value)}&question=${encodeURIComponent(q)}&useRag=${useRag.value}`;
+                } else if (chatMode.value === 'multi-agent') {
+                    url = `${API_BASE}/multi-agent/execute?task=${encodeURIComponent(q)}`;
+                }
+                const res = await fetch(url, { method: 'POST', headers: getAuthHeaders() });
+                const data = await res.json();
+                const trace = data.explain || data.trace || data.steps;
+                appendMessage('assistant', data.answer || data.message || '暂无回答', trace ? { trace: typeof trace === 'string' ? trace : JSON.stringify(trace, null, 2) } : {});
+            };
+
             const sendMessage = async () => {
                 const q = question.value.trim();
-                if (!q || !sessionId.value || loading.value) return;
+                if (!q || loading.value) return;
+                if (!sessionId.value) { await createSession(); if (!sessionId.value) return; }
 
                 appendMessage('user', q);
                 question.value = '';
@@ -597,22 +657,22 @@
                 await scrollToBottom();
 
                 try {
-                    let url = `${API_BASE}/chat?sessionId=${encodeURIComponent(sessionId.value)}&question=${encodeURIComponent(q)}&useRag=${useRag.value}`;
-                    let method = 'POST';
-
-                    if (chatMode.value === 'react') {
-                        url = `${API_BASE}/react/chat?sessionId=${encodeURIComponent(sessionId.value)}&question=${encodeURIComponent(q)}&useRag=${useRag.value}`;
-                    } else if (chatMode.value === 'multi-agent') {
-                        url = `${API_BASE}/multi-agent/execute?task=${encodeURIComponent(q)}`;
+                    const streamEligible = useStream.value && chatMode.value !== 'multi-agent';
+                    if (streamEligible) {
+                        try {
+                            await streamChat(q);
+                        } catch (streamError) {
+                            appendMessage('system', '流式通道不可用，已降级为普通请求');
+                            await sendByRest(q);
+                        }
+                    } else {
+                        await sendByRest(q);
                     }
-
-                    const res = await fetch(url, { method, headers: getAuthHeaders() });
-                    const data = await res.json();
-                    appendMessage('assistant', data.answer || data.message || '暂无回答');
                 } catch (error) {
                     appendMessage('system', '请求失败：' + error.message);
                 } finally {
                     loading.value = false;
+                    streamAbort = null;
                     scrollToBottom();
                 }
             };
@@ -620,7 +680,6 @@
             const uploadDocument = async (options) => {
                 const formData = new FormData();
                 formData.append('file', options.file);
-
                 try {
                     const res = await fetch(`${API_BASE}/document/upload`, {
                         method: 'POST',
@@ -628,9 +687,7 @@
                         body: formData
                     });
                     const data = await res.json();
-                    if (!res.ok) {
-                        throw new Error(data.message || data.error || '上传失败');
-                    }
+                    if (!res.ok) throw new Error(data.message || data.error || '上传失败');
                     ElementPlus.ElMessage.success(data.message || '上传成功');
                     if (data.documentId) {
                         rememberDocumentId(data.documentId);
@@ -639,27 +696,17 @@
                 } catch (error) {
                     ElementPlus.ElMessage.error('上传失败：' + error.message);
                 } finally {
-                    if (typeof options.onSuccess === 'function') {
-                        options.onSuccess({}, options.file);
-                    }
-                 }
-             };
+                    if (typeof options.onSuccess === 'function') options.onSuccess({}, options.file);
+                }
+            };
 
             const fetchDocumentStatus = async (documentId) => {
-                const res = await fetch(`${API_BASE}/document/${documentId}/status`, {
-                    headers: getAuthHeaders()
-                });
+                const res = await fetch(`${API_BASE}/document/${documentId}/status`, { headers: getAuthHeaders() });
                 const data = await res.json();
-                if (!res.ok) {
-                    throw new Error(data.message || data.error || '获取文档状态失败');
-                }
-
+                if (!res.ok) throw new Error(data.message || data.error || '获取文档状态失败');
                 const existingIndex = uploadJobs.value.findIndex(item => item.documentId === data.documentId);
-                if (existingIndex >= 0) {
-                    uploadJobs.value.splice(existingIndex, 1, data);
-                } else {
-                    uploadJobs.value.unshift(data);
-                }
+                if (existingIndex >= 0) uploadJobs.value.splice(existingIndex, 1, data);
+                else uploadJobs.value.unshift(data);
                 uploadJobs.value = uploadJobs.value.slice(0, 20);
                 return data;
             };
@@ -667,8 +714,7 @@
             const refreshDocumentStatuses = async () => {
                 const ids = getStoredDocumentIds();
                 if (!ids.length) return;
-                const tasks = ids.map(id => fetchDocumentStatus(id).catch(() => null));
-                await Promise.all(tasks);
+                await Promise.all(ids.map(id => fetchDocumentStatus(id).catch(() => null)));
             };
 
             const pollActiveDocumentStatuses = async () => {
@@ -677,17 +723,14 @@
                     .filter(item => ['PENDING', 'PROCESSING'].includes(item.status))
                     .map(item => item.documentId);
                 const merged = [...new Set([...ids, ...activeIds])];
-                const tasks = merged.map(id => fetchDocumentStatus(id).catch(() => null));
-                await Promise.all(tasks);
+                await Promise.all(merged.map(id => fetchDocumentStatus(id).catch(() => null)));
             };
 
             const searchDocuments = async () => {
                 if (!searchQuery.value.trim()) return;
                 searchLoading.value = true;
                 try {
-                    const res = await fetch(`${API_BASE}/document/search?query=${encodeURIComponent(searchQuery.value)}&topK=5&threshold=0.5`, {
-                        method: 'POST'
-                    });
+                    const res = await fetch(`${API_BASE}/document/search?query=${encodeURIComponent(searchQuery.value)}&topK=5&threshold=0.5`, { method: 'POST' });
                     const data = await res.json();
                     searchResults.value = data.results || [];
                 } catch (error) {
@@ -700,14 +743,9 @@
             const clearCache = async () => {
                 cacheLoading.value = true;
                 try {
-                    const res = await fetch(`${API_BASE}/cache`, {
-                        method: 'DELETE',
-                        headers: getAuthHeaders()
-                    });
+                    const res = await fetch(`${API_BASE}/cache`, { method: 'DELETE', headers: getAuthHeaders() });
                     const data = await res.json();
-                    if (!res.ok) {
-                        throw new Error(data.message || data.error || '清空缓存失败');
-                    }
+                    if (!res.ok) throw new Error(data.message || data.error || '清空缓存失败');
                     ElementPlus.ElMessage.success(data.message || '缓存已清空');
                 } catch (error) {
                     ElementPlus.ElMessage.error('清空缓存失败：' + error.message);
@@ -728,9 +766,7 @@
 
             const parseMetric = async (name) => {
                 const res = await fetch(`/actuator/metrics/${name}`);
-                if (!res.ok) {
-                    return { name, value: '-', baseUnit: '-', description: 'Metric unavailable' };
-                }
+                if (!res.ok) return { name, value: '-', baseUnit: '-', description: 'Metric unavailable' };
                 const data = await res.json();
                 const value = (data.measurements || []).reduce((sum, item) => sum + (Number(item.value) || 0), 0);
                 return {
@@ -757,10 +793,9 @@
 
             const runRagEvaluation = async () => {
                 if (!adminApiKey.value) {
-                    ElementPlus.ElMessage.warning('Please enter ADMIN_API_KEY first');
+                    ElementPlus.ElMessage.warning('请先输入 ADMIN_API_KEY');
                     return;
                 }
-
                 ragEvalLoading.value = true;
                 try {
                     const res = await fetch(`${API_BASE}/evaluate?topKs=${encodeURIComponent(ragEvalTopKs.value)}`, {
@@ -768,25 +803,19 @@
                         headers: getAuthHeaders()
                     });
                     const data = await res.json();
-                    if (!res.ok) {
-                        throw new Error(data.message || data.error || 'Evaluation failed');
-                    }
+                    if (!res.ok) throw new Error(data.message || data.error || '评测失败');
                     ragEvalSummary.value = data.summary || '';
                     ragEvalMetrics.value = data.metrics || {};
-                    ElementPlus.ElMessage.success('RAG evaluation completed');
+                    ElementPlus.ElMessage.success('RAG 评测完成');
                 } catch (error) {
-                    ElementPlus.ElMessage.error('RAG evaluation failed: ' + error.message);
+                    ElementPlus.ElMessage.error('RAG 评测失败：' + error.message);
                 } finally {
                     ragEvalLoading.value = false;
                 }
             };
 
             const refreshAll = async () => {
-                await Promise.all([
-                    checkHealth(),
-                    refreshDocumentStatuses(),
-                    loadMetrics()
-                ]);
+                await Promise.all([checkHealth(), refreshDocumentStatuses(), loadMetrics()]);
             };
 
             const formatScore = (value) => {
@@ -828,66 +857,64 @@
                 if (index === 'metrics') {
                     loadMetrics();
                     if (!ragEvalSummary.value) {
-                        ragEvalMetrics.value = {};
+                        ragEvalSummary.value = '提示：评测会使用服务端数据集，耗时较长，请谨慎触发。';
                     }
                 }
-                if (index === 'documents') {
-                    refreshDocumentStatuses();
-                }
+                if (index === 'documents') refreshDocumentStatuses();
             };
 
-            onMounted(async () => {
-                await checkHealth();
-                await createSession();
-                await refreshDocumentStatuses();
-                await loadMetrics();
-                healthTimer = setInterval(checkHealth, 30000);
-                documentTimer = setInterval(pollActiveDocumentStatuses, 5000);
+            onMounted(() => {
+                checkHealth();
+                refreshDocumentStatuses();
+                healthTimer = setInterval(checkHealth, 15000);
+                documentTimer = setInterval(pollActiveDocumentStatuses, 10000);
             });
 
             onBeforeUnmount(() => {
-                if (healthTimer) clearInterval(healthTimer);
-                if (documentTimer) clearInterval(documentTimer);
+                clearInterval(healthTimer);
+                clearInterval(documentTimer);
+                if (streamAbort) streamAbort.abort();
             });
 
             return {
                 activeMenu,
-                adminApiKey,
-                cacheLoading,
-                chatBox,
-                chatMode,
-                clearCache,
-                createSession,
-                formatDateTime,
-                formatScore,
-                handleChatEnter,
-                handleMenuSelect,
                 healthStatus,
-                loadMetrics,
+                adminApiKey,
+                sessionId,
+                question,
+                useRag,
+                useStream,
+                chatMode,
                 loading,
                 messages,
-                metricCards,
-                metricRows,
-                persistAdminApiKey,
-                ragEvalLoading,
-                ragEvalMetrics,
-                ragEvalRows,
-                ragEvalSummary,
-                ragEvalTopKs,
-                question,
-                refreshAll,
-                refreshDocumentStatuses,
-                runRagEvaluation,
-                searchDocuments,
-                searchLoading,
+                chatBox,
                 searchQuery,
                 searchResults,
-                sendMessage,
-                sessionId,
-                statusTagType,
-                uploadDocument,
+                searchLoading,
+                cacheLoading,
                 uploadJobs,
-                useRag
+                metricRows,
+                metricCards,
+                ragEvalTopKs,
+                ragEvalLoading,
+                ragEvalSummary,
+                ragEvalRows,
+                evalRowClass,
+                persistAdminApiKey,
+                createSession,
+                handleChatEnter,
+                sendMessage,
+                uploadDocument,
+                refreshDocumentStatuses,
+                searchDocuments,
+                clearCache,
+                refreshAll,
+                loadMetrics,
+                runRagEvaluation,
+                formatScore,
+                formatDateTime,
+                statusTagType,
+                handleMenuSelect
             };
         }
     })
