@@ -169,7 +169,9 @@
         }
         .mode-pills .pill.active { background: rgba(88,166,255,0.16); color: var(--accent); font-weight: 600; }
 
-        .chat-actions { display: flex; gap: 10px; align-items: flex-start; }
+        .chat-actions { display: flex; gap: 10px; align-items: flex-end; }
+        .chat-actions .el-textarea { flex: 1; min-width: 0; }
+        .chat-actions .el-button { flex-shrink: 0; height: 72px; padding: 0 18px; }
         .steps-card {
             border: 1px solid var(--border);
             border-radius: 10px;
@@ -312,20 +314,21 @@
                         </div>
 
                         <div>
-                            <div class="toolbar" style="margin-bottom:12px;">
+                            <div class="toolbar" style="margin-bottom:10px; flex-wrap: nowrap;">
                                 <div class="mode-pills">
-                                    <button class="pill" :class="{ active: chatMode === 'normal' }" @click="chatMode = 'normal'">普通对话</button>
-                                    <button class="pill" :class="{ active: chatMode === 'react' }" @click="chatMode = 'react'">ReAct 推理</button>
-                                    <button class="pill" :class="{ active: chatMode === 'multi-agent' }" @click="chatMode = 'multi-agent'">Multi-Agent</button>
+                                    <button class="pill" :class="{ active: chatMode === 'normal' }" @click="chatMode = 'normal'">普通</button>
+                                    <button class="pill" :class="{ active: chatMode === 'react' }" @click="chatMode = 'react'">ReAct</button>
+                                    <button class="pill" :class="{ active: chatMode === 'multi-agent' }" @click="chatMode = 'multi-agent'">多Agent</button>
                                 </div>
                                 <el-switch v-model="useRag" active-text="RAG" size="small" />
                                 <el-switch v-model="useStream" active-text="流式" size="small" />
+                                <span class="muted" style="margin-left:auto; font-size:11.5px;">Enter 发送 · Shift+Enter 换行</span>
                             </div>
                             <div class="chat-actions">
                                 <el-input
                                     v-model="question"
                                     type="textarea"
-                                    :rows="4"
+                                    :rows="3"
                                     resize="none"
                                     placeholder="输入问题，Enter 发送，Shift+Enter 换行"
                                     @keydown.enter.prevent="handleChatEnter"
