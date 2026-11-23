@@ -47,6 +47,7 @@
         <log4j2.version>2.25.5</log4j2.version>
         <snappy-java.version>1.1.10.9</snappy-java.version>
         <guava.version>33.7.2-jre</guava.version>
+        <kerby.version>2.1.2</kerby.version>
         <mysql-connector-j.version>8.2.0</mysql-connector-j.version>
     </properties>
 
@@ -230,6 +231,17 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Apache Kerby 安全版本（hadoop-auth 传递依赖带入 2.0.3，CVE-2026-57915/57914；整族显式钉版避免族内版本错配） -->
+            <dependency><groupId>org.apache.kerby</groupId><artifactId>kerb-simplekdc</artifactId><version>${kerby.version}</version></dependency>
+            <dependency><groupId>org.apache.kerby</groupId><artifactId>kerb-client</artifactId><version>${kerby.version}</version></dependency>
+            <dependency><groupId>org.apache.kerby</groupId><artifactId>kerby-config</artifactId><version>${kerby.version}</version></dependency>
+            <dependency><groupId>org.apache.kerby</groupId><artifactId>kerb-common</artifactId><version>${kerby.version}</version></dependency>
+            <dependency><groupId>org.apache.kerby</groupId><artifactId>kerb-crypto</artifactId><version>${kerby.version}</version></dependency>
+            <dependency><groupId>org.apache.kerby</groupId><artifactId>kerb-util</artifactId><version>${kerby.version}</version></dependency>
+            <dependency><groupId>org.apache.kerby</groupId><artifactId>token-provider</artifactId><version>${kerby.version}</version></dependency>
+            <dependency><groupId>org.apache.kerby</groupId><artifactId>kerb-admin</artifactId><version>${kerby.version}</version></dependency>
+            <dependency><groupId>org.apache.kerby</groupId><artifactId>kerb-server</artifactId><version>${kerby.version}</version></dependency>
+            <dependency><groupId>org.apache.kerby</groupId><artifactId>kerby-asn1</artifactId><version>${kerby.version}</version></dependency>
             <!-- Guava 安全版本（milvus-sdk 传递依赖带入 33.3.1-android，CVE-2026-102554） -->
             <dependency>
                 <groupId>com.google.guava</groupId>
