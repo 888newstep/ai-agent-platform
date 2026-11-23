@@ -9,11 +9,12 @@ public final class CacheKeyUtil {
     private CacheKeyUtil() {
     }
 
-    public static String md5(String text) {
+    public static String hash(String text) {
         try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
+            // SHA-256：MD5 已不满足现代安全基线（cache key 虽非密码场景，仍统一升级）
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] digest = md.digest(text.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder(32);
+            StringBuilder sb = new StringBuilder(64);
             for (byte b : digest) {
                 sb.append(String.format("%02x", b & 0xff));
             }
@@ -24,6 +25,6 @@ public final class CacheKeyUtil {
     }
 
     public static String buildKey(String prefix, String text) {
-        return prefix + md5(text);
+        return prefix + hash(text);
     }
 }
