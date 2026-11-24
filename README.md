@@ -219,7 +219,7 @@ curl -X POST \
 - [ ] 完善 CrossEncoder 可插拔精排和模型路由评测
 - [ ] 补充前端演示与完整部署案例
 
-当前主线为 **v1.0.0**。详细变更以 [Releases](https://github.com/888newstep/ai-agent-platform/releases) 和 Git 提交记录为准。
+当前主线为 **v2.0.0**：新增深色控制台（SSE 流式对话、登录认证、指标卡片）、CodeQL 安全扫描，依赖与代码安全治理完成（详见 Releases）。历史变更以 [Releases](https://github.com/888newstep/ai-agent-platform/releases) 和 Git 提交记录为准。
 
 ## 贡献与支持
 

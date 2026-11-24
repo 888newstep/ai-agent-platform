@@ -615,7 +615,7 @@ public class AiAgentController {
         return ResponseEntity.ok(stringResponse(
                 "status", "UP",
                 "service", "AI Customer Service Agent",
-                "version", "1.0.0"
+                "version", "2.0.0"
         ));
     }
 
