@@ -330,7 +330,7 @@ class AiAgentControllerTest {
 
         assertThat(health.getBody())
                 .containsEntry("status", "UP")
-                .containsEntry("version", "1.0.0");
+                .containsEntry("version", "2.0.0");
         assertThat(controller.adminPage()).isEqualTo("redirect:/admin.html");
     }
 
