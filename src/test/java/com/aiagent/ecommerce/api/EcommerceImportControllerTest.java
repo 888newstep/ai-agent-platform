@@ -1,5 +1,6 @@
 package com.aiagent.ecommerce.api;
 
+import com.aiagent.customer_support.config.CsProperties;
 import com.aiagent.ecommerce.application.EcommerceKnowledgeImportService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,7 +18,7 @@ class EcommerceImportControllerTest {
     private Executor testExecutor = r -> r.run();
     private EcommerceImportController controller;
 
-    @BeforeEach void setUp() { controller = new EcommerceImportController(importService, testExecutor); }
+    @BeforeEach void setUp() { controller = new EcommerceImportController(importService, testExecutor, new CsProperties()); }
 
     @Test void shouldRejectEmptyFilePath() {
         ResponseEntity<Map<String, Object>> resp = controller.importKnowledge(Map.of("filePath", ""));
